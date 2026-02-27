@@ -24,20 +24,7 @@ public class ShooterGame : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		PublicIncludePaths.AddRange(new string[] {
-			"ShooterGame",
-			"ShooterGame/Variant_Platforming",
-			"ShooterGame/Variant_Platforming/Animation",
-			"ShooterGame/Variant_Combat",
-			"ShooterGame/Variant_Combat/AI",
-			"ShooterGame/Variant_Combat/Animation",
-			"ShooterGame/Variant_Combat/Gameplay",
-			"ShooterGame/Variant_Combat/Interfaces",
-			"ShooterGame/Variant_Combat/UI",
-			"ShooterGame/Variant_SideScrolling",
-			"ShooterGame/Variant_SideScrolling/AI",
-			"ShooterGame/Variant_SideScrolling/Gameplay",
-			"ShooterGame/Variant_SideScrolling/Interfaces",
-			"ShooterGame/Variant_SideScrolling/UI"
+			"ShooterGame"
 		});
 
 		// Uncomment if you are using Slate UI

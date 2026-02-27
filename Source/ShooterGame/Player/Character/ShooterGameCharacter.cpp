@@ -10,7 +10,10 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
-#include "ShooterGame.h"
+#include "Framework/ShooterGame.h"
+
+
+DEFINE_LOG_CATEGORY(LogShooterGameCharacter);
 
 AShooterGameCharacter::AShooterGameCharacter()
 {
@@ -54,10 +57,6 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 {
 	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
-		// Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Move);
@@ -118,16 +117,4 @@ void AShooterGameCharacter::DoLook(float Yaw, float Pitch)
 		AddControllerYawInput(Yaw);
 		AddControllerPitchInput(Pitch);
 	}
-}
-
-void AShooterGameCharacter::DoJumpStart()
-{
-	// signal the character to jump
-	Jump();
-}
-
-void AShooterGameCharacter::DoJumpEnd()
-{
-	// signal the character to stop jumping
-	StopJumping();
 }
