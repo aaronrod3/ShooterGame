@@ -19,6 +19,12 @@ class AShooterGamePlayerController : public APlayerController
 {
 	GENERATED_BODY()
 	
+	
+public:
+	AShooterGamePlayerController();
+	virtual void Tick(float DeltaTime) override;
+	
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
@@ -28,24 +34,29 @@ private:
 	
 	void PrimaryInteract();
 	void CreateHUDWidget();
+	void TraceForItem();
 	
 	/** Input Mapping Contexts */
-	UPROPERTY(EditAnywhere, Category ="Input|Input Mappings")
+	UPROPERTY(EditAnywhere, Category ="Input")
 	TArray<UInputMappingContext*> DefaultIMCs;
 
 	
 	/*** INPUT ACTIONS***/
-	UPROPERTY(EditDefaultsOnly, Category = "Inventory")
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> PrimaryInteractAction;
 	
 	
-	
-	
-	
-	
-	UPROPERTY(EditDefaultsOnly, Category = "Inventory")
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TSubclassOf<UHUDWidget> HUDWidgetClass;
-
 	UPROPERTY()
 	TObjectPtr<UHUDWidget> HUDWidget;
+	
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	double TraceLength;
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TEnumAsByte<ECollisionChannel> ItemTraceChannel;
+	TWeakObjectPtr<AActor> ThisActor;
+	TWeakObjectPtr<AActor> LastActor;
+	
 };
