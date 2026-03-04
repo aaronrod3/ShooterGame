@@ -2,19 +2,22 @@
 
 
 #include "ShooterGamePlayerController.h"
-
+#include "Items/Components/ItemComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Interaction/Highlightable.h"
 #include "Kismet/GameplayStatics.h"
 #include "InputMappingContext.h"
 #include "ShooterGame/HUD/Widgets/HUDWidget.h"
 #include "Blueprint/UserWidget.h"
+#include "Interaction/HighlightableStaticMesh.h"
 
 
 AShooterGamePlayerController::AShooterGamePlayerController()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	TraceLength = 500.f;
+	ItemTraceChannel = ECC_GameTraceChannel1;
 }
 
 void AShooterGamePlayerController::Tick(float DeltaTime)
@@ -85,17 +88,35 @@ void AShooterGamePlayerController::TraceForItem()
 
 	LastActor = ThisActor;
 	ThisActor = HitResult.GetActor();
+	
+	if (!ThisActor.IsValid())
+	{
+		if (IsValid(HUDWidget)) HUDWidget->HidePickupMessage();
+	}
 
 	if (ThisActor == LastActor) return;
 
 	if (ThisActor.IsValid())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Started tracing a new actor."))
+		if (UActorComponent* Highlightable = ThisActor->FindComponentByInterface(UHighlightable::StaticClass()); IsValid(Highlightable))
+		{
+			IHighlightable::Execute_Highlight(Highlightable);
+		}
+		
+		
+		UItemComponent* ItemComponent = ThisActor->FindComponentByClass<UItemComponent>();
+		if (!IsValid(ItemComponent)) return;
+
+		if (IsValid(HUDWidget)) HUDWidget->ShowPickupMessage(ItemComponent->GetPickupMessage());
 	}
 
 	if (LastActor.IsValid())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Stopped tracing last actor."))
+		if (UActorComponent* Highlightable = LastActor->FindComponentByInterface(UHighlightable::StaticClass()); IsValid(Highlightable))
+		{
+			IHighlightable::Execute_UnHighlight(Highlightable);
+		}
 	}
 }
 

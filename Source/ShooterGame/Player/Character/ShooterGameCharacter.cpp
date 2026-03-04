@@ -41,8 +41,12 @@ AShooterGameCharacter::AShooterGameCharacter()
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 400.0f;
+	CameraBoom->TargetArmLength = 1200.0f;
 	CameraBoom->bUsePawnControlRotation = true;
+	CameraBoom->bInheritPitch = false; // lock pitch to spring arm
+	CameraBoom->bInheritRoll = false;
+	CameraBoom->bInheritYaw = true; // allow yaw from actor rotation
+	CameraBoom->bDoCollisionTest = false; // prevent wall clipping
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -58,6 +62,9 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
 
+		// Camera
+		EnhancedInputComponent->BindAction(RotateCamera_Action,ETriggerEvent::Triggered, this, &AShooterGameCharacter::RotateCamera);
+		
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Move);
 		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Look);
@@ -70,6 +77,15 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		UE_LOG(LogShooterGame, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
 	}
 }
+
+
+// Camera rotation
+void AShooterGameCharacter::RotateCamera(const FInputActionValue& Value)
+{
+	const float Axis = Value.Get<float>();
+	DesiredYaw += Axis * RotationSpeed * GetWorld()->GetDeltaSeconds();
+}
+
 
 void AShooterGameCharacter::Move(const FInputActionValue& Value)
 {
