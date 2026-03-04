@@ -31,6 +31,9 @@ void AShooterGamePlayerController::Tick(float DeltaTime)
 void AShooterGamePlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	// Show cursor
+	bShowMouseCursor = true;
 
 	// Add Input Mapping Contexts
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))

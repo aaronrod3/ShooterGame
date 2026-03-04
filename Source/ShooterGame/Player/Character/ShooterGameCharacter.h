@@ -43,6 +43,7 @@ public:
 	
 
 protected:
+	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	
 	
@@ -76,7 +77,9 @@ protected:
 	/* Camera Settings */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float RotationSpeed = 120.f;
-	
+	// Interp speed for snapping character to face cursor
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+	float FaceCursorInterpSpeed = 15.f;
 	
 
 private:
@@ -85,6 +88,7 @@ private:
 	
 	/* Inputs */
 	void RotateCamera(const FInputActionValue& Value);
+	void FaceTowardCursor(float DeltaTime);
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 

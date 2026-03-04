@@ -17,6 +17,9 @@ DEFINE_LOG_CATEGORY(LogShooterGameCharacter);
 
 AShooterGameCharacter::AShooterGameCharacter()
 {
+	
+	PrimaryActorTick.bCanEverTick = true;
+	
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 		
@@ -26,7 +29,7 @@ AShooterGameCharacter::AShooterGameCharacter()
 	bUseControllerRotationRoll = false;
 
 	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 
 	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
@@ -55,6 +58,13 @@ AShooterGameCharacter::AShooterGameCharacter()
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
+}
+
+void AShooterGameCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	
+	FaceTowardCursor(DeltaTime);
 }
 
 void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -134,3 +144,38 @@ void AShooterGameCharacter::DoLook(float Yaw, float Pitch)
 		AddControllerPitchInput(Pitch);
 	}
 }
+
+void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
+{
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (!PlayerController) return;
+	
+	FHitResult Hit;
+	if (PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
+	{
+		FVector LookAtCursor = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
+		if (LookAtCursor.IsNearlyZero()) return;
+		
+		FRotator TargetRotation  = LookAtCursor.Rotation();
+		FRotator CurrentRotation = GetActorRotation();
+		FRotator NewRotation     = FMath::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, FaceCursorInterpSpeed);
+		
+		SetActorRotation(FRotator(0, NewRotation.Yaw, 0));
+		
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
