@@ -43,8 +43,6 @@ public:
 	
 	/*** Multiplayer ***/
 	
-		/* LAN */
-	
 	
 
 protected:
