@@ -41,6 +41,11 @@ public:
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	
 	
+	/*** Multiplayer ***/
+	
+		/* LAN */
+	
+	
 
 protected:
 	virtual void Tick(float DeltaTime) override;

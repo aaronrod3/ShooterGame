@@ -23,8 +23,8 @@ AWeapon::AWeapon()
 	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	if (HasAuthority())
 	{
-		// RESUME HERE
-		//CollisionSphere->Set
+		CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		CollisionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	}
 	
 }

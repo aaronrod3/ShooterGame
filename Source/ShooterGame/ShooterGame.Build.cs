@@ -21,7 +21,7 @@ public class ShooterGame : ModuleRules
 			"Slate"
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "AnimGraphRuntime" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "AnimGraphRuntime", "OnlineServicesInterface" });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"ShooterGame"
