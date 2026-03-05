@@ -58,7 +58,11 @@ void UShooterGameOnlineSubsystem::InitializeOnlineServices()
 	
 	// Initialize services pointer
 	OnlineServicesInfoInternal->OnlineServices = GetServices();
-	check(OnlineServicesInfoInternal->OnlineServices.IsValid());
+	if (!OnlineServicesInfoInternal->OnlineServices.IsValid())
+	{
+		UE_LOG(LogShooterGameOnlineSubsystem, Error, TEXT("Online Services not available - check plugin config!"));
+		return;
+	}
 	
 	// Verify services type
 	OnlineServicesInfoInternal->OnlineServicesType = OnlineServicesInfoInternal->OnlineServices->GetServicesProvider();
