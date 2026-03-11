@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Items/Weapon/Weapon.h"
 #include "Logging/LogMacros.h"
 #include "ShooterGameCharacter.generated.h"
 
@@ -22,9 +23,10 @@ class AShooterGameCharacter : public ACharacter
 
 	
 public:
-	/** Constructor */
 	AShooterGameCharacter();	
-	
+	virtual void Tick(float DeltaTime) override;
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	/** Handles move inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
@@ -39,23 +41,6 @@ public:
 
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
-	
-	
-	/*** Multiplayer ***/
-	
-	
-
-protected:
-	virtual void Tick(float DeltaTime) override;
-	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-	
-	
-	/*** COMPONENTS ***/
-	/** Camera  **/
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-	USpringArmComponent* CameraBoom;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* FollowCamera;
 	
 	
 	
@@ -84,17 +69,42 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float FaceCursorInterpSpeed = 15.f;
 	
-
-private:
-	float DesiredYaw = 0.f;
 	
+	
+	
+	void SetOverlappingWeapon(AWeapon* Weapon);
+	
+	/*** Multiplayer ***/
+	
+	
+
+protected:
+	virtual void BeginPlay() override;
 	
 	/* Inputs */
 	void RotateCamera(const FInputActionValue& Value);
 	void FaceTowardCursor(float DeltaTime);
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	
+	
+	
+private:
+	/*** COMPONENTS ***/
+	/** Camera  **/
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	USpringArmComponent* CameraBoom;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FollowCamera;
+	
+	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
+	AWeapon* OverlappingWeapon;
+	
 
+	UFUNCTION()
+	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 
+	
+	float DesiredYaw = 0.f;
 };
 

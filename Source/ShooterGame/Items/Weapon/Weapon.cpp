@@ -3,6 +3,8 @@
 
 #include "Weapon.h"
 #include "Components/SphereComponent.h"
+#include "Components/WidgetComponent.h"
+#include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 
 
 // Sets default values
@@ -12,7 +14,7 @@ AWeapon::AWeapon()
 	bReplicates = true;
 	
 	WeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Weapon Mesh"));
-	WeaponMesh->SetupAttachment(RootComponent);
+	SetRootComponent(WeaponMesh);
 	WeaponMesh->SetCollisionResponseToAllChannels(ECR_Block);
 	WeaponMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -21,11 +23,11 @@ AWeapon::AWeapon()
 	CollisionSphere->SetupAttachment(RootComponent);
 	CollisionSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
 	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	if (HasAuthority())
-	{
-		CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		CollisionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	}
+	
+	PickupWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("Pickup Widget"));
+	PickupWidget->SetupAttachment(RootComponent);
+	
+	
 	
 }
 
@@ -34,6 +36,19 @@ void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	
+	if (HasAuthority())
+	{
+		CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		CollisionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+		CollisionSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);
+		CollisionSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
+	}
+	if (PickupWidget)
+	{
+		PickupWidget->SetVisibility(false);
+	}
+	
 }
 
 // Called every frame
@@ -41,4 +56,35 @@ void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
+
+void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	AShooterGameCharacter* Player = Cast<AShooterGameCharacter>(OtherActor);
+	if (Player)
+	{
+		Player->SetOverlappingWeapon(this);
+	}
+	
+}
+
+void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	AShooterGameCharacter* Player = Cast<AShooterGameCharacter>(OtherActor);
+	if (Player)
+	{
+		Player->SetOverlappingWeapon(nullptr);
+	}
+}
+
+void AWeapon::ShowPickupWidget(bool bShowWidget)
+{
+	if (PickupWidget)
+	{
+		PickupWidget->SetVisibility(bShowWidget);
+	}
+}
+
+
+
+
 

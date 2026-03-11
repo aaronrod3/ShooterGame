@@ -3,12 +3,14 @@
 
 #include "ShooterGamePlayerController.h"
 #include "Items/Components/ItemComponent.h"
+#include "ShooterGame/HUD/Widgets/HUDWidget.h"
+#include "Inventory/InventoryComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Interaction/Highlightable.h"
 #include "Kismet/GameplayStatics.h"
 #include "InputMappingContext.h"
-#include "ShooterGame/HUD/Widgets/HUDWidget.h"
+
 #include "Blueprint/UserWidget.h"
 #include "Interaction/HighlightableStaticMesh.h"
 
@@ -45,6 +47,8 @@ void AShooterGamePlayerController::BeginPlay()
 
 	}
 	
+	InventoryComponent = FindComponentByClass<UInventoryComponent>();
+	
 	CreateHUDWidget();
 }
 
@@ -54,7 +58,6 @@ void AShooterGamePlayerController::SetupInputComponent()
 
 	UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent);
 	EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::PrimaryInteract);
-		
 	
 }
 

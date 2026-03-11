@@ -17,6 +17,8 @@ class SHOOTERGAME_API UInventoryComponent : public UActorComponent
 public:
 	// Sets default values for this component's properties
 	UInventoryComponent();
+	
+	
 
 protected:
 	// Called when the game starts
@@ -30,11 +32,9 @@ private:
 	
 	void ConstructInventory();
 	
-	UPROPERTY()
-	TObjectPtr<UInventoryBase> InventoryMenu;
-
-	UPROPERTY(EditAnywhere, Category = "Inventory")
-	TSubclassOf<UInventoryBase> InventoryMenuClass;
+	
+	
+	
 	
 };
 

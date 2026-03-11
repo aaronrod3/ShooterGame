@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "ShooterGamePlayerController.generated.h"
 
+class UInventoryComponent;
 class UHUDWidget;
 class UInputMappingContext;
 class UInputAction;
@@ -25,6 +26,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	
 	
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
@@ -35,6 +37,8 @@ private:
 	void PrimaryInteract();
 	void CreateHUDWidget();
 	void TraceForItem();
+	
+	TWeakObjectPtr<UInventoryComponent> InventoryComponent;
 	
 	/** Input Mapping Contexts */
 	UPROPERTY(EditAnywhere, Category ="Input")

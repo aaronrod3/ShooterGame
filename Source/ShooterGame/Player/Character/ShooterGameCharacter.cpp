@@ -11,6 +11,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Framework/ShooterGame.h"
+#include "Net/UnrealNetwork.h"
+#include "ShooterGame/Items/Weapon/Weapon.h"
 #include "Kismet/GameplayStatics.h"
 
 
@@ -61,7 +63,10 @@ AShooterGameCharacter::AShooterGameCharacter()
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 }
 
-
+void AShooterGameCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+}
 
 void AShooterGameCharacter::Tick(float DeltaTime)
 {
@@ -168,13 +173,43 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 	}
 }
 
+void AShooterGameCharacter::SetOverlappingWeapon(AWeapon* Weapon)
+{
+	if (OverlappingWeapon)
+	{
+		OverlappingWeapon->ShowPickupWidget(false);
+	}
+	OverlappingWeapon = Weapon;
+	if (IsLocallyControlled())
+	{
+		if (OverlappingWeapon)
+		{
+			OverlappingWeapon->ShowPickupWidget(true);
+		}
+	}
+}
 
-
+void AShooterGameCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
+{
+	if (OverlappingWeapon)
+	{
+		OverlappingWeapon->ShowPickupWidget(true);
+	}
+	if (LastWeapon)
+	{
+		LastWeapon->ShowPickupWidget(false);
+	}
+}
 
 
 /*** MULTIPLAYER ***/
 
-
+void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
+}
 
 
 
