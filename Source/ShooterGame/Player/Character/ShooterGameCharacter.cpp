@@ -10,6 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "ShooterGame/Components/CombatComponent.h"
 #include "Framework/ShooterGame.h"
 #include "Net/UnrealNetwork.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
@@ -59,8 +60,8 @@ AShooterGameCharacter::AShooterGameCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
+	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
+	Combat->SetIsReplicated(true);
 }
 
 void AShooterGameCharacter::BeginPlay()
@@ -89,10 +90,22 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Look);
+		
+		
 	}
 	else
 	{
 		UE_LOG(LogShooterGame, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
+	}
+}
+
+void AShooterGameCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	
+	if (Combat)
+	{
+		Combat->Character = this;
 	}
 }
 
@@ -198,6 +211,29 @@ void AShooterGameCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 	if (LastWeapon)
 	{
 		LastWeapon->ShowPickupWidget(false);
+	}
+}
+
+void AShooterGameCharacter::EquipButtonPressed()
+{
+	if (HasAuthority())
+	{
+		if (Combat && OverlappingWeapon)
+		{
+			Combat->EquipWeapon(OverlappingWeapon);
+		}
+	}
+	else
+	{
+		ServerEquipButtonPressed();
+	}
+}
+
+void AShooterGameCharacter::ServerEquipButtonPressed_Implementation()
+{
+	if (Combat && OverlappingWeapon)
+	{
+		Combat->EquipWeapon(OverlappingWeapon);
 	}
 }
 

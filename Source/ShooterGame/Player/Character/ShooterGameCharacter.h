@@ -27,6 +27,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void PostInitializeComponents() override;
 	
 	/** Handles move inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
@@ -61,7 +62,6 @@ public:
 	TObjectPtr<UInputAction> MouseLookAction;
 	
 	
-	
 	/* Camera Settings */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float RotationSpeed = 120.f;
@@ -70,7 +70,7 @@ public:
 	float FaceCursorInterpSpeed = 15.f;
 	
 	
-	
+	void EquipButtonPressed();
 	
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	
@@ -87,6 +87,8 @@ protected:
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	
+	UFUNCTION(Server, Reliable)
+	void ServerEquipButtonPressed();
 	
 	
 private:
@@ -97,6 +99,10 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
 	
+	float DesiredYaw = 0.f;
+	
+	
+	
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	AWeapon* OverlappingWeapon;
 	
@@ -104,7 +110,8 @@ private:
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 
-	
-	float DesiredYaw = 0.f;
+	UPROPERTY(VisibleAnywhere)
+	class UCombatComponent* Combat;
+
 };
 

@@ -10,9 +10,10 @@
 #include "Interaction/Highlightable.h"
 #include "Kismet/GameplayStatics.h"
 #include "InputMappingContext.h"
-
+#include "ShooterGame/Components/CombatComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Interaction/HighlightableStaticMesh.h"
+#include "Player/Character/ShooterGameCharacter.h"
 
 
 AShooterGamePlayerController::AShooterGamePlayerController()
@@ -20,6 +21,8 @@ AShooterGamePlayerController::AShooterGamePlayerController()
 	PrimaryActorTick.bCanEverTick = true;
 	TraceLength = 500.f;
 	ItemTraceChannel = ECC_GameTraceChannel1;
+	
+	
 }
 
 void AShooterGamePlayerController::Tick(float DeltaTime)
@@ -57,15 +60,17 @@ void AShooterGamePlayerController::SetupInputComponent()
 	Super::SetupInputComponent();
 
 	UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent);
-	EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::PrimaryInteract);
+	//EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::PrimaryInteract);
+	EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::EquippedButtonPressed);
 	
 }
 
+/*
 void AShooterGamePlayerController::PrimaryInteract()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Primary Interact"));
 }
-
+*/
 void AShooterGamePlayerController::CreateHUDWidget()
 {
 	if (!IsLocalPlayerController()) return;
@@ -76,6 +81,15 @@ void AShooterGamePlayerController::CreateHUDWidget()
 	}
 }
 
+void AShooterGamePlayerController::EquippedButtonPressed()
+{
+	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(GetCharacter());
+	if (ShooterCharacter)
+	{
+		ShooterCharacter->EquipButtonPressed();
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Equip Button Pressed"));
+	}
+}
 
 
 void AShooterGamePlayerController::TraceForItem()

@@ -13,15 +13,18 @@ class SHOOTERGAME_API UCombatComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this component's properties
 	UCombatComponent();
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	friend class AShooterGameCharacter;
+	friend class AShooterGamePlayerController;
+	
+	void EquipWeapon(class AWeapon* WeaponToEquip);
 
 protected:
-	// Called when the game starts
 	virtual void BeginPlay() override;
 
-public:
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
-	                           FActorComponentTickFunction* ThisTickFunction) override;
+private:
+	
+	class AShooterGameCharacter* Character;
+	AWeapon* EquippedWeapon;
 };

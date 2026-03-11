@@ -26,7 +26,6 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	
 	
-	
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
@@ -34,20 +33,29 @@ protected:
 	
 private:
 	
-	void PrimaryInteract();
-	void CreateHUDWidget();
-	void TraceForItem();
-	
 	TWeakObjectPtr<UInventoryComponent> InventoryComponent;
+	
+	
+	
 	
 	/** Input Mapping Contexts */
 	UPROPERTY(EditAnywhere, Category ="Input")
 	TArray<UInputMappingContext*> DefaultIMCs;
 
+	void CreateHUDWidget();
+	void TraceForItem();
+	
 	
 	/*** INPUT ACTIONS***/
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	//void PrimaryInteract();
+	void EquippedButtonPressed();
+	
+	/*
+	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> PrimaryInteractAction;
+	*/
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> EquipAction;
 	
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
