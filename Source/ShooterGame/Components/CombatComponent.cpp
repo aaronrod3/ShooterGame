@@ -6,6 +6,7 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Items/Weapon/Weapon.h"
 #include "Player/Character/ShooterGameCharacter.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Components/SphereComponent.h"
 #include "Net/UnrealNetwork.h"
 
@@ -42,6 +43,14 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty
 	DOREPLIFETIME(UCombatComponent, bAiming);
 }
 
+void UCombatComponent::OnRep_EquippedWeapon()
+{
+	if (EquippedWeapon && Character)
+	{
+		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
+		Character->bUseControllerRotationYaw = true;
+	}
+}
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
@@ -59,6 +68,8 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	}
 	
 	EquippedWeapon->SetOwner(Character);
+	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
+	Character->bUseControllerRotationYaw = true;
 }
 
 void UCombatComponent::SetAiming(bool bIsAiming)

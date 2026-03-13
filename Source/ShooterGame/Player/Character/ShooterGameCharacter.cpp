@@ -174,7 +174,6 @@ void AShooterGameCharacter::DoLook(float Yaw, float Pitch)
 	{
 		// add yaw and pitch input to controller
 		AddControllerYawInput(Yaw);
-		AddControllerPitchInput(Pitch);
 	}
 }
 
@@ -284,6 +283,10 @@ bool AShooterGameCharacter::IsWeaponEquipped()
 	return (Combat && Combat->EquippedWeapon);
 }
 
+bool AShooterGameCharacter::IsAiming()
+{
+	return (Combat && Combat->bAiming);
+}
 
 void AShooterGameCharacter::ToggleAim()
 {

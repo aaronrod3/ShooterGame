@@ -3,6 +3,7 @@
 
 #include "PlayerAnimInstance.h"
 #include "KismetAnimationLibrary.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -56,7 +57,18 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	bIsAccelerating = ShooterGameCharacter->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f ? true : false;
 	bIsCrouched = ShooterGameCharacter->IsCrouched();
 	bWeaponEquipped = ShooterGameCharacter->IsWeaponEquipped();
-	bIsAiming = ShooterGameCharacter->bIsAiming;
+	bIsAiming = ShooterGameCharacter->IsAiming();
+	
+	FRotator AimRotation = ShooterGameCharacter->GetBaseAimRotation();
+	FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(ShooterGameCharacter->GetVelocity());
+	YawOffset = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, AimRotation).Yaw;
+	
+	CharacterRotationLastFrame = CharacterRotation;
+	CharacterRotation = ShooterGameCharacter->GetActorRotation();
+	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(CharacterRotation, CharacterRotationLastFrame);
+	const float Target = Delta.Yaw / DeltaTime;
+	const float Interp = FMath::FInterpTo(Lean, Target, DeltaTime, 10.f);
+	Lean = FMath::Clamp(Interp, -90.f, 90.f);
 }
 
 

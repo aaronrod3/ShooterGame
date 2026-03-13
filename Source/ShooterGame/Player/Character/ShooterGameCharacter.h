@@ -64,7 +64,7 @@ public:
 	void ToggleAim();
 	
 	bool IsWeaponEquipped();
-	bool bIsAiming = false;
+	bool IsAiming();
 	
 	float DesiredYaw = 0.f;
 	
