@@ -35,27 +35,12 @@ private:
 	
 	TWeakObjectPtr<UInventoryComponent> InventoryComponent;
 	
-	
-	
-	
 	/** Input Mapping Contexts */
 	UPROPERTY(EditAnywhere, Category ="Input")
 	TArray<UInputMappingContext*> DefaultIMCs;
 
 	void CreateHUDWidget();
 	void TraceForItem();
-	
-	
-	/*** INPUT ACTIONS***/
-	//void PrimaryInteract();
-	void EquippedButtonPressed();
-	
-	/*
-	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> PrimaryInteractAction;
-	*/
-	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> EquipAction;
 	
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Input")

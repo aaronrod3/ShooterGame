@@ -60,17 +60,10 @@ void AShooterGamePlayerController::SetupInputComponent()
 	Super::SetupInputComponent();
 
 	UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent);
-	//EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::PrimaryInteract);
-	EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::EquippedButtonPressed);
 	
 }
 
-/*
-void AShooterGamePlayerController::PrimaryInteract()
-{
-	UE_LOG(LogTemp, Warning, TEXT("Primary Interact"));
-}
-*/
+
 void AShooterGamePlayerController::CreateHUDWidget()
 {
 	if (!IsLocalPlayerController()) return;
@@ -81,15 +74,7 @@ void AShooterGamePlayerController::CreateHUDWidget()
 	}
 }
 
-void AShooterGamePlayerController::EquippedButtonPressed()
-{
-	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(GetCharacter());
-	if (ShooterCharacter)
-	{
-		ShooterCharacter->EquipButtonPressed();
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Equip Button Pressed"));
-	}
-}
+
 
 
 void AShooterGamePlayerController::TraceForItem()
@@ -139,6 +124,7 @@ void AShooterGamePlayerController::TraceForItem()
 		}
 	}
 }
+
 
 
 

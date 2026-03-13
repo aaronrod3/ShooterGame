@@ -15,6 +15,7 @@ class SHOOTERGAME_API UCombatComponent : public UActorComponent
 public:
 	UCombatComponent();
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	friend class AShooterGameCharacter;
 	friend class AShooterGamePlayerController;
 	
@@ -22,9 +23,19 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	
+	void SetAiming(bool bIsAiming);
+	
+	UFUNCTION(Server, Reliable)
+	void ServerSetAiming(bool bIsAiming);
 
 private:
 	
 	class AShooterGameCharacter* Character;
+	
+	UPROPERTY(Replicated)
 	AWeapon* EquippedWeapon;
+	
+	UPROPERTY(Replicated)
+	bool bAiming;
 };

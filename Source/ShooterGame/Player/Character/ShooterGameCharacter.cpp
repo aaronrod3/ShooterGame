@@ -62,6 +62,8 @@ AShooterGameCharacter::AShooterGameCharacter()
 
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	Combat->SetIsReplicated(true);
+	
+	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
 }
 
 void AShooterGameCharacter::BeginPlay()
@@ -83,15 +85,18 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 
 		// Camera
 		EnhancedInputComponent->BindAction(RotateCamera_Action,ETriggerEvent::Triggered, this, &AShooterGameCharacter::RotateCamera);
-		
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Move);
 		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Look);
-
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Look);
+		// Crouch
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::CrouchButtonPressed);
 		
 		
+		//EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::PrimaryInteract);
+		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Started, this, &AShooterGameCharacter::EquipButtonPressed);
+		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::ToggleAim);
 	}
 	else
 	{
@@ -107,6 +112,13 @@ void AShooterGameCharacter::PostInitializeComponents()
 	{
 		Combat->Character = this;
 	}
+}
+
+void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
 }
 
 
@@ -166,8 +178,22 @@ void AShooterGameCharacter::DoLook(float Yaw, float Pitch)
 	}
 }
 
+void AShooterGameCharacter::CrouchButtonPressed()
+{
+	if (bIsCrouched)
+	{
+		UnCrouch();
+	}
+	else
+	{
+		Crouch();
+	}
+}
+
 void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 {
+	if (!IsLocallyControlled()) return;
+	
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());
 	if (!PlayerController) return;
 	
@@ -182,8 +208,14 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 		FRotator NewRotation     = FMath::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, FaceCursorInterpSpeed);
 		
 		SetActorRotation(FRotator(0, NewRotation.Yaw, 0));
+		ServerSetFacingYaw(NewRotation.Yaw);
 		
 	}
+}
+
+void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
+{
+	SetActorRotation(FRotator(0, Yaw, 0));
 }
 
 void AShooterGameCharacter::SetOverlappingWeapon(AWeapon* Weapon)
@@ -214,19 +246,29 @@ void AShooterGameCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 	}
 }
 
+
+/*
+void AShooterGameCharacter::PrimaryInteract()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Primary Interact"));
+}
+*/
+
+
 void AShooterGameCharacter::EquipButtonPressed()
 {
-	if (HasAuthority())
+	if (Combat)
 	{
-		if (Combat && OverlappingWeapon)
+		if (HasAuthority())
 		{
 			Combat->EquipWeapon(OverlappingWeapon);
 		}
+		else
+		{
+			ServerEquipButtonPressed();
+		}
 	}
-	else
-	{
-		ServerEquipButtonPressed();
-	}
+	
 }
 
 void AShooterGameCharacter::ServerEquipButtonPressed_Implementation()
@@ -237,15 +279,21 @@ void AShooterGameCharacter::ServerEquipButtonPressed_Implementation()
 	}
 }
 
-
-/*** MULTIPLAYER ***/
-
-void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+bool AShooterGameCharacter::IsWeaponEquipped()
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	
-	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
+	return (Combat && Combat->EquippedWeapon);
 }
+
+
+void AShooterGameCharacter::ToggleAim()
+{
+	if (Combat)
+	{
+		Combat->SetAiming(!Combat->bAiming);
+	}
+}
+
+
 
 
 

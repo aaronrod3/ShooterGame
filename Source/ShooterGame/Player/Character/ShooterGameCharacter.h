@@ -39,27 +39,10 @@ public:
 
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
-
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	
 	
-	
-	
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	TObjectPtr<UInputAction> MoveAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input | Camera")
-	TObjectPtr<UInputAction> RotateCamera_Action;
-
-	/* Look Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	TObjectPtr<UInputAction> LookAction;
-
-	/* Mouse Look Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	TObjectPtr<UInputAction> MouseLookAction;
 	
 	
 	/* Camera Settings */
@@ -68,50 +51,76 @@ public:
 	// Interp speed for snapping character to face cursor
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float FaceCursorInterpSpeed = 15.f;
-	
-	
-	void EquipButtonPressed();
-	
-	void SetOverlappingWeapon(AWeapon* Weapon);
-	
-	/*** Multiplayer ***/
-	
-	
 
-protected:
-	virtual void BeginPlay() override;
 	
 	/* Inputs */
 	void RotateCamera(const FInputActionValue& Value);
 	void FaceTowardCursor(float DeltaTime);
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void EquipButtonPressed();
+	void CrouchButtonPressed();
+	void SetOverlappingWeapon(AWeapon* Weapon);
+	void ToggleAim();
 	
-	UFUNCTION(Server, Reliable)
-	void ServerEquipButtonPressed();
+	bool IsWeaponEquipped();
+	bool bIsAiming = false;
+	
+	float DesiredYaw = 0.f;
+	
+
+protected:
+	virtual void BeginPlay() override;
 	
 	
 private:
 	/*** COMPONENTS ***/
+	UPROPERTY(VisibleAnywhere)
+	class UCombatComponent* Combat;
+	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
+	AWeapon* OverlappingWeapon;
+	
 	/** Camera  **/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
 	
-	float DesiredYaw = 0.f;
+	
+	/* INPUT */
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> MoveAction;
+	UPROPERTY(EditAnywhere, Category = "Input | Camera")
+	TObjectPtr<UInputAction> RotateCamera_Action;
+	/* Look Input Action */
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> LookAction;
+	/* Mouse Look Input Action */
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> MouseLookAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> CrouchAction;
+	/*
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> PrimaryInteractAction;
+	*/
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> EquipAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> AimAction;
 	
 	
 	
-	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
-	AWeapon* OverlappingWeapon;
+	/*** FUNCTIONS ***/
+	UFUNCTION(Server, Unreliable)
+	void ServerSetFacingYaw(float Yaw);
+	UFUNCTION(Server, Reliable)
+	void ServerEquipButtonPressed();
 	
-
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 
-	UPROPERTY(VisibleAnywhere)
-	class UCombatComponent* Combat;
+	
 
 };
 
