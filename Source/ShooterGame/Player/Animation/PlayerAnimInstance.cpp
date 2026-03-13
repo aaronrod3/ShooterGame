@@ -59,16 +59,16 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	bWeaponEquipped = ShooterGameCharacter->IsWeaponEquipped();
 	bIsAiming = ShooterGameCharacter->IsAiming();
 	
-	FRotator AimRotation = ShooterGameCharacter->GetBaseAimRotation();
+	FRotator ActorFacing = ShooterGameCharacter->GetActorRotation();
 	FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(ShooterGameCharacter->GetVelocity());
-	YawOffset = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, AimRotation).Yaw;
+	YawOffset = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, ActorFacing).Yaw;
 	
 	CharacterRotationLastFrame = CharacterRotation;
 	CharacterRotation = ShooterGameCharacter->GetActorRotation();
 	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(CharacterRotation, CharacterRotationLastFrame);
 	const float Target = Delta.Yaw / DeltaTime;
-	const float Interp = FMath::FInterpTo(Lean, Target, DeltaTime, 10.f);
-	Lean = FMath::Clamp(Interp, -90.f, 90.f);
+	const float Interp = FMath::FInterpTo(Lean, Target, DeltaTime, 6.f);
+	Lean = FMath::Clamp(Interp, -45.f, 45.f);
 }
 
 

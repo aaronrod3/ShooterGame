@@ -207,7 +207,10 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 		FRotator NewRotation     = FMath::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, FaceCursorInterpSpeed);
 		
 		SetActorRotation(FRotator(0, NewRotation.Yaw, 0));
-		ServerSetFacingYaw(NewRotation.Yaw);
+		if (!HasAuthority())
+		{
+			ServerSetFacingYaw(NewRotation.Yaw);
+		}
 		
 	}
 }

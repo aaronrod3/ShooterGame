@@ -48,7 +48,7 @@ void UCombatComponent::OnRep_EquippedWeapon()
 	if (EquippedWeapon && Character)
 	{
 		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
-		Character->bUseControllerRotationYaw = true;
+		Character->bUseControllerRotationYaw = false;
 	}
 }
 
@@ -69,7 +69,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	
 	EquippedWeapon->SetOwner(Character);
 	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
-	Character->bUseControllerRotationYaw = true;
+	Character->bUseControllerRotationYaw = false;
 }
 
 void UCombatComponent::SetAiming(bool bIsAiming)
