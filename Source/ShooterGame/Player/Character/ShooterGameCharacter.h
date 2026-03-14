@@ -58,22 +58,12 @@ public:
 	AWeapon* GetEquippedWeapon();
 	
 	/* Inputs */
-	void RotateCamera(const FInputActionValue& Value);
-	void FaceTowardCursor(float DeltaTime);
-	void Move(const FInputActionValue& Value);
-	void Look(const FInputActionValue& Value);
-	void EquipButtonPressed();
-	void CrouchButtonPressed();
 	void SetOverlappingWeapon(AWeapon* Weapon);
-	void ToggleAim();
-	void AimOffset(float DeltaTime);
 	
 	bool IsWeaponEquipped();
 	bool IsAiming();
 	
-	float DesiredYaw = 0.f;
-	float AimOffset_Yaw;
-	FRotator StartingAimRotation;
+	
 	
 
 protected:
@@ -117,11 +107,24 @@ private:
 	TObjectPtr<UInputAction> AimAction;
 	
 	
+	/* INPUT Handlers */
+	void RotateCamera(const FInputActionValue& Value);
+	void FaceTowardCursor(float DeltaTime);
+	void Move(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+	void EquipButtonPressed();
+	void CrouchButtonPressed();
+	void ToggleAim();
+	
 	/* Variables */
+	float DesiredYaw = 0.f;
+	float RawCursorYawDelta = 0.f;
+	float AimOffset_Yaw;
 	ETurningInPlace TurningInPlace;
+	FRotator StartingAimRotation;
 	
 	
-	/*** FUNCTIONS ***/
+	/*** Server RPCs ***/
 	UFUNCTION(Server, Unreliable)
 	void ServerSetFacingYaw(float Yaw);
 	UFUNCTION(Server, Reliable)
