@@ -77,6 +77,7 @@ void AShooterGameCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	
 	FaceTowardCursor(DeltaTime);
+	AimOffset(DeltaTime);
 }
 
 void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -184,45 +185,51 @@ void AShooterGameCharacter::DoLook(float Yaw, float Pitch)
 
 
 // -------------------------------------------------------
-// Cursor Facing + AimOffset
+// Cursor Facing + AimOffset 
 // -------------------------------------------------------
 void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 {
 	if (!IsLocallyControlled()) return;
-	
+
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());
 	if (!PlayerController) return;
-	
+
 	FHitResult Hit;
-	if (!PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit)) return;
-	
-	FVector LookAtCursor = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
-	if (LookAtCursor.IsNearlyZero()) return;
-	
-	FRotator CursorRotation  = LookAtCursor.Rotation();
-	FRotator ActorRotation = GetActorRotation();
-	
-	// Raw unbounded delta: how far the cursor is from the actor's current facing
-	RawCursorYawDelta = FMath::UnwindDegrees(CursorRotation.Yaw - ActorRotation.Yaw);
-	
-	// AimOffset_Yaw is always clamped to +-90 — drives upper body lean in AnimBP
-	AimOffset_Yaw = FMath::Clamp(RawCursorYawDelta, -90.f, 90.f);
-	
-	
-	// Only rotate the whole body when cursor goes beyond +-90 degrees
-	if (FMath::Abs(RawCursorYawDelta) > 90.f)
+	if (PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
 	{
-		// Target yaw keeps the cursor at exactly the +-90 boundary after body rotates
-		float TargetYaw = CursorRotation.Yaw - FMath::Sign(RawCursorYawDelta) * 90.f;
-		FRotator NewRotation = FMath::RInterpTo(ActorRotation, FRotator(0, TargetYaw, 0), DeltaTime, FaceCursorInterpSpeed);
+		FVector LookAtCursor = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
+		if (LookAtCursor.IsNearlyZero()) return;
+
+		FRotator TargetRotation  = LookAtCursor.Rotation();
+		FRotator CurrentRotation = GetActorRotation();
+		FRotator NewRotation     = FMath::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, FaceCursorInterpSpeed);
+
 		SetActorRotation(FRotator(0, NewRotation.Yaw, 0));
-		
 		if (!HasAuthority())
 		{
 			ServerSetFacingYaw(NewRotation.Yaw);
 		}
+
 	}
-	
+}
+
+void AShooterGameCharacter::AimOffset(float DeltaTime)
+{
+	if (Combat && Combat->EquippedWeapon == nullptr) return;
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	float Speed = Velocity.Size();
+	if (Speed == 0.f) // still
+	{
+		FRotator CurrentAimRotation = FRotator(0, GetBaseAimRotation().Yaw, 0);
+		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(StartingAimRotation, CurrentAimRotation);
+		AimOffset_Yaw = DeltaAimRotation.Yaw;
+	}
+	if (Speed > 0.f) // running
+	{
+		StartingAimRotation = FRotator(0, GetBaseAimRotation().Yaw, 0);
+		AimOffset_Yaw = 0.f;
+	}
 }
 
 
@@ -347,5 +354,49 @@ AWeapon* AShooterGameCharacter::GetEquippedWeapon()
 
 
 
+/***SECTION FOR TEMP SAVED STUFF***/
+/***
+// -------------------------------------------------------
+// Cursor Facing + AimOffset ORIGINAL TURN IN PLACE, AM GOING WITH TUTORIALS VERSION, IF THAT WORKS, REMOVE
+// -------------------------------------------------------
+void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
+{
+	if (!IsLocallyControlled()) return;
+	
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (!PlayerController) return;
+	
+	FHitResult Hit;
+	if (!PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit)) return;
+	
+	FVector LookAtCursor = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
+	if (LookAtCursor.IsNearlyZero()) return;
+	
+	FRotator CursorRotation  = LookAtCursor.Rotation();
+	FRotator ActorRotation = GetActorRotation();
+	
+	// Raw unbounded delta: how far the cursor is from the actor's current facing
+	RawCursorYawDelta = FMath::UnwindDegrees(CursorRotation.Yaw - ActorRotation.Yaw);
+	
+	// AimOffset_Yaw is always clamped to +-90 — drives upper body lean in AnimBP
+	AimOffset_Yaw = FMath::Clamp(RawCursorYawDelta, -90.f, 90.f);
+	
+	
+	// Only rotate the whole body when cursor goes beyond +-90 degrees
+	if (FMath::Abs(RawCursorYawDelta) > 90.f)
+	{
+		// Target yaw keeps the cursor at exactly the +-90 boundary after body rotates
+		float TargetYaw = CursorRotation.Yaw - FMath::Sign(RawCursorYawDelta) * 90.f;
+		FRotator NewRotation = FMath::RInterpTo(ActorRotation, FRotator(0, TargetYaw, 0), DeltaTime, FaceCursorInterpSpeed);
+		SetActorRotation(FRotator(0, NewRotation.Yaw, 0));
+		
+		if (!HasAuthority())
+		{
+			ServerSetFacingYaw(NewRotation.Yaw);
+		}
+	}
+	
+}
+***/
 
 

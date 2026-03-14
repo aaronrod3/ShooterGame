@@ -115,6 +115,7 @@ private:
 	void EquipButtonPressed();
 	void CrouchButtonPressed();
 	void ToggleAim();
+	void AimOffset(float DeltaTime);
 	
 	/* Variables */
 	float DesiredYaw = 0.f;
