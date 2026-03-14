@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "ShooterGame/Types/TurningInPlace.h"
 #include "Items/Weapon/Weapon.h"
 #include "Logging/LogMacros.h"
 #include "ShooterGameCharacter.generated.h"
@@ -42,6 +43,8 @@ public:
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	
+	FORCEINLINE float GetAimOffset_Yaw() const { return AimOffset_Yaw; }
+	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
 	
 	
 	
@@ -52,6 +55,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float FaceCursorInterpSpeed = 15.f;
 
+	AWeapon* GetEquippedWeapon();
 	
 	/* Inputs */
 	void RotateCamera(const FInputActionValue& Value);
@@ -62,11 +66,14 @@ public:
 	void CrouchButtonPressed();
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	void ToggleAim();
+	void AimOffset(float DeltaTime);
 	
 	bool IsWeaponEquipped();
 	bool IsAiming();
 	
 	float DesiredYaw = 0.f;
+	float AimOffset_Yaw;
+	FRotator StartingAimRotation;
 	
 
 protected:
@@ -110,12 +117,17 @@ private:
 	TObjectPtr<UInputAction> AimAction;
 	
 	
+	/* Variables */
+	ETurningInPlace TurningInPlace;
+	
 	
 	/*** FUNCTIONS ***/
 	UFUNCTION(Server, Unreliable)
 	void ServerSetFacingYaw(float Yaw);
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
+	
+	//void TurnInPlace(float DeltaTime);
 	
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);

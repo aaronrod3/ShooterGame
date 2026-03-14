@@ -7,6 +7,7 @@
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "ShooterGame/Items/Weapon/Weapon.h"
 
 
 void UPlayerAnimInstance::NativeInitializeAnimation()
@@ -57,7 +58,9 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	bIsAccelerating = ShooterGameCharacter->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f ? true : false;
 	bIsCrouched = ShooterGameCharacter->IsCrouched();
 	bWeaponEquipped = ShooterGameCharacter->IsWeaponEquipped();
+	EquippedWeapon = ShooterGameCharacter->GetEquippedWeapon();
 	bIsAiming = ShooterGameCharacter->IsAiming();
+	TurningInPlace = ShooterGameCharacter->GetTurningInPlace();
 	
 	FRotator ActorFacing = ShooterGameCharacter->GetActorRotation();
 	FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(ShooterGameCharacter->GetVelocity());
@@ -69,6 +72,18 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	const float Target = Delta.Yaw / DeltaTime;
 	const float Interp = FMath::FInterpTo(Lean, Target, DeltaTime, 6.f);
 	Lean = FMath::Clamp(Interp, -45.f, 45.f);
+	
+	AimOffset_Yaw = ShooterGameCharacter->GetAimOffset_Yaw();
+	
+	if (bWeaponEquipped && EquippedWeapon && EquippedWeapon->GetWeaponMesh() && ShooterGameCharacter->GetMesh())
+	{
+		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandSocket"), RTS_World);
+		FVector OutPosition;
+		FRotator OutRotation;
+		ShooterGameCharacter->GetMesh()->TransformToBoneSpace(FName("ik_hand_r"), LeftHandTransform.GetLocation(), FRotator::ZeroRotator, OutPosition, OutRotation);
+		LeftHandTransform.SetLocation(OutPosition);
+		LeftHandTransform.SetRotation(FQuat(OutRotation));
+	}
 }
 
 

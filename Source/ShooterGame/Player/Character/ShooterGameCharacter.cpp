@@ -14,7 +14,7 @@
 #include "Framework/ShooterGame.h"
 #include "Net/UnrealNetwork.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
-#include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 
 
 DEFINE_LOG_CATEGORY(LogShooterGameCharacter);
@@ -76,6 +76,7 @@ void AShooterGameCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	
 	FaceTowardCursor(DeltaTime);
+	AimOffset(DeltaTime);
 }
 
 void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -177,17 +178,7 @@ void AShooterGameCharacter::DoLook(float Yaw, float Pitch)
 	}
 }
 
-void AShooterGameCharacter::CrouchButtonPressed()
-{
-	if (bIsCrouched)
-	{
-		UnCrouch();
-	}
-	else
-	{
-		Crouch();
-	}
-}
+
 
 void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 {
@@ -214,6 +205,32 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 		
 	}
 }
+
+void AShooterGameCharacter::AimOffset(float DeltaTime)
+{
+	if (Combat && Combat->EquippedWeapon == nullptr) return;
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	float Speed = Velocity.Size();
+	if (Speed == 0.f) // still
+	{
+		FRotator CurrentAimRotation = FRotator(0, GetBaseAimRotation().Yaw, 0);
+		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(StartingAimRotation, CurrentAimRotation);
+		AimOffset_Yaw = DeltaAimRotation.Yaw;
+	}
+	if (Speed > 0.f) // running
+	{
+		StartingAimRotation = FRotator(0, GetBaseAimRotation().Yaw, 0);
+		AimOffset_Yaw = 0.f;
+	}
+}
+
+/*
+void AShooterGameCharacter::TurnInPlace(float DeltaTime)
+{
+	if ()
+}
+*/
 
 void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
 {
@@ -248,6 +265,18 @@ void AShooterGameCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 	}
 }
 
+
+void AShooterGameCharacter::CrouchButtonPressed()
+{
+	if (bIsCrouched)
+	{
+		UnCrouch();
+	}
+	else
+	{
+		Crouch();
+	}
+}
 
 /*
 void AShooterGameCharacter::PrimaryInteract()
@@ -299,7 +328,11 @@ void AShooterGameCharacter::ToggleAim()
 	}
 }
 
-
+AWeapon* AShooterGameCharacter::GetEquippedWeapon()
+{
+	if (Combat == nullptr) return nullptr;
+	return Combat->EquippedWeapon;
+}
 
 
 
