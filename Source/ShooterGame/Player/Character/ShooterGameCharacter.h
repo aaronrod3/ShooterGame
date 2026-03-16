@@ -120,14 +120,18 @@ private:
 	/* Variables */
 	float DesiredYaw = 0.f;
 	float RawCursorYawDelta = 0.f;
+	UPROPERTY(Replicated)
 	float AimOffset_Yaw;
+	UPROPERTY(Replicated)
+	float ServerTargetYaw = 0.f;
+	float LastReplicatedYaw = 0.f; 
 	ETurningInPlace TurningInPlace;
 	FRotator StartingAimRotation;
 	
 	
 	/*** Server RPCs ***/
-	UFUNCTION(Server, Unreliable)
-	void ServerSetFacingYaw(float Yaw);
+	//UFUNCTION(Server, Unreliable)
+	//void ServerSetFacingYaw(float Yaw);
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 	

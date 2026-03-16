@@ -76,7 +76,22 @@ void AShooterGameCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	FaceTowardCursor(DeltaTime);
+	if (IsLocallyControlled())
+	{
+		FaceTowardCursor(DeltaTime);
+	}
+	else
+	{
+		// Server and remote clients smoothly interpolate to the replicated yaw
+		FRotator Smoothed = FMath::RInterpTo(
+			GetActorRotation(),
+			FRotator(0, ServerTargetYaw, 0),
+			DeltaTime,
+			FaceCursorInterpSpeed
+		);
+		SetActorRotation(Smoothed);
+	}
+	
 	AimOffset(DeltaTime);
 }
 
@@ -121,6 +136,8 @@ void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
 	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
+	DOREPLIFETIME(AShooterGameCharacter, AimOffset_Yaw);
+	DOREPLIFETIME(AShooterGameCharacter, ServerTargetYaw);
 }
 
 
@@ -195,21 +212,21 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 	if (!PlayerController) return;
 
 	FHitResult Hit;
-	if (PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
+	if (!PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit)) return;
+
+	FVector LookAt = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
+	if (LookAt.IsNearlyZero()) return;
+
+	float TargetYaw = LookAt.Rotation().Yaw;
+
+	FRotator NewRotation = FMath::RInterpTo(GetActorRotation(), FRotator(0, TargetYaw, 0), DeltaTime, FaceCursorInterpSpeed);
+	SetActorRotation(NewRotation);
+
+	// Only update replicated property when yaw has changed enough — avoids flooding
+	if (FMath::Abs(FMath::FindDeltaAngleDegrees(LastReplicatedYaw, NewRotation.Yaw)) > 1.f)
 	{
-		FVector LookAtCursor = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
-		if (LookAtCursor.IsNearlyZero()) return;
-
-		FRotator TargetRotation  = LookAtCursor.Rotation();
-		FRotator CurrentRotation = GetActorRotation();
-		FRotator NewRotation     = FMath::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, FaceCursorInterpSpeed);
-
-		SetActorRotation(FRotator(0, NewRotation.Yaw, 0));
-		if (!HasAuthority())
-		{
-			ServerSetFacingYaw(NewRotation.Yaw);
-		}
-
+		ServerTargetYaw = NewRotation.Yaw;         // ← replicated property, no RPC needed
+		LastReplicatedYaw = NewRotation.Yaw;
 	}
 }
 
@@ -222,7 +239,7 @@ void AShooterGameCharacter::AimOffset(float DeltaTime)
 	if (Speed == 0.f) // still
 	{
 		FRotator CurrentAimRotation = FRotator(0, GetBaseAimRotation().Yaw, 0);
-		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(StartingAimRotation, CurrentAimRotation);
+		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartingAimRotation);
 		AimOffset_Yaw = DeltaAimRotation.Yaw;
 	}
 	if (Speed > 0.f) // running
@@ -244,11 +261,12 @@ void AShooterGameCharacter::TurnInPlace(float DeltaTime)
 // -------------------------------------------------------
 // Server RPCs
 // -------------------------------------------------------
+/*
 void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
 {
 	SetActorRotation(FRotator(0, Yaw, 0));
 }
-
+*/
 
 // -------------------------------------------------------
 // Weapon / Combat

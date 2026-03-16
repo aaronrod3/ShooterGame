@@ -14,7 +14,7 @@ AWeapon::AWeapon()
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 	
-	WeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Weapon Mesh"));
+	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Weapon Mesh"));
 	SetRootComponent(WeaponMesh);
 	WeaponMesh->SetCollisionResponseToAllChannels(ECR_Block);
 	WeaponMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);

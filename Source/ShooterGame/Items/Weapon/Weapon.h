@@ -34,7 +34,7 @@ public:
 	
 	void SetWeaponState(EWeaponState State);
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return CollisionSphere; }
-	FORCEINLINE UStaticMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
+	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
 	
 
 protected:
@@ -60,7 +60,7 @@ protected:
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
-	UStaticMeshComponent* WeaponMesh;
+	USkeletalMeshComponent* WeaponMesh;
 	
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	class USphereComponent* CollisionSphere;
