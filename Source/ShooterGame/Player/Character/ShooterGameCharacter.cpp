@@ -44,7 +44,6 @@ AShooterGameCharacter::AShooterGameCharacter()
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
-	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -64,7 +63,7 @@ AShooterGameCharacter::AShooterGameCharacter()
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	Combat->SetIsReplicated(true);
 	
-	
+	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
 }
 
 void AShooterGameCharacter::BeginPlay()
@@ -76,23 +75,7 @@ void AShooterGameCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	if (IsLocallyControlled())
-	{
-		FaceTowardCursor(DeltaTime);
-	}
-	else
-	{
-		// Server and remote clients smoothly interpolate to the replicated yaw
-		FRotator Smoothed = FMath::RInterpTo(
-			GetActorRotation(),
-			FRotator(0, ServerTargetYaw, 0),
-			DeltaTime,
-			FaceCursorInterpSpeed
-		);
-		SetActorRotation(Smoothed);
-	}
-	
-	AimOffset(DeltaTime);
+	FaceTowardCursor(DeltaTime);
 }
 
 void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -136,23 +119,17 @@ void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
 	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
-	DOREPLIFETIME(AShooterGameCharacter, AimOffset_Yaw);
-	DOREPLIFETIME(AShooterGameCharacter, ServerTargetYaw);
 }
 
 
-// -------------------------------------------------------
-// Camera
-// -------------------------------------------------------
+// Camera rotation
 void AShooterGameCharacter::RotateCamera(const FInputActionValue& Value)
 {
 	const float Axis = Value.Get<float>();
 	DesiredYaw += Axis * RotationSpeed * GetWorld()->GetDeltaSeconds();
 }
 
-// -------------------------------------------------------
-// Input
-// -------------------------------------------------------
+
 void AShooterGameCharacter::Move(const FInputActionValue& Value)
 {
 	// input is a Vector2D
@@ -201,51 +178,42 @@ void AShooterGameCharacter::DoLook(float Yaw, float Pitch)
 }
 
 
-// -------------------------------------------------------
-// Cursor Facing + AimOffset 
-// -------------------------------------------------------
+
 void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 {
 	if (!IsLocallyControlled()) return;
-
+	
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());
 	if (!PlayerController) return;
-
+	
 	FHitResult Hit;
-	if (!PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit)) return;
-
-	FVector LookAt = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
-	if (LookAt.IsNearlyZero()) return;
-
-	float TargetYaw = LookAt.Rotation().Yaw;
-
-	FRotator NewRotation = FMath::RInterpTo(GetActorRotation(), FRotator(0, TargetYaw, 0), DeltaTime, FaceCursorInterpSpeed);
-	SetActorRotation(NewRotation);
-
-	// Only update replicated property when yaw has changed enough — avoids flooding
-	if (FMath::Abs(FMath::FindDeltaAngleDegrees(LastReplicatedYaw, NewRotation.Yaw)) > 1.f)
+	if (PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
 	{
-		ServerTargetYaw = NewRotation.Yaw;         // ← replicated property, no RPC needed
-		LastReplicatedYaw = NewRotation.Yaw;
-	}
-}
+		FVector LookAtCursor = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
+		if (LookAtCursor.IsNearlyZero()) return;
 
-void AShooterGameCharacter::AimOffset(float DeltaTime)
-{
-	if (Combat && Combat->EquippedWeapon == nullptr) return;
-	FVector Velocity = GetVelocity();
-	Velocity.Z = 0.f;
-	float Speed = Velocity.Size();
-	if (Speed == 0.f) // still
-	{
-		FRotator CurrentAimRotation = FRotator(0, GetBaseAimRotation().Yaw, 0);
-		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartingAimRotation);
-		AimOffset_Yaw = DeltaAimRotation.Yaw;
-	}
-	if (Speed > 0.f) // running
-	{
-		StartingAimRotation = FRotator(0, GetBaseAimRotation().Yaw, 0);
-		AimOffset_Yaw = 0.f;
+		FRotator TargetRotation = LookAtCursor.Rotation();
+		FRotator CurrentRotation = GetActorRotation();
+
+		// Compute aim offset BEFORE the interp — this is the lag the upper body needs to correct
+		if (Combat && Combat->EquippedWeapon)
+		{
+			FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, CurrentRotation);
+			AimOffset_Yaw = Delta.Yaw;
+		}
+		else
+		{
+			AimOffset_Yaw = 0.f;
+		}
+
+		// Now interp the body toward the cursor
+		FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, FaceCursorInterpSpeed);
+		SetActorRotation(FRotator(0.f, NewRotation.Yaw, 0.f));
+
+		if (!HasAuthority())
+		{
+			ServerSetFacingYaw(NewRotation.Yaw);
+		}
 	}
 }
 
@@ -257,20 +225,11 @@ void AShooterGameCharacter::TurnInPlace(float DeltaTime)
 }
 */
 
-
-// -------------------------------------------------------
-// Server RPCs
-// -------------------------------------------------------
-/*
 void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
 {
 	SetActorRotation(FRotator(0, Yaw, 0));
 }
-*/
 
-// -------------------------------------------------------
-// Weapon / Combat
-// -------------------------------------------------------
 void AShooterGameCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 {
 	if (OverlappingWeapon)
@@ -372,49 +331,5 @@ AWeapon* AShooterGameCharacter::GetEquippedWeapon()
 
 
 
-/***SECTION FOR TEMP SAVED STUFF***/
-/***
-// -------------------------------------------------------
-// Cursor Facing + AimOffset ORIGINAL TURN IN PLACE, AM GOING WITH TUTORIALS VERSION, IF THAT WORKS, REMOVE
-// -------------------------------------------------------
-void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
-{
-	if (!IsLocallyControlled()) return;
-	
-	APlayerController* PlayerController = Cast<APlayerController>(GetController());
-	if (!PlayerController) return;
-	
-	FHitResult Hit;
-	if (!PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit)) return;
-	
-	FVector LookAtCursor = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
-	if (LookAtCursor.IsNearlyZero()) return;
-	
-	FRotator CursorRotation  = LookAtCursor.Rotation();
-	FRotator ActorRotation = GetActorRotation();
-	
-	// Raw unbounded delta: how far the cursor is from the actor's current facing
-	RawCursorYawDelta = FMath::UnwindDegrees(CursorRotation.Yaw - ActorRotation.Yaw);
-	
-	// AimOffset_Yaw is always clamped to +-90 — drives upper body lean in AnimBP
-	AimOffset_Yaw = FMath::Clamp(RawCursorYawDelta, -90.f, 90.f);
-	
-	
-	// Only rotate the whole body when cursor goes beyond +-90 degrees
-	if (FMath::Abs(RawCursorYawDelta) > 90.f)
-	{
-		// Target yaw keeps the cursor at exactly the +-90 boundary after body rotates
-		float TargetYaw = CursorRotation.Yaw - FMath::Sign(RawCursorYawDelta) * 90.f;
-		FRotator NewRotation = FMath::RInterpTo(ActorRotation, FRotator(0, TargetYaw, 0), DeltaTime, FaceCursorInterpSpeed);
-		SetActorRotation(FRotator(0, NewRotation.Yaw, 0));
-		
-		if (!HasAuthority())
-		{
-			ServerSetFacingYaw(NewRotation.Yaw);
-		}
-	}
-	
-}
-***/
 
 

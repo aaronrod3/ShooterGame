@@ -71,7 +71,7 @@ void AWeapon::SetWeaponState(EWeaponState State)
 
 	switch (WeaponState)
 	{
-	case EWeaponState::Equipped:
+	case EWeaponState::EWS_Equipped:
 		ShowPickupWidget(false);
 		CollisionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		break;
@@ -82,7 +82,7 @@ void AWeapon::OnRep_WeaponState()
 {
 	switch (WeaponState)
 	{
-	case EWeaponState::Equipped:
+	case EWeaponState::EWS_Equipped:
 		ShowPickupWidget(false);
 		break;
 	}

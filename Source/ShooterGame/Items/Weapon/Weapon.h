@@ -12,11 +12,11 @@ class USphereComponent;
 UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
-	Initial			UMETA(DisplayName = "Initial"),
-	Equipped		UMETA(DisplayName = "Equipped"),
-	Dropped			UMETA(DisplayName = "Dropped"),
+	EWS_Initial			UMETA(DisplayName = "Initial"),
+	EWS_Equipped		UMETA(DisplayName = "Equipped"),
+	EWS_Dropped			UMETA(DisplayName = "Dropped"),
 	
-	Max				UMETA(DisplayName = "DefaultMax")
+	EWS_Max				UMETA(DisplayName = "DefaultMax")
 };
 
 

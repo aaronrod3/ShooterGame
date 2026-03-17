@@ -58,12 +58,20 @@ public:
 	AWeapon* GetEquippedWeapon();
 	
 	/* Inputs */
+	void RotateCamera(const FInputActionValue& Value);
+	void FaceTowardCursor(float DeltaTime);
+	void Move(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+	void EquipButtonPressed();
+	void CrouchButtonPressed();
 	void SetOverlappingWeapon(AWeapon* Weapon);
+	void ToggleAim();
 	
 	bool IsWeaponEquipped();
 	bool IsAiming();
 	
-	
+	float DesiredYaw = 0.f;
+	float AimOffset_Yaw;
 	
 
 protected:
@@ -75,7 +83,7 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	class UCombatComponent* Combat;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
-	AWeapon* OverlappingWeapon;
+	class AWeapon* OverlappingWeapon;
 	
 	/** Camera  **/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
@@ -107,31 +115,13 @@ private:
 	TObjectPtr<UInputAction> AimAction;
 	
 	
-	/* INPUT Handlers */
-	void RotateCamera(const FInputActionValue& Value);
-	void FaceTowardCursor(float DeltaTime);
-	void Move(const FInputActionValue& Value);
-	void Look(const FInputActionValue& Value);
-	void EquipButtonPressed();
-	void CrouchButtonPressed();
-	void ToggleAim();
-	void AimOffset(float DeltaTime);
-	
 	/* Variables */
-	float DesiredYaw = 0.f;
-	float RawCursorYawDelta = 0.f;
-	UPROPERTY(Replicated)
-	float AimOffset_Yaw;
-	UPROPERTY(Replicated)
-	float ServerTargetYaw = 0.f;
-	float LastReplicatedYaw = 0.f; 
 	ETurningInPlace TurningInPlace;
-	FRotator StartingAimRotation;
 	
 	
-	/*** Server RPCs ***/
-	//UFUNCTION(Server, Unreliable)
-	//void ServerSetFacingYaw(float Yaw);
+	/*** FUNCTIONS ***/
+	UFUNCTION(Server, Unreliable)
+	void ServerSetFacingYaw(float Yaw);
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 	
