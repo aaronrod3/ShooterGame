@@ -30,6 +30,9 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
 	
+	void PlayFireMontage(bool bAiming);
+	
+	
 	/** Handles move inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoMove(float Right, float Forward);
@@ -66,6 +69,8 @@ public:
 	void CrouchButtonPressed();
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	void ToggleAim();
+	void FireButtonPressed();
+	void FireButtonReleased();
 	
 	bool IsWeaponEquipped();
 	bool IsAiming();
@@ -113,6 +118,12 @@ private:
 	TObjectPtr<UInputAction> EquipAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> AimAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> FireAction;
+	
+	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
+	class UAnimMontage* FireWeaponMontage;
+	
 	
 	
 	/* Variables */
@@ -125,7 +136,7 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 	
-	//void TurnInPlace(float DeltaTime);
+	void TurnInPlace(float DeltaTime);
 	
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);

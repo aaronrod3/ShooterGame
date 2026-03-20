@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "ShooterGameCharacter.h"
+#include "ShooterGame/Player/Animation/PlayerAnimInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -64,6 +65,8 @@ AShooterGameCharacter::AShooterGameCharacter()
 	Combat->SetIsReplicated(true);
 	
 	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
+	
+	TurningInPlace = ETurningInPlace::ETIP_NotTurning;
 }
 
 void AShooterGameCharacter::BeginPlay()
@@ -97,6 +100,8 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		//EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::PrimaryInteract);
 		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Started, this, &AShooterGameCharacter::EquipButtonPressed);
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::ToggleAim);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::FireButtonPressed);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &AShooterGameCharacter::FireButtonReleased);
 	}
 	else
 	{
@@ -194,6 +199,7 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 
 		FRotator TargetRotation = LookAtCursor.Rotation();
 		FRotator CurrentRotation = GetActorRotation();
+		//TurnInPlace(DeltaTime); // make sure this is the right spot later
 
 		// Compute aim offset BEFORE the interp — this is the lag the upper body needs to correct
 		if (Combat && Combat->EquippedWeapon)
@@ -204,6 +210,17 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 		else
 		{
 			AimOffset_Yaw = 0.f;
+		}
+		
+		// Check if the body has "caught up" (small delta = not turning)
+		float AbsDelta = FMath::Abs(AimOffset_Yaw);
+		if (AbsDelta < 5.f)
+		{
+			TurningInPlace = ETurningInPlace::ETIP_NotTurning; // ← HERE
+		}
+		else
+		{
+			TurnInPlace(DeltaTime); // ← HERE — after delta is known, before body snaps
 		}
 
 		// Now interp the body toward the cursor
@@ -218,12 +235,19 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 }
 
 
-/*
+
 void AShooterGameCharacter::TurnInPlace(float DeltaTime)
 {
-	if ()
+	if (AimOffset_Yaw > 90.f) // may narrow down later
+	{
+		TurningInPlace = ETurningInPlace::ETIP_Right;
+	}
+	else if (AimOffset_Yaw < -90.f) // may narrow down later
+	{
+		TurningInPlace = ETurningInPlace::ETIP_Left;
+	}
 }
-*/
+
 
 void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
 {
@@ -308,6 +332,12 @@ bool AShooterGameCharacter::IsWeaponEquipped()
 	return (Combat && Combat->EquippedWeapon);
 }
 
+AWeapon* AShooterGameCharacter::GetEquippedWeapon()
+{
+	if (Combat == nullptr) return nullptr;
+	return Combat->EquippedWeapon;
+}
+
 bool AShooterGameCharacter::IsAiming()
 {
 	return (Combat && Combat->bAiming);
@@ -321,12 +351,37 @@ void AShooterGameCharacter::ToggleAim()
 	}
 }
 
-AWeapon* AShooterGameCharacter::GetEquippedWeapon()
+void AShooterGameCharacter::FireButtonPressed()
 {
-	if (Combat == nullptr) return nullptr;
-	return Combat->EquippedWeapon;
+	if (Combat)
+	{
+		Combat->FireButtonPressed(true);
+	}
 }
 
+void AShooterGameCharacter::FireButtonReleased()
+{
+	if (Combat)
+	{
+		Combat->FireButtonPressed(false);
+	}
+}
+
+
+void AShooterGameCharacter::PlayFireMontage(bool bAiming)
+{
+	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
+	
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && FireWeaponMontage)
+	{
+		AnimInstance->Montage_Play(FireWeaponMontage);
+		FName SectionName;
+		SectionName = bAiming ? FName("RifleAim") : FName("RifleHip");
+		AnimInstance->Montage_JumpToSection(SectionName);
+	}
+	
+}
 
 
 
