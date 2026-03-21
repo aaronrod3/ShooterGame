@@ -50,6 +50,7 @@ private:
 	bool bAiming;
 	
 	bool bFireButtonPressed;
+	FVector HitTarget;
 
 	UPROPERTY(EditAnywhere)
 	float BaseWalkSpeed;

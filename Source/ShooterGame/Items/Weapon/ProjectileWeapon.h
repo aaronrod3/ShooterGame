@@ -13,10 +13,17 @@ class SHOOTERGAME_API AProjectileWeapon : public AWeapon
 
 public:
 	AProjectileWeapon();
+	virtual void Tick(float DeltaTime) override;
 
+	virtual void Fire(const FVector& HitTarget) override;
+	
 protected:
 	virtual void BeginPlay() override;
 
-public:
-	virtual void Tick(float DeltaTime) override;
+	
+	
+private:
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<class AProjectile> ProjectileClass;
 };
