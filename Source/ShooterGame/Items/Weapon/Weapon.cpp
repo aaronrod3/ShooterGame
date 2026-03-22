@@ -7,6 +7,8 @@
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "Animation/AnimationAsset.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "CaseEject.h"
+#include "Engine/SkeletalMeshSocket.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -122,6 +124,25 @@ void AWeapon::Fire(const FVector& HitTarget)
 	if (FireAnimation)
 	{
 		WeaponMesh->PlayAnimation(FireAnimation, false);
+	}
+	
+	if (CasingClass)
+	{
+		const USkeletalMeshSocket* CaseEjectSocket = WeaponMesh->GetSocketByName(FName("CaseEject"));
+		if (CaseEjectSocket)
+		{
+			FTransform SocketTransform = CaseEjectSocket->GetSocketTransform(WeaponMesh);
+
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				World->SpawnActor<ACaseEject>(
+					CasingClass,
+					SocketTransform.GetLocation(),
+					SocketTransform.GetRotation().Rotator()
+				);
+			}
+		}
 	}
 }
 
