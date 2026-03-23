@@ -75,6 +75,14 @@ void AShooterGamePlayerController::CreateHUDWidget()
 }
 
 
+float AShooterGamePlayerController::GetCurrentWeaponSpread() const
+{
+	if (!GetPawn()) return 0.f;
+	AShooterGameCharacter* Character = Cast<AShooterGameCharacter>(GetPawn());
+	if (!Character || !Character->) return 0.f;
+	return Character->EquippedWeapon->CurrentSpread;
+}
+
 
 
 void AShooterGamePlayerController::TraceForItem()

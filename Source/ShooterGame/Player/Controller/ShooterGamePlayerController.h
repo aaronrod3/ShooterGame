@@ -25,6 +25,7 @@ public:
 	AShooterGamePlayerController();
 	virtual void Tick(float DeltaTime) override;
 	
+	float GetCurrentWeaponSpread() const;
 	
 protected:
 	virtual void BeginPlay() override;

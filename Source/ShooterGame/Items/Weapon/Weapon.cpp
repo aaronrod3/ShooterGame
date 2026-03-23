@@ -60,6 +60,8 @@ void AWeapon::BeginPlay()
 void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	// Decay spread back toward 0 over time
+	CurrentSpread = FMath::FInterpTo(CurrentSpread, 0.f, DeltaTime, SpreadDecayRate);
 }
 
 void AWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -122,6 +124,8 @@ void AWeapon::ShowPickupWidget(bool bShowWidget)
 
 void AWeapon::Fire(const FVector& HitTarget)
 {
+	CurrentSpread = FMath::Clamp(CurrentSpread + SpreadIncreasePerShot, 0.f, MaxSpread);
+	
 	if (FireAnimation)
 	{
 		WeaponMesh->PlayAnimation(FireAnimation, false);

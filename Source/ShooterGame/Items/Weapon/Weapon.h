@@ -69,6 +69,18 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_WeaponState, VisibleAnywhere, Category = "Weapon Properties")
 	EWeaponState WeaponState;
 	
+	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties | Spread")
+	float CurrentSpread; // 0.0 = fully accurate, 1.0 = max spread
+
+	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties | Spread")
+	float SpreadIncreasePerShot = 0.15f;
+
+	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties | Spread")
+	float SpreadDecayRate = 2.5f; // per second, how fast it recovers
+
+	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties | Spread")
+	float MaxSpread = 1.0f;
+	
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	class UWidgetComponent* PickupWidget;
 	
@@ -77,6 +89,7 @@ private:
 	
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<class ACaseEject> CasingClass;
+	
 	
 	UFUNCTION()
 	void OnRep_WeaponState();
