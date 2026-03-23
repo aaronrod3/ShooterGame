@@ -20,19 +20,39 @@ public:
 	
 	// In public section of header
 	float GetSpawnTime() const { return SpawnTime; }
+	
 
 protected:
 	virtual void BeginPlay() override;
-
+	
+	
 	
 	
 private:
+
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* CasingMesh;
 	
-	UPROPERTY(EditAnywhere)
-	float ShellEjectionImpulse;
+	
+	UPROPERTY(EditAnywhere, Category = "Ejection")
+	float EjectRightForce = 300.f;
 
+	UPROPERTY(EditAnywhere, Category = "Ejection")
+	float EjectUpForce = 150.f;
+
+	UPROPERTY(EditAnywhere, Category = "Ejection")
+	float EjectForwardForce = -50.f;   // slight backward kick
+
+	// Variation ranges — randomness applied on top of base forces
+	UPROPERTY(EditAnywhere, Category = "Ejection")
+	float EjectVariation = 80.f;
+	
+	// Random spin on eject
+	UPROPERTY(EditAnywhere, Category = "Ejection")
+	float AngularImpulseStrength = 500.f;
+	
+	
+	
 	UPROPERTY(EditAnywhere)
 	class USoundCue* ShellSound;
 	

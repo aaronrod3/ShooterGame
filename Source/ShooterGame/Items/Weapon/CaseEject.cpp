@@ -18,7 +18,7 @@ ACaseEject::ACaseEject()
 	CasingMesh->SetSimulatePhysics(true);
 	CasingMesh->SetEnableGravity(true);
 	CasingMesh->SetNotifyRigidBodyCollision(true);
-	ShellEjectionImpulse = 5.f;
+	
 	
 	// Casings are purely cosmetic, no need to replicate
 	SetReplicates(false);
@@ -30,15 +30,29 @@ void ACaseEject::BeginPlay()
 	Super::BeginPlay();
 	
 	CasingMesh->OnComponentHit.AddDynamic(this, &ACaseEject::OnHit);
-	CasingMesh->AddImpulse(GetActorForwardVector() * ShellEjectionImpulse);
 	
-	// Record spawn time for accurate oldest-first sorting in the casing limit
+	// Zero out any inherited velocity from the spawning actor's movement
+	CasingMesh->SetPhysicsLinearVelocity(FVector::ZeroVector);
+	CasingMesh->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+	
+	// Build directional impulse with per-axis variation
+	FVector EjectDirection =
+	(GetActorRightVector()   * (EjectRightForce  + FMath::FRandRange(-EjectVariation, EjectVariation))) +
+	(GetActorUpVector()      * (EjectUpForce      + FMath::FRandRange(-EjectVariation, EjectVariation))) +
+	(GetActorForwardVector() * (EjectForwardForce + FMath::FRandRange(-EjectVariation, EjectVariation)));
+
+	CasingMesh->AddImpulse(EjectDirection);
+
+	// Random angular spin so casing tumbles differently each time
+	FVector RandomSpin = FVector(
+		FMath::FRandRange(-AngularImpulseStrength, AngularImpulseStrength),
+		FMath::FRandRange(-AngularImpulseStrength, AngularImpulseStrength),
+		FMath::FRandRange(-AngularImpulseStrength, AngularImpulseStrength)
+	);
+	CasingMesh->AddAngularImpulseInDegrees(RandomSpin);
+	
 	SpawnTime = GetWorld()->GetTimeSeconds();
-
-	// Hard cap safety net — destroys casing if it never comes to rest
 	SetLifeSpan(MaxLifetime);
-
-	// Enforce pool limit on spawn to handle rapid fire
 	EnforceCasingLimit();
 	
 }

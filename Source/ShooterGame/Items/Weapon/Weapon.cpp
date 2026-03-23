@@ -119,13 +119,14 @@ void AWeapon::ShowPickupWidget(bool bShowWidget)
 	}
 }
 
+
 void AWeapon::Fire(const FVector& HitTarget)
 {
 	if (FireAnimation)
 	{
 		WeaponMesh->PlayAnimation(FireAnimation, false);
 	}
-	
+
 	if (CasingClass)
 	{
 		const USkeletalMeshSocket* CaseEjectSocket = WeaponMesh->GetSocketByName(FName("CaseEject"));
@@ -137,15 +138,12 @@ void AWeapon::Fire(const FVector& HitTarget)
 			if (World)
 			{
 				World->SpawnActor<ACaseEject>(
-					CasingClass,
-					SocketTransform.GetLocation(),
-					SocketTransform.GetRotation().Rotator()
+				CasingClass,
+				SocketTransform.GetLocation(),
+				SocketTransform.GetRotation().Rotator()
 				);
 			}
 		}
 	}
 }
-
-
-
 
