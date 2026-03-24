@@ -25,7 +25,15 @@ public:
 	AShooterGamePlayerController();
 	virtual void Tick(float DeltaTime) override;
 	
+	
+	bool IsLocalPlayerEquipped() const;
+	bool IsLocalPlayerAiming() const;
 	float GetCurrentWeaponSpread() const;
+	float GetCurrentWeaponMaxSpread() const;
+	float GetCurrentWeaponRange() const;
+	FVector GetLocalPlayerFlatAimOrigin() const;
+	FVector GetLocalPlayerFlatAimDirection() const;
+	
 	
 protected:
 	virtual void BeginPlay() override;

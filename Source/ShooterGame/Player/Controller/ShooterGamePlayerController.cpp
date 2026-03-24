@@ -64,6 +64,60 @@ void AShooterGamePlayerController::SetupInputComponent()
 }
 
 
+AShooterGameCharacter* GetShooterCharacter(const APlayerController* PlayerController)
+{
+	return PlayerController ? Cast<AShooterGameCharacter>(PlayerController->GetPawn()) : nullptr;
+}
+
+bool AShooterGamePlayerController::IsLocalPlayerEquipped() const
+{
+	AShooterGameCharacter* ShooterCharacter = GetShooterCharacter(this);
+	return ShooterCharacter && ShooterCharacter->IsWeaponEquipped();
+}
+
+bool AShooterGamePlayerController::IsLocalPlayerAiming() const
+{
+	AShooterGameCharacter* ShooterCharacter = GetShooterCharacter(this);
+	return ShooterCharacter && ShooterCharacter->IsAiming();
+}
+
+float AShooterGamePlayerController::GetCurrentWeaponSpread() const
+{
+	AShooterGameCharacter* ShooterCharacter = GetShooterCharacter(this);
+	AWeapon* Weapon = ShooterCharacter ? ShooterCharacter->GetEquippedWeapon() : nullptr;
+	return Weapon ? Weapon->GetCurrentSpread() : 0.f;
+}
+
+float AShooterGamePlayerController::GetCurrentWeaponMaxSpread() const
+{
+	AShooterGameCharacter* ShooterCharacter = GetShooterCharacter(this);
+	AWeapon* Weapon = ShooterCharacter ? ShooterCharacter->GetEquippedWeapon() : nullptr;
+	return Weapon ? Weapon->GetMaxSpread() : 1.f;
+}
+
+float AShooterGamePlayerController::GetCurrentWeaponRange() const
+{
+	AShooterGameCharacter* ShooterCharacter = GetShooterCharacter(this);
+	AWeapon* Weapon = ShooterCharacter ? ShooterCharacter->GetEquippedWeapon() : nullptr;
+	return Weapon ? Weapon->GetWeaponRange() : 0.f;
+}
+
+FVector AShooterGamePlayerController::GetLocalPlayerFlatAimOrigin() const
+{
+	const AShooterGameCharacter* ShooterCharacter = GetShooterCharacter(this);
+	return ShooterCharacter ? ShooterCharacter->GetActorLocation() : FVector::ZeroVector;
+}
+
+FVector AShooterGamePlayerController::GetLocalPlayerFlatAimDirection() const
+{
+	const AShooterGameCharacter* ShooterCharacter = GetShooterCharacter(this);
+	if (!ShooterCharacter) return FVector::ForwardVector;
+
+	FVector FlatForward = ShooterCharacter->GetActorForwardVector();
+	FlatForward.Z = 0.f;
+	return FlatForward.GetSafeNormal();
+}
+
 void AShooterGamePlayerController::CreateHUDWidget()
 {
 	if (!IsLocalPlayerController()) return;
@@ -73,16 +127,6 @@ void AShooterGamePlayerController::CreateHUDWidget()
 		HUDWidget->AddToViewport();
 	}
 }
-
-
-float AShooterGamePlayerController::GetCurrentWeaponSpread() const
-{
-	if (!GetPawn()) return 0.f;
-	AShooterGameCharacter* Character = Cast<AShooterGameCharacter>(GetPawn());
-	if (!Character || !Character->) return 0.f;
-	return Character->EquippedWeapon->CurrentSpread;
-}
-
 
 
 void AShooterGamePlayerController::TraceForItem()

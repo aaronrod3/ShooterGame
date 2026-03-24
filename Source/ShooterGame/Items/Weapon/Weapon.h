@@ -36,6 +36,9 @@ public:
 	void SetWeaponState(EWeaponState State);
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return CollisionSphere; }
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
+	FORCEINLINE float GetCurrentSpread() const { return CurrentSpread; }
+	FORCEINLINE float GetMaxSpread() const { return MaxSpread; }
+	FORCEINLINE float GetWeaponRange() const { return WeaponRange; }
 	
 
 protected:
@@ -69,17 +72,20 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_WeaponState, VisibleAnywhere, Category = "Weapon Properties")
 	EWeaponState WeaponState;
 	
-	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties | Spread")
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Spread")
 	float CurrentSpread; // 0.0 = fully accurate, 1.0 = max spread
 
-	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties | Spread")
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Spread")
 	float SpreadIncreasePerShot = 0.15f;
 
-	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties | Spread")
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Spread")
 	float SpreadDecayRate = 2.5f; // per second, how fast it recovers
 
-	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties | Spread")
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Spread")
 	float MaxSpread = 1.0f;
+	
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	float WeaponRange = 1500.f; // cm, tune per weapon
 	
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	class UWidgetComponent* PickupWidget;
