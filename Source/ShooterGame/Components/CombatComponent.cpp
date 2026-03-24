@@ -9,6 +9,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/SphereComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "Engine/Canvas.h"
+#include "GameFramework/PlayerController.h"
 
 
 UCombatComponent::UCombatComponent()
@@ -121,7 +123,67 @@ void UCombatComponent::MulticastFire_Implementation()
 	}
 }
 
+void UCombatComponent::UpdateReticleState()
+{
+	ReticleState.bIsEquipped = EquippedWeapon != nullptr;
+	ReticleState.bIsAiming   = bAiming;
 
+	APlayerController* PC = Cast<APlayerController>(Character->GetController());
+	if (!PC) return;
+
+	float MouseX, MouseY;
+	ReticleState.bCursorValid    = PC->GetMousePosition(MouseX, MouseY);
+	ReticleState.CursorScreenPos = ReticleState.bCursorValid ? FVector2D(MouseX, MouseY) : FVector2D::ZeroVector;
+
+	if (EquippedWeapon)
+	{
+		const float MaxSpread    = FMath::Max(EquippedWeapon->GetMaxSpread(), 0.001f);
+		ReticleState.SpreadAlpha = FMath::Clamp(EquippedWeapon->GetCurrentSpread() / MaxSpread, 0.f, 1.f);
+		ReticleState.ReachRadius = ComputeReachRadius();
+	}
+	else
+	{
+		ReticleState.SpreadAlpha = 0.f;
+		ReticleState.ReachRadius = -1.f;
+	}
+}
+
+float UCombatComponent::ComputeReachRadius() const
+{
+	if (!EquippedWeapon || !Character || !GetWorld()) return -1.f;
+
+	APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
+	if (!PlayerController) return -1.f;
+
+	// Get cursor screen position
+	float MouseX, MouseY;
+	if (!PlayerController->GetMousePosition(MouseX, MouseY)) return -1.f;
+
+	const FVector2D CursorScreen(MouseX, MouseY);
+
+	// Deproject cursor to world ray
+	FVector WorldOrigin, WorldDirection;
+	if (!PlayerController->DeprojectScreenPositionToWorld(MouseX, MouseY, WorldOrigin, WorldDirection)) return -1.f;
+
+	const float WeaponRange = EquippedWeapon->GetWeaponRange();
+	if (WeaponRange <= 0.f) return -1.f;
+
+	const FVector TraceEnd = WorldOrigin + WorldDirection * WeaponRange;
+
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(ReticleReachTrace), false);
+	Params.AddIgnoredActor(Character);
+
+	GetWorld()->LineTraceSingleByChannel(Hit, WorldOrigin, TraceEnd, ECC_Visibility, Params);
+
+	const FVector EndPoint = Hit.bBlockingHit ? Hit.ImpactPoint : TraceEnd;
+
+	FVector2D EndScreen;
+	if (!PlayerController->ProjectWorldLocationToScreen(EndPoint, EndScreen, true)) return -1.f;
+
+	// ReachRadius is distance from CURSOR position to the projected endpoint, not screen center
+	return FVector2D::Distance(CursorScreen, EndScreen);
+}
 
 
 

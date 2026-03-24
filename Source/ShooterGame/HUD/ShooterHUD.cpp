@@ -2,107 +2,99 @@
 
 
 #include "ShooterHUD.h"
+#include "ShooterGame/Components/CombatComponent.h"
 #include "Items/Weapon/Weapon.h"
-#include "ShooterGame/Player/Controller/ShooterGamePlayerController.h"
-#include "Engine/Canvas.h"
+#include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 
 void AShooterHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	AShooterGamePlayerController* PlayerController = Cast<AShooterGamePlayerController>(GetOwningPlayerController());
+	APlayerController* PlayerController = GetOwningPlayerController();
 	if (!PlayerController) return;
-
-	if (PlayerController->IsLocalPlayerEquipped())
+	
+	UE_LOG(LogTemp, Warning, TEXT("Pawn: %s"), *GetNameSafe(PlayerController->GetPawn()));
+	
+	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(PlayerController->GetPawn());
+	if (!ShooterCharacter) return;
+	
+	
+	UCombatComponent* Combat = ShooterCharacter->FindComponentByClass<UCombatComponent>();
+	if (!Combat) return;
+	
+	
+	const FReticleState& State = Combat->GetReticleState();
+	
+	
+	// don't draw anything if the cursor position isn't valid
+	if (!State.bCursorValid) return;
+	
+	const FVector2D DrawCenter = State.CursorScreenPos;
+	
+	if (State.bIsEquipped)
 	{
-		const float ReachRadius = GetReachLimitedRadius(PlayerController);
-		DrawCircleReticle(PlayerController, ReachRadius);
+		// Fetch per-weapon style config and draw the circle reticle
+		const AWeapon* Weapon = ShooterCharacter->GetEquippedWeapon();
+		if (!Weapon) return;
+		
+		DrawCircleReticle(DrawCenter, State, Weapon->GetReticleConfig());
 	}
 	else
 	{
-		DrawDotReticle();
+		// No Weapon - draw the fallback dot using a default config
+		const FReticleConfig DefaultConfig;
+		DrawDotReticle(DrawCenter, DefaultConfig);
 	}
 }
 
-void AShooterHUD::DrawDotReticle()
+void AShooterHUD::DrawDotReticle(const FVector2D& Center, const FReticleConfig& Config)
 {
-	FVector2D ViewportSize;
-	if (GEngine && GEngine->GameViewport)
-	{
-		GEngine->GameViewport->GetViewportSize(ViewportSize);
-	}
-	const FVector2D Center(ViewportSize.X / 2.f, ViewportSize.Y / 2.f);
-
-	DrawRect(DotReticleColor, Center.X - DotReticleSize / 2.f, Center.Y - DotReticleSize / 2.f,
-			 DotReticleSize, DotReticleSize);
+	DrawRect(
+	Config.DotColor,
+	Center.X - Config.DotSize * 0.5f,
+	Center.Y - Config.DotSize * 0.5f,
+	Config.DotSize,
+	Config.DotSize	
+	);
 }
 
-void AShooterHUD::DrawCircleReticle(const AShooterGamePlayerController* ShooterPlayerController, float OverrideRadius)
+void AShooterHUD::DrawCircleReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config)
 {
-	if (!Canvas || !ShooterPlayerController) return;
+	if (!Canvas) return;
 
-	const float CenterX = Canvas->SizeX * 0.5f;
-	const float CenterY = Canvas->SizeY * 0.5f;
+	// Lerp radius from base to max using pre-normalized spread alpha
+	float Radius = FMath::Lerp(Config.BaseRadius, Config.MaxRadius, State.SpreadAlpha);
 
-	const float MaxSpread = FMath::Max(ShooterPlayerController->GetCurrentWeaponMaxSpread(), 0.001f);
-	const float SpreadAlpha = FMath::Clamp(ShooterPlayerController->GetCurrentWeaponSpread() / MaxSpread, 0.f, 1.f);
-
-	// --- Spread + aim radius ---
-	float Radius = FMath::Lerp(ReticleBaseRadius, ReticleMaxRadius, SpreadAlpha);
-
-	if (ShooterPlayerController->IsLocalPlayerAiming())
+	// Tighten radius while aiming
+	if (State.bIsAiming)
 	{
-		Radius *= ReticleAimMultiplier;
+		Radius *= Config.AimMultiplier;
 	}
 
-	// --- Clamp to reach if trace gave us a valid override --- (Step 6 addition)
-	if (OverrideRadius >= 0.f)
+	// Clamp to reach radius if a valid surface was hit within weapon range
+	if (State.ReachRadius >= 0.f)
 	{
-		Radius = FMath::Min(Radius, OverrideRadius);
+		Radius = FMath::Min(Radius, State.ReachRadius);
 	}
 
-	// --- Draw circle ---
-	const float AngleStep = (2.f * PI) / FMath::Max(CircleSegments, 3);
-	for (int32 Index = 0; Index < CircleSegments; ++Index)
+	// Draw segmented circle
+	const float AngleStep = (2.f * PI) / FMath::Max(Config.Segments, 3);
+	for (int32 Index = 0; Index < Config.Segments; ++Index)
 	{
 		const float A0 = AngleStep * Index;
 		const float A1 = AngleStep * (Index + 1);
 
-		const FVector2D P0(CenterX + Radius * FMath::Cos(A0), CenterY + Radius * FMath::Sin(A0));
-		const FVector2D P1(CenterX + Radius * FMath::Cos(A1), CenterY + Radius * FMath::Sin(A1));
+		const FVector2D P0(Center.X + Radius * FMath::Cos(A0), Center.Y + Radius * FMath::Sin(A0));
+		const FVector2D P1(Center.X + Radius * FMath::Cos(A1), Center.Y + Radius * FMath::Sin(A1));
 
-		DrawLine(P0.X, P0.Y, P1.X, P1.Y, CircleReticleColor, CircleThickness);
+		DrawLine(P0.X, P0.Y, P1.X, P1.Y, Config.CircleColor, Config.Thickness);
 	}
 }
 
 
-float AShooterHUD::GetReachLimitedRadius(const AShooterGamePlayerController* ShooterPlayerController) const
-{
-	if (!ShooterPlayerController || !Canvas || !GetWorld()) return -1.f;
 
-	const FVector TraceStart = ShooterPlayerController->GetLocalPlayerFlatAimOrigin();
-	const FVector AimDir = ShooterPlayerController->GetLocalPlayerFlatAimDirection();
-	const float WeaponRange = ShooterPlayerController->GetCurrentWeaponRange();
 
-	if (WeaponRange <= 0.f || AimDir.IsNearlyZero()) return -1.f;
 
-	const FVector TraceEnd = TraceStart + AimDir * WeaponRange;
 
-	FHitResult Hit;
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(ReticleReachTrace), false);
-	if (const APawn* Pawn = ShooterPlayerController->GetPawn())
-	{
-		Params.AddIgnoredActor(Pawn);
-	}
 
-	GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params);
 
-	const FVector EndPoint = Hit.bBlockingHit ? Hit.ImpactPoint : TraceEnd;
-
-	FVector2D CenterScreen(Canvas->SizeX * 0.5f, Canvas->SizeY * 0.5f);
-	FVector2D EndScreen;
-	const bool bProjected = ShooterPlayerController->ProjectWorldLocationToScreen(EndPoint, EndScreen, true);
-	if (!bProjected) return -1.f;
-
-	return FVector2D::Distance(CenterScreen, EndScreen);
-}

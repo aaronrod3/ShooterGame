@@ -9,6 +9,37 @@
 
 class USphereComponent;
 
+USTRUCT(BlueprintType)
+struct FReticleConfig
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float DotSize = 4.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FLinearColor DotColor = FLinearColor::White;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float BaseRadius = 20.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float MaxRadius = 80.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float AimMultiplier = 0.4f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FLinearColor CircleColor = FLinearColor::White;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 Segments = 32;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float Thickness = 1.5f;
+};
+
+
 UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
@@ -39,6 +70,7 @@ public:
 	FORCEINLINE float GetCurrentSpread() const { return CurrentSpread; }
 	FORCEINLINE float GetMaxSpread() const { return MaxSpread; }
 	FORCEINLINE float GetWeaponRange() const { return WeaponRange; }
+	FORCEINLINE const FReticleConfig& GetReticleConfig() const { return ReticleConfig; }
 	
 	void AddSpreadOnFire();
 
@@ -87,6 +119,9 @@ private:
 	
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	float WeaponRange = 1500.f; // cm, tune per weapon
+	
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Reticle")
+	FReticleConfig ReticleConfig;  
 	
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	class UWidgetComponent* PickupWidget;

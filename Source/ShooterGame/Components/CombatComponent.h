@@ -7,6 +7,22 @@
 #include "CombatComponent.generated.h"
 
 
+// Local-only reticle runtime state, computed each tick on owning client 
+USTRUCT()
+struct FReticleState
+{
+	GENERATED_BODY()
+
+	bool bIsEquipped  = false;
+	bool bIsAiming    = false;
+	float SpreadAlpha = 0.f;										// 0 = fully accurate, 1 = max spread
+	float ReachRadius = -1.f;										// screen-space px radius clamped to weapon range; -1 = no clamp
+	FVector2D CursorScreenPos = FVector2D(0.f, 0.f);		// mouse position in screen space
+	bool bCursorValid = false;										// is mouse over valid viewport
+};
+
+
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SHOOTERGAME_API UCombatComponent : public UActorComponent
 {
@@ -20,6 +36,8 @@ public:
 	friend class AShooterGamePlayerController;
 	
 	void EquipWeapon(class AWeapon* WeaponToEquip);
+	
+	FORCEINLINE const FReticleState& GetReticleState() const { return ReticleState; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -57,4 +75,10 @@ private:
 	UPROPERTY(EditAnywhere)
 	float AimWalkSpeed;
 
+	
+	// Reticle state, local client only, never replicated
+	FReticleState ReticleState;
+	void UpdateReticleState();
+	float ComputeReachRadius() const;
+	
 };
