@@ -18,7 +18,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogShooterGameCharacter, Log, All);
 
 
 UCLASS()
-class AShooterGameCharacter : public ACharacter
+class SHOOTERGAME_API AShooterGameCharacter : public ACharacter
 {
 	GENERATED_BODY()
 

@@ -37,6 +37,9 @@ struct FReticleConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float Thickness = 1.5f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float CrouchMultiplier = 0.7f;
 };
 
 
@@ -121,7 +124,7 @@ private:
 	float WeaponRange = 1500.f; // cm, tune per weapon
 	
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Reticle")
-	FReticleConfig ReticleConfig;  
+	FReticleConfig ReticleConfig; 
 	
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	class UWidgetComponent* PickupWidget;

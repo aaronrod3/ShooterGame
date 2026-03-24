@@ -39,7 +39,10 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	
+	if (Character && Character->IsLocallyControlled())
+	{
+		UpdateReticleState();
+	}
 }
 
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -127,19 +130,41 @@ void UCombatComponent::UpdateReticleState()
 {
 	ReticleState.bIsEquipped = EquippedWeapon != nullptr;
 	ReticleState.bIsAiming   = bAiming;
+	ReticleState.bIsCrouched = Character->bIsCrouched;
 
 	APlayerController* PC = Cast<APlayerController>(Character->GetController());
 	if (!PC) return;
 
 	float MouseX, MouseY;
 	ReticleState.bCursorValid    = PC->GetMousePosition(MouseX, MouseY);
-	ReticleState.CursorScreenPos = ReticleState.bCursorValid ? FVector2D(MouseX, MouseY) : FVector2D::ZeroVector;
+	
+	if (ReticleState.bCursorValid)
+	{
+		ReticleState.CursorScreenPos = FVector2D(MouseX, MouseY);
+	}
+	else
+	{
+		// Fallback to viewport center when mouse is captured (PIE, game-only input mode)
+		int32 SizeX, SizeY;
+		PC->GetViewportSize(SizeX, SizeY);
+		ReticleState.CursorScreenPos = FVector2D(SizeX * 0.5f, SizeY * 0.5f);
+		ReticleState.bCursorValid = true; // center is always a valid draw position
+	}
 
 	if (EquippedWeapon)
 	{
-		const float MaxSpread    = FMath::Max(EquippedWeapon->GetMaxSpread(), 0.001f);
-		ReticleState.SpreadAlpha = FMath::Clamp(EquippedWeapon->GetCurrentSpread() / MaxSpread, 0.f, 1.f);
+		const float MaxSpread = FMath::Max(EquippedWeapon->GetMaxSpread(), 0.001f);
+		float SpreadAlpha = FMath::Clamp(EquippedWeapon->GetCurrentSpread() / MaxSpread, 0.f, 1.f);
+
+		// Movement modifier — normalize velocity against max walk speed
+		const float CurrentSpeed = Character->GetVelocity().Size();
+		const float MaxSpeed = FMath::Max(Character->GetCharacterMovement()->MaxWalkSpeed, 1.f);
+		const float MovementAlpha = FMath::Clamp(CurrentSpeed / MaxSpeed, 0.f, 1.f);
+		SpreadAlpha = FMath::Clamp(SpreadAlpha + MovementAlpha * MovementSpreadMultiplier, 0.f, 1.f);
+
+		ReticleState.SpreadAlpha = SpreadAlpha;
 		ReticleState.ReachRadius = ComputeReachRadius();
+		
 	}
 	else
 	{
@@ -182,7 +207,9 @@ float UCombatComponent::ComputeReachRadius() const
 	if (!PlayerController->ProjectWorldLocationToScreen(EndPoint, EndScreen, true)) return -1.f;
 
 	// ReachRadius is distance from CURSOR position to the projected endpoint, not screen center
-	return FVector2D::Distance(CursorScreen, EndScreen);
+	const float Distance = FVector2D::Distance(CursorScreen, EndScreen);
+	if (Distance < 1.f) return -1.f;
+	return Distance;
 }
 
 

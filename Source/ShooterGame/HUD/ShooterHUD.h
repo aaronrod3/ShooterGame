@@ -4,12 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "ShooterGame/Items/Weapon/Weapon.h"
+#include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterHUD.generated.h"
-
-
-struct FReticleState;
-struct FReticleConfig;
-
 
 
 class AShooterGamePlayerController;
@@ -26,4 +23,6 @@ private:
 	void DrawDotReticle(const FVector2D& Center, const FReticleConfig& Config);
 	void DrawCircleReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config);
 	
+	UPROPERTY(EditAnywhere, Category = "HUD | Reticle")
+	FReticleConfig UnequippedReticle;
 };

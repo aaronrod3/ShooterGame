@@ -5,6 +5,8 @@
 #include "ShooterGame/Components/CombatComponent.h"
 #include "Items/Weapon/Weapon.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
+#include "Engine/Canvas.h"
+
 
 void AShooterHUD::DrawHUD()
 {
@@ -13,21 +15,14 @@ void AShooterHUD::DrawHUD()
 	APlayerController* PlayerController = GetOwningPlayerController();
 	if (!PlayerController) return;
 	
-	UE_LOG(LogTemp, Warning, TEXT("Pawn: %s"), *GetNameSafe(PlayerController->GetPawn()));
-	
 	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(PlayerController->GetPawn());
 	if (!ShooterCharacter) return;
-	
 	
 	UCombatComponent* Combat = ShooterCharacter->FindComponentByClass<UCombatComponent>();
 	if (!Combat) return;
 	
 	
 	const FReticleState& State = Combat->GetReticleState();
-	
-	
-	// don't draw anything if the cursor position isn't valid
-	if (!State.bCursorValid) return;
 	
 	const FVector2D DrawCenter = State.CursorScreenPos;
 	
@@ -42,10 +37,11 @@ void AShooterHUD::DrawHUD()
 	else
 	{
 		// No Weapon - draw the fallback dot using a default config
-		const FReticleConfig DefaultConfig;
-		DrawDotReticle(DrawCenter, DefaultConfig);
+		DrawDotReticle(DrawCenter, UnequippedReticle);
 	}
 }
+
+
 
 void AShooterHUD::DrawDotReticle(const FVector2D& Center, const FReticleConfig& Config)
 {
@@ -64,6 +60,12 @@ void AShooterHUD::DrawCircleReticle(const FVector2D& Center, const FReticleState
 
 	// Lerp radius from base to max using pre-normalized spread alpha
 	float Radius = FMath::Lerp(Config.BaseRadius, Config.MaxRadius, State.SpreadAlpha);
+	
+	// Tighten base radius when crouched
+	if (State.bIsCrouched)
+	{
+		Radius *= Config.CrouchMultiplier;
+	}
 
 	// Tighten radius while aiming
 	if (State.bIsAiming)
@@ -72,7 +74,7 @@ void AShooterHUD::DrawCircleReticle(const FVector2D& Center, const FReticleState
 	}
 
 	// Clamp to reach radius if a valid surface was hit within weapon range
-	if (State.ReachRadius >= 0.f)
+	if (State.ReachRadius > 1.f)
 	{
 		Radius = FMath::Min(Radius, State.ReachRadius);
 	}

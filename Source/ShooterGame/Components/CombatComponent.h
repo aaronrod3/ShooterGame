@@ -13,12 +13,13 @@ struct FReticleState
 {
 	GENERATED_BODY()
 
-	bool bIsEquipped  = false;
-	bool bIsAiming    = false;
-	float SpreadAlpha = 0.f;										// 0 = fully accurate, 1 = max spread
-	float ReachRadius = -1.f;										// screen-space px radius clamped to weapon range; -1 = no clamp
-	FVector2D CursorScreenPos = FVector2D(0.f, 0.f);		// mouse position in screen space
-	bool bCursorValid = false;										// is mouse over valid viewport
+	bool bIsEquipped			= false;
+	bool bIsAiming				= false;
+	bool bIsCrouched			= false;
+	float SpreadAlpha			= 0.f;								// 0 = fully accurate, 1 = max spread
+	float ReachRadius			= -1.f;								// screen-space px radius clamped to weapon range; -1 = no clamp
+	FVector2D CursorScreenPos	= FVector2D(0.f, 0.f);		// mouse position in screen space
+	bool bCursorValid			= false;							// is mouse over valid viewport
 };
 
 
@@ -80,5 +81,11 @@ private:
 	FReticleState ReticleState;
 	void UpdateReticleState();
 	float ComputeReachRadius() const;
+	
+	UPROPERTY(EditAnywhere, Category = "Reticle")
+	float CrouchSpreadMultiplier = 0.7f;   // < 1.0 tightens spread while crouched
+
+	UPROPERTY(EditAnywhere, Category = "Reticle")
+	float MovementSpreadMultiplier = 0.4f; // how much max movement adds to spread (0..1 range addition)
 	
 };
