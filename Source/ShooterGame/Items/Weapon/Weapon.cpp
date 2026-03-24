@@ -15,7 +15,7 @@
 // Sets default values
 AWeapon::AWeapon()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 	
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Weapon Mesh"));
@@ -60,6 +60,8 @@ void AWeapon::BeginPlay()
 void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	DecaySpread(DeltaTime);
+	
 	// Decay spread back toward 0 over time
 	CurrentSpread = FMath::FInterpTo(CurrentSpread, 0.f, DeltaTime, SpreadDecayRate);
 }
@@ -151,3 +153,18 @@ void AWeapon::Fire(const FVector& HitTarget)
 	}
 }
 
+void AWeapon::DecaySpread(float DeltaTime)
+{
+	CurrentSpread = FMath::Clamp(
+		CurrentSpread - SpreadDecayRate * DeltaTime,
+		0.f, MaxSpread
+	);
+}
+
+void AWeapon::AddSpreadOnFire()
+{
+	CurrentSpread = FMath::Clamp(
+		CurrentSpread + SpreadIncreasePerShot,
+		0.f, MaxSpread
+	);
+}

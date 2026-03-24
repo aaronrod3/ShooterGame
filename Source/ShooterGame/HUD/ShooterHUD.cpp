@@ -16,7 +16,7 @@ void AShooterHUD::DrawHUD()
 	if (PlayerController->IsLocalPlayerEquipped())
 	{
 		const float ReachRadius = GetReachLimitedRadius(PlayerController);
-		DrawCircleReticle(PlayerController);
+		DrawCircleReticle(PlayerController, ReachRadius);
 	}
 	else
 	{

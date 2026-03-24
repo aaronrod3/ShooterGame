@@ -40,6 +40,7 @@ public:
 	FORCEINLINE float GetMaxSpread() const { return MaxSpread; }
 	FORCEINLINE float GetWeaponRange() const { return WeaponRange; }
 	
+	void AddSpreadOnFire();
 
 protected:
 	virtual void BeginPlay() override;
@@ -99,6 +100,8 @@ private:
 	
 	UFUNCTION()
 	void OnRep_WeaponState();
+	
+	void DecaySpread(float DeltaTime);
 	
 	
 };
