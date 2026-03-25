@@ -64,9 +64,13 @@ AShooterGameCharacter::AShooterGameCharacter()
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	Combat->SetIsReplicated(true);
 	
+	
+	
 	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
 	
 	TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+	
+	
 }
 
 void AShooterGameCharacter::BeginPlay()
@@ -383,7 +387,23 @@ void AShooterGameCharacter::PlayFireMontage(bool bAiming)
 	
 }
 
+void AShooterGameCharacter::PlayHitReactMontage()
+{
+	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
 
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && HitReactMontage)
+	{
+		AnimInstance->Montage_Play(HitReactMontage);
+		FName SectionName("FromFront");
+		AnimInstance->Montage_JumpToSection(SectionName);
+	}
+}
+
+void AShooterGameCharacter::MulticastHit_Implementation()
+{
+	PlayHitReactMontage();
+}
 
 
 

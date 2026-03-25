@@ -31,7 +31,10 @@ public:
 	virtual void PostInitializeComponents() override;
 	
 	void PlayFireMontage(bool bAiming);
+	void PlayHitReactMontage();
 	
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastHit();
 	
 	/** Handles move inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
@@ -123,7 +126,8 @@ private:
 	
 	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
 	class UAnimMontage* FireWeaponMontage;
-	
+	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
+	class UAnimMontage* HitReactMontage;
 	
 	
 	/* Variables */
