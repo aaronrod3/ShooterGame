@@ -2,14 +2,11 @@
 
 
 #include "CombatComponent.h"
-
 #include "Engine/SkeletalMeshSocket.h"
 #include "Items/Weapon/Weapon.h"
 #include "Player/Character/ShooterGameCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Components/SphereComponent.h"
 #include "Net/UnrealNetwork.h"
-#include "Engine/Canvas.h"
 #include "GameFramework/PlayerController.h"
 
 
@@ -42,7 +39,15 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	if (Character && Character->IsLocallyControlled())
 	{
 		UpdateReticleState();
+		
+		if (EquippedWeapon)
+		{
+			FHitResult CrosshairHit;
+			TraceUnderCrosshairs(CrosshairHit);
+			HitTarget = CrosshairHit.ImpactPoint;
+		}
 	}
+	
 }
 
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -107,12 +112,13 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	
 	if (bFireButtonPressed)
 	{
-		ServerFire();
+		ServerFire(HitTarget);
 	}
 }
 
-void UCombatComponent::ServerFire_Implementation()
+void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& InHitTarget)
 {
+	HitTarget = InHitTarget;
 	MulticastFire();
 }
 
@@ -132,11 +138,11 @@ void UCombatComponent::UpdateReticleState()
 	ReticleState.bIsAiming   = bAiming;
 	ReticleState.bIsCrouched = Character->bIsCrouched;
 
-	APlayerController* PC = Cast<APlayerController>(Character->GetController());
-	if (!PC) return;
+	APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
+	if (!PlayerController) return;
 
 	float MouseX, MouseY;
-	ReticleState.bCursorValid    = PC->GetMousePosition(MouseX, MouseY);
+	ReticleState.bCursorValid    = PlayerController->GetMousePosition(MouseX, MouseY);
 	
 	if (ReticleState.bCursorValid)
 	{
@@ -146,7 +152,7 @@ void UCombatComponent::UpdateReticleState()
 	{
 		// Fallback to viewport center when mouse is captured (PIE, game-only input mode)
 		int32 SizeX, SizeY;
-		PC->GetViewportSize(SizeX, SizeY);
+		PlayerController->GetViewportSize(SizeX, SizeY);
 		ReticleState.CursorScreenPos = FVector2D(SizeX * 0.5f, SizeY * 0.5f);
 		ReticleState.bCursorValid = true; // center is always a valid draw position
 	}
@@ -213,7 +219,36 @@ float UCombatComponent::ComputeReachRadius() const
 }
 
 
+bool UCombatComponent::TraceUnderCrosshairs(FHitResult& OutHit)
+{
+	if (!Character || !GetWorld()) return false;
 
+	APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
+	if (!PlayerController) return false;
+
+	// Reuse the cursor screen pos already computed this tick
+	const FVector2D& ScreenPos = ReticleState.CursorScreenPos;
+
+	FVector WorldOrigin, WorldDirection;
+	if (!PlayerController->DeprojectScreenPositionToWorld(ScreenPos.X, ScreenPos.Y, WorldOrigin, WorldDirection))
+		return false;
+
+	const float Range = EquippedWeapon ? EquippedWeapon->GetWeaponRange() : 10000.f;
+	const FVector TraceEnd = WorldOrigin + WorldDirection * Range;
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(CrosshairTrace), false);
+	Params.AddIgnoredActor(Character);
+	if (EquippedWeapon) Params.AddIgnoredActor(EquippedWeapon);
+
+	bool bHit = GetWorld()->LineTraceSingleByChannel(OutHit, WorldOrigin, TraceEnd, ECC_Visibility, Params);
+	if (!bHit)
+	{
+		OutHit.ImpactPoint = TraceEnd;
+	}
+
+
+	return bHit;
+}
 
 
 
