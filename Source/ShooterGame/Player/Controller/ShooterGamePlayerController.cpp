@@ -30,6 +30,7 @@ void AShooterGamePlayerController::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	
 	TraceForItem();
+	UpdateCursorVisibility();
 }
 
 
@@ -39,6 +40,13 @@ void AShooterGamePlayerController::BeginPlay()
 	
 	// Show cursor
 	bShowMouseCursor = false;
+	
+	// Start with cursor visible — unequipped default
+	bShowMouseCursor = true;
+	FInputModeGameAndUI InputMode;
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	InputMode.SetHideCursorDuringCapture(false);
+	SetInputMode(InputMode);
 
 	// Add Input Mapping Contexts
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
@@ -75,6 +83,32 @@ void AShooterGamePlayerController::CreateHUDWidget()
 	}
 }
 
+void AShooterGamePlayerController::UpdateCursorVisibility()
+{
+	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(GetPawn());
+	if (!ShooterCharacter) return;
+
+	const bool bIsEquipped = ShooterCharacter->IsWeaponEquipped();
+	if (bIsEquipped == bWasEquipped) return;
+	bWasEquipped = bIsEquipped;
+
+	if (bIsEquipped)
+	{
+		bShowMouseCursor = false;
+		FInputModeGameAndUI InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
+		InputMode.SetHideCursorDuringCapture(true);
+		SetInputMode(InputMode);
+	}
+	else
+	{
+		bShowMouseCursor = true;
+		FInputModeGameAndUI InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		InputMode.SetHideCursorDuringCapture(false);
+		SetInputMode(InputMode);
+	}
+}
 
 void AShooterGamePlayerController::TraceForItem()
 {

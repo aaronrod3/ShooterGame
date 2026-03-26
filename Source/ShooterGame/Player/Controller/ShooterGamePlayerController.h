@@ -41,6 +41,8 @@ private:
 
 	void CreateHUDWidget();
 	void TraceForItem();
+	void UpdateCursorVisibility();
+	bool bWasEquipped = false;
 	
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
