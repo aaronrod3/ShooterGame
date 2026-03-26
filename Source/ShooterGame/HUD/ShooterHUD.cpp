@@ -28,9 +28,16 @@ void AShooterHUD::DrawHUD()
 	
 	if (State.bIsEquipped)
 	{
+		// Fetch per-weapon style config and draw the circle reticle
 		const AWeapon* Weapon = ShooterCharacter->GetEquippedWeapon();
 		if (!Weapon) return;
+		
 		DrawCircleReticle(DrawCenter, State, Weapon->GetReticleConfig());
+	}
+	else
+	{
+		// No Weapon - draw the fallback dot using a default config
+		DrawDotReticle(DrawCenter, UnequippedReticle);
 	}
 }
 
