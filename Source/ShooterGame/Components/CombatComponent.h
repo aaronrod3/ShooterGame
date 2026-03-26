@@ -17,7 +17,6 @@ struct FReticleState
 	bool bIsAiming				= false;
 	bool bIsCrouched			= false;
 	float SpreadAlpha			= 0.f;								// 0 = fully accurate, 1 = max spread
-	float ReachRadius			= -1.f;								// screen-space px radius clamped to weapon range; -1 = no clamp
 	FVector2D CursorScreenPos	= FVector2D(0.f, 0.f);		// mouse position in screen space
 	bool bCursorValid			= false;							// is mouse over valid viewport
 };
@@ -39,6 +38,7 @@ public:
 	void EquipWeapon(class AWeapon* WeaponToEquip);
 	
 	FORCEINLINE const FReticleState& GetReticleState() const { return ReticleState; }
+	FORCEINLINE FVector GetReticleWorldPosition() const { return ReticleWorldPosition; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -68,9 +68,10 @@ private:
 	UPROPERTY(Replicated)
 	bool bAiming;
 	
-	bool TraceUnderCrosshairs(FHitResult& OutHit);
 	bool bFireButtonPressed;
 	FVector HitTarget;
+	FVector ReticleWorldPosition = FVector::ZeroVector;
+	
 
 	UPROPERTY(EditAnywhere)
 	float BaseWalkSpeed;
@@ -81,7 +82,11 @@ private:
 	// Reticle state, local client only, never replicated
 	FReticleState ReticleState;
 	void UpdateReticleState();
-	float ComputeReachRadius() const;
+	void UpdateReticleWorldPosition();
+	
+	
+	UPROPERTY(EditAnywhere, Category = "Reticle")
+	float ReticleMaxDistance = 2000.f;
 	
 	UPROPERTY(EditAnywhere, Category = "Reticle")
 	float CrouchSpreadMultiplier = 0.7f;   // < 1.0 tightens spread while crouched

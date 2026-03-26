@@ -95,9 +95,7 @@ void AShooterGamePlayerController::UpdateCursorVisibility()
 	if (bIsEquipped)
 	{
 		bShowMouseCursor = false;
-		FInputModeGameAndUI InputMode;
-		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
-		InputMode.SetHideCursorDuringCapture(true);
+		FInputModeGameOnly InputMode;
 		SetInputMode(InputMode);
 	}
 	else

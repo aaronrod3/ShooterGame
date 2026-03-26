@@ -39,6 +39,24 @@ struct FReticleConfig
 	float Thickness = 1.5f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float CursorCircleRadius = 12.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FLinearColor CursorCircleColor = FLinearColor::White;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float CursorCircleThickness = 1.5f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float CrosshairGapSize = 6.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float CenterDotSize = 4.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FLinearColor CenterDotColor = FLinearColor::White;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float CrouchMultiplier = 0.7f;
 };
 

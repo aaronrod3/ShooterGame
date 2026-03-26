@@ -85,10 +85,6 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		LeftHandTransform.SetRotation(FQuat(OutRotation));
 		
 		FTransform RightHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("ik_hand_r"), RTS_World);
-		
-		FTransform MuzzleTipTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("MuzzleFlash"), RTS_World);
-		FVector MuzzleX(FRotationMatrix(MuzzleTipTransform.GetRotation().Rotator()).GetUnitAxis(EAxis::X));
-		DrawDebugLine(GetWorld(), MuzzleTipTransform.GetLocation(), MuzzleTipTransform.GetLocation() + MuzzleX * 100.f, FColor::Red, false, 0.f, 0.f, 1.f);
 	}
 }
 

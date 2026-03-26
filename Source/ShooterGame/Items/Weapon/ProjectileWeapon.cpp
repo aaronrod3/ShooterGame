@@ -33,9 +33,13 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 	if (MuzzleFlashSocket)
 	{
 		FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
-		// From muzzle flash socket to hit location from TraceUnderCrosshairs
-		FVector ToTarget = HitTarget - SocketTransform.GetLocation();
-		FRotator TargetRotation = ToTarget.Rotation();
+		FVector MuzzleFlashLocation = SocketTransform.GetLocation();
+		FVector FlatTarget = HitTarget;
+		FlatTarget.Z = MuzzleFlashLocation.Z;					// keep same height as muzzle
+		FVector ToTarget = FlatTarget - MuzzleFlashLocation;
+		FRotator TargetRotation = ToTarget.Rotation();			// purely horizontal
+		TargetRotation.Pitch = 0.f;								// safety clamp
+		
 		if (ProjectileClass && InstigatorPawn)
 		{
 			FActorSpawnParameters SpawnParams;
@@ -46,7 +50,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 			{
 				World->SpawnActor<AProjectile>(
 					ProjectileClass,
-					SocketTransform.GetLocation(),
+					MuzzleFlashLocation,
 					TargetRotation,
 					SpawnParams
 					);

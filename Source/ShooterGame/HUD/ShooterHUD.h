@@ -20,8 +20,8 @@ public:
 	virtual void DrawHUD() override;
 	
 private:
-	void DrawDotReticle(const FVector2D& Center, const FReticleConfig& Config);
-	void DrawCircleReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config);
+	void DrawCrosshairReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config);
+	void DrawCursorCircle(const FVector2D& Center, const FReticleConfig& Config);
 	
 	UPROPERTY(EditAnywhere, Category = "HUD | Reticle")
 	FReticleConfig UnequippedReticle;

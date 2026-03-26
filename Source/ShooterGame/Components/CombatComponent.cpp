@@ -42,9 +42,8 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		
 		if (EquippedWeapon)
 		{
-			FHitResult CrosshairHit;
-			TraceUnderCrosshairs(CrosshairHit);
-			HitTarget = CrosshairHit.ImpactPoint;
+			UpdateReticleWorldPosition();
+			HitTarget = ReticleWorldPosition;
 		}
 	}
 	
@@ -74,12 +73,11 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	EquippedWeapon = WeaponToEquip;
 	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 	
-	const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(FName("RightHandSocket"));
-	
-	if (HandSocket)
-	{
-		HandSocket->AttachActor(EquippedWeapon, Character->GetMesh());
-	}
+	EquippedWeapon->AttachToComponent(
+		Character->GetMesh(),
+		FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true),
+		FName("RightHandSocket")
+	);
 	
 	EquippedWeapon->SetOwner(Character);
 	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -169,86 +167,67 @@ void UCombatComponent::UpdateReticleState()
 		SpreadAlpha = FMath::Clamp(SpreadAlpha + MovementAlpha * MovementSpreadMultiplier, 0.f, 1.f);
 
 		ReticleState.SpreadAlpha = SpreadAlpha;
-		ReticleState.ReachRadius = ComputeReachRadius();
 		
 	}
 	else
 	{
 		ReticleState.SpreadAlpha = 0.f;
-		ReticleState.ReachRadius = -1.f;
 	}
 }
 
-float UCombatComponent::ComputeReachRadius() const
+void UCombatComponent::UpdateReticleWorldPosition()
 {
-	if (!EquippedWeapon || !Character || !GetWorld()) return -1.f;
+	if (!Character || !GetWorld()) return;
 
-	APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
-	if (!PlayerController) return -1.f;
+	FVector Origin = Character->GetActorLocation();
 
-	// Get cursor screen position
-	float MouseX, MouseY;
-	if (!PlayerController->GetMousePosition(MouseX, MouseY)) return -1.f;
+	if (EquippedWeapon && EquippedWeapon->GetWeaponMesh())
+	{
+		const USkeletalMeshSocket* MuzzleSocket =
+			EquippedWeapon->GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
 
-	const FVector2D CursorScreen(MouseX, MouseY);
+		if (MuzzleSocket)
+		{
+			const FVector MuzzleLocation =
+				MuzzleSocket->GetSocketTransform(EquippedWeapon->GetWeaponMesh()).GetLocation();
 
-	// Deproject cursor to world ray
-	FVector WorldOrigin, WorldDirection;
-	if (!PlayerController->DeprojectScreenPositionToWorld(MouseX, MouseY, WorldOrigin, WorldDirection)) return -1.f;
+			Origin.Z = MuzzleLocation.Z;
+		}
+	}
 
-	const float WeaponRange = EquippedWeapon->GetWeaponRange();
-	if (WeaponRange <= 0.f) return -1.f;
+	FVector Forward = Character->GetActorForwardVector();
+	Forward.Z = 0.f;
+	Forward.Normalize();
 
-	const FVector TraceEnd = WorldOrigin + WorldDirection * WeaponRange;
+	const FVector TraceEnd = Origin + Forward * ReticleMaxDistance;
 
 	FHitResult Hit;
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(ReticleReachTrace), false);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(ReticleWorldTrace), false);
 	Params.AddIgnoredActor(Character);
 
-	GetWorld()->LineTraceSingleByChannel(Hit, WorldOrigin, TraceEnd, ECC_Visibility, Params);
-
-	const FVector EndPoint = Hit.bBlockingHit ? Hit.ImpactPoint : TraceEnd;
-
-	FVector2D EndScreen;
-	if (!PlayerController->ProjectWorldLocationToScreen(EndPoint, EndScreen, true)) return -1.f;
-
-	// ReachRadius is distance from CURSOR position to the projected endpoint, not screen center
-	const float Distance = FVector2D::Distance(CursorScreen, EndScreen);
-	if (Distance < 1.f) return -1.f;
-	return Distance;
-}
-
-
-bool UCombatComponent::TraceUnderCrosshairs(FHitResult& OutHit)
-{
-	if (!Character || !GetWorld()) return false;
-
-	APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
-	if (!PlayerController) return false;
-
-	// Reuse the cursor screen pos already computed this tick
-	const FVector2D& ScreenPos = ReticleState.CursorScreenPos;
-
-	FVector WorldOrigin, WorldDirection;
-	if (!PlayerController->DeprojectScreenPositionToWorld(ScreenPos.X, ScreenPos.Y, WorldOrigin, WorldDirection))
-		return false;
-
-	const float Range = EquippedWeapon ? EquippedWeapon->GetWeaponRange() : 10000.f;
-	const FVector TraceEnd = WorldOrigin + WorldDirection * Range;
-
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(CrosshairTrace), false);
-	Params.AddIgnoredActor(Character);
-	if (EquippedWeapon) Params.AddIgnoredActor(EquippedWeapon);
-
-	bool bHit = GetWorld()->LineTraceSingleByChannel(OutHit, WorldOrigin, TraceEnd, ECC_Visibility, Params);
-	if (!bHit)
+	if (EquippedWeapon)
 	{
-		OutHit.ImpactPoint = TraceEnd;
+		Params.AddIgnoredActor(EquippedWeapon);
 	}
 
+	GetWorld()->LineTraceSingleByChannel(Hit, Origin, TraceEnd, ECC_Visibility, Params);
 
-	return bHit;
+	ReticleWorldPosition = Hit.bBlockingHit ? Hit.ImpactPoint : TraceEnd;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
