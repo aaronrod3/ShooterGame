@@ -107,12 +107,135 @@ void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 void UCombatComponent::FireButtonPressed(bool bPressed)
 {
 	bFireButtonPressed = bPressed;
-	
-	if (bFireButtonPressed)
+
+	if (!bFireButtonPressed || !EquippedWeapon) return;
+
+	switch (EquippedWeapon->GetCurrentFireMode())
 	{
-		ServerFire(HitTarget);
+	case EFireMode::EFM_Safe:
+		// Do nothing — weapon is on safe
+		break;
+
+	case EFireMode::EFM_SemiAuto:
+		if (bCanFire)
+		{
+			HandleFire();
+		}
+		break;
+
+	case EFireMode::EFM_Burst:
+		if (bCanFire)
+		{
+			BurstShotsRemaining = EquippedWeapon->GetBurstCount();
+			HandleBurstFire();
+		}
+		break;
+
+	case EFireMode::EFM_FullAuto:
+		bFullAutoFiring = true;
+		if (bCanFire)
+		{
+			HandleFire();
+		}
+		break;
+
+	default:
+		break;
 	}
 }
+
+
+void UCombatComponent::FireButtonReleased()
+{
+    bFireButtonPressed = false;
+    bFullAutoFiring = false;
+
+    // Clear full auto timer if it's running
+    if (GetWorld())
+    {
+        GetWorld()->GetTimerManager().ClearTimer(FireTimerHandle);
+    }
+}
+
+// ADD - single shot fire + starts cooldown timer
+void UCombatComponent::HandleFire()
+{
+    if (!EquippedWeapon) return;
+
+    bCanFire = false;
+    ServerFire(HitTarget);
+
+    const float Rate = (EquippedWeapon->GetCurrentFireMode() == EFireMode::EFM_FullAuto)
+        ? EquippedWeapon->GetFullAutoFireRate()   // see note: need to expose this getter
+        : EquippedWeapon->GetFireRate();
+
+    // Full auto: schedule the next shot while button held
+    if (bFullAutoFiring)
+    {
+        GetWorld()->GetTimerManager().SetTimer(
+            FireTimerHandle,
+            [this]()
+            {
+                bCanFire = true;
+                if (bFullAutoFiring && EquippedWeapon)
+                {
+                    HandleFire();
+                }
+            },
+            Rate,
+            false
+        );
+    }
+    else
+    {
+        // Semi / Burst: just reset the can-fire gate after the rate
+        GetWorld()->GetTimerManager().SetTimer(
+            FireTimerHandle,
+            [this]() { bCanFire = true; },
+            Rate,
+            false
+        );
+    }
+}
+
+// ADD - fires one burst shot, schedules next if more remain
+void UCombatComponent::HandleBurstFire()
+{
+    if (!EquippedWeapon || BurstShotsRemaining <= 0)
+    {
+        // Burst done — start the between-burst cooldown
+        GetWorld()->GetTimerManager().SetTimer(
+            FireTimerHandle,
+            [this]() { bCanFire = true; },
+            EquippedWeapon ? EquippedWeapon->GetFireRate() : 0.15f,
+            false
+        );
+        return;
+    }
+
+    BurstShotsRemaining--;
+    ServerFire(HitTarget);
+
+    // Schedule the next shot within this burst at full-auto rate (tighter spacing)
+    const float BurstIntraRate = EquippedWeapon->GetFullAutoFireRate();
+    GetWorld()->GetTimerManager().SetTimer(
+        BurstFireTimerHandle,
+        this, &UCombatComponent::HandleBurstFire,
+        BurstIntraRate,
+        false
+    );
+}
+
+// ADD - proxy called from character input
+void UCombatComponent::CycleFireMode()
+{
+    if (EquippedWeapon)
+    {
+        EquippedWeapon->CycleFireMode();
+    }
+}
+
+
 
 void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& InHitTarget)
 {

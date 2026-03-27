@@ -168,3 +168,30 @@ void AWeapon::AddSpreadOnFire()
 		0.f, MaxSpread
 	);
 }
+
+void AWeapon::CycleFireMode()
+{
+	if (AllowedFireModes.Num() == 0) return;
+
+	// Find current index in allowed modes
+	int32 CurrentIndex = AllowedFireModes.IndexOfByKey(CurrentFireMode);
+
+	// Move to next, wrap around
+	int32 NextIndex = (CurrentIndex + 1) % AllowedFireModes.Num();
+	CurrentFireMode = AllowedFireModes[NextIndex];
+
+	UE_LOG(LogTemp, Log, TEXT("Fire Mode switched to: %s"),
+		*UEnum::GetValueAsString(CurrentFireMode));
+}
+
+
+
+
+
+
+
+
+
+
+
+

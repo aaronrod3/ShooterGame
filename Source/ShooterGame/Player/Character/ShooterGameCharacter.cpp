@@ -106,6 +106,7 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::ToggleAim);
 		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::FireButtonPressed);
 		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &AShooterGameCharacter::FireButtonReleased);
+		EnhancedInputComponent->BindAction(CycleFireModeAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::CycleFireModeButtonPressed);
 	}
 	else
 	{
@@ -365,10 +366,12 @@ void AShooterGameCharacter::FireButtonPressed()
 
 void AShooterGameCharacter::FireButtonReleased()
 {
-	if (Combat)
-	{
-		Combat->FireButtonPressed(false);
-	}
+	if (Combat) Combat->FireButtonReleased();
+}
+
+void AShooterGameCharacter::CycleFireModeButtonPressed()
+{
+	if (Combat) Combat->CycleFireMode();
 }
 
 

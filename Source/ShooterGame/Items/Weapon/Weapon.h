@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "ShooterGame/Types/FireMode.h" 
 #include "Weapon.generated.h"
 
 
@@ -92,8 +93,15 @@ public:
 	FORCEINLINE float GetMaxSpread() const { return MaxSpread; }
 	FORCEINLINE float GetWeaponRange() const { return WeaponRange; }
 	FORCEINLINE const FReticleConfig& GetReticleConfig() const { return ReticleConfig; }
+	FORCEINLINE EFireMode GetCurrentFireMode() const { return CurrentFireMode; }
+	FORCEINLINE float GetFireRate() const { return FireRate; }
+	FORCEINLINE float GetFullAutoFireRate() const { return FullAutoFireRate; }
+	FORCEINLINE int32 GetBurstCount() const { return BurstCount; }
+	FORCEINLINE bool IsFireModeAllowed(EFireMode Mode) const { return AllowedFireModes.Contains(Mode); }
+	
 	
 	void AddSpreadOnFire();
+	void CycleFireMode();
 
 protected:
 	virtual void BeginPlay() override;
@@ -137,6 +145,21 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Spread")
 	float MaxSpread = 1.0f;
+	
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Fire Mode")
+	TArray<EFireMode> AllowedFireModes = { EFireMode::EFM_SemiAuto };
+
+	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties|Fire Mode")
+	EFireMode CurrentFireMode = EFireMode::EFM_SemiAuto;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Fire Mode")
+	float FireRate = 0.15f; // seconds between shots (semi / burst spam limit)
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Fire Mode")
+	float FullAutoFireRate = 0.1f; // seconds between shots when full auto
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Fire Mode")
+	int32 BurstCount = 3; // rounds per burst trigger pull
 	
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	float WeaponRange = 1500.f; // cm, tune per weapon

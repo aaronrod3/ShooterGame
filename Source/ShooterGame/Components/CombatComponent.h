@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "ShooterGame/Types/FireMode.h"
 #include "CombatComponent.generated.h"
 
 
@@ -39,6 +40,7 @@ public:
 	
 	FORCEINLINE const FReticleState& GetReticleState() const { return ReticleState; }
 	FORCEINLINE FVector GetReticleWorldPosition() const { return ReticleWorldPosition; }
+	
 
 protected:
 	virtual void BeginPlay() override;
@@ -51,6 +53,10 @@ protected:
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
 	void FireButtonPressed(bool bPressed);
+	void FireButtonReleased();
+	void CycleFireMode();
+	void HandleFire();
+	void HandleBurstFire();
 	
 	UFUNCTION(Server, Reliable)
 	void ServerFire(const FVector_NetQuantize& InHitTarget);
@@ -71,6 +77,11 @@ private:
 	bool bFireButtonPressed;
 	FVector HitTarget;
 	FVector ReticleWorldPosition = FVector::ZeroVector;
+	FTimerHandle FireTimerHandle;
+	FTimerHandle BurstFireTimerHandle;
+	bool bCanFire = true;              // semi / burst cooldown gate
+	int32 BurstShotsRemaining = 0;    // tracks shots left in a burst sequence
+	bool bFullAutoFiring = false;     // true while LMB is held in full auto
 	
 
 	UPROPERTY(EditAnywhere)

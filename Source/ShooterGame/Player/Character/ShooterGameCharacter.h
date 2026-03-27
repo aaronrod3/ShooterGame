@@ -74,6 +74,7 @@ public:
 	void ToggleAim();
 	void FireButtonPressed();
 	void FireButtonReleased();
+	void CycleFireModeButtonPressed();
 	
 	bool IsWeaponEquipped();
 	bool IsAiming();
@@ -123,6 +124,8 @@ private:
 	TObjectPtr<UInputAction> AimAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> FireAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> CycleFireModeAction;
 	
 	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
 	class UAnimMontage* FireWeaponMontage;
