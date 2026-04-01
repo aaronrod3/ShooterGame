@@ -20,9 +20,12 @@ public:
 	virtual void DrawHUD() override;
 	
 private:
-	void DrawCrosshairReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config);
-	void DrawCursorCircle(const FVector2D& Center, const FReticleConfig& Config);
-	
+	void DrawDotReticle(const FVector2D& Center, const FReticleConfig& Config);
+	void DrawWeaponReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config);
+    
 	UPROPERTY(EditAnywhere, Category = "HUD | Reticle")
-	FReticleConfig UnequippedReticle;
+	FReticleConfig UnequippedReticleConfig;
+
+	UPROPERTY(EditAnywhere, Category = "HUD | Reticle")
+	FReticleConfig EquippedReticleConfig;
 };

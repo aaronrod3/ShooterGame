@@ -34,8 +34,8 @@ AShooterGameCharacter::AShooterGameCharacter()
 	bUseControllerRotationRoll = false;
 
 	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = false;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 720.0f, 0.0f);
 
 	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
 	// instead of recompiling to adjust them
@@ -49,12 +49,14 @@ AShooterGameCharacter::AShooterGameCharacter()
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 1200.0f;
-	CameraBoom->bUsePawnControlRotation = true;
-	CameraBoom->bInheritPitch = false; // lock pitch to spring arm
-	CameraBoom->bInheritRoll = false;
-	CameraBoom->bInheritYaw = true; // allow yaw from actor rotation
-	CameraBoom->bDoCollisionTest = false; // prevent wall clipping
+	CameraBoom->TargetArmLength = 300.0f;								// close third-person distance
+	CameraBoom->SocketOffset = FVector(0.f, 75.f, 75.f);	// slight right shoulder offset
+	CameraBoom->bUsePawnControlRotation = true;							// arm follows controller pitch + yaw
+	CameraBoom->bInheritPitch = true;									// allow pitch
+	CameraBoom->bInheritRoll = false;									 // no roll
+	CameraBoom->bInheritYaw = true;
+	CameraBoom->bDoCollisionTest = true;								// camera pulls in on walls
+	CameraBoom->ProbeSize = 12.f;										// collision probe radius
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -82,7 +84,7 @@ void AShooterGameCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	FaceTowardCursor(DeltaTime);
+	AimOffsetTick(DeltaTime);
 }
 
 void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -91,10 +93,9 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
 
 		// Camera
-		EnhancedInputComponent->BindAction(RotateCamera_Action,ETriggerEvent::Triggered, this, &AShooterGameCharacter::RotateCamera);
+		
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Move);
-		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Look);
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Look);
 		// Crouch
@@ -132,13 +133,6 @@ void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 }
 
 
-// Camera rotation
-void AShooterGameCharacter::RotateCamera(const FInputActionValue& Value)
-{
-	const float Axis = Value.Get<float>();
-	DesiredYaw += Axis * RotationSpeed * GetWorld()->GetDeltaSeconds();
-}
-
 
 void AShooterGameCharacter::Move(const FInputActionValue& Value)
 {
@@ -147,15 +141,6 @@ void AShooterGameCharacter::Move(const FInputActionValue& Value)
 
 	// route the input
 	DoMove(MovementVector.X, MovementVector.Y);
-}
-
-void AShooterGameCharacter::Look(const FInputActionValue& Value)
-{
-	// input is a Vector2D
-	FVector2D LookAxisVector = Value.Get<FVector2D>();
-
-	// route the input
-	DoLook(LookAxisVector.X, LookAxisVector.Y);
 }
 
 void AShooterGameCharacter::DoMove(float Right, float Forward)
@@ -178,68 +163,79 @@ void AShooterGameCharacter::DoMove(float Right, float Forward)
 	}
 }
 
+void AShooterGameCharacter::Look(const FInputActionValue& Value)
+{
+	FVector2D LookAxisVector = Value.Get<FVector2D>();
+	DoLook(LookAxisVector.X, LookAxisVector.Y);
+}
+
 void AShooterGameCharacter::DoLook(float Yaw, float Pitch)
 {
 	if (GetController() != nullptr)
 	{
-		// add yaw and pitch input to controller
 		AddControllerYawInput(Yaw);
+		AddControllerPitchInput(Pitch);  
 	}
 }
 
-
-
-void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
+void AShooterGameCharacter::AimOffsetTick(float DeltaTime)
 {
-	if (!IsLocallyControlled()) return;
-	
-	APlayerController* PlayerController = Cast<APlayerController>(GetController());
-	if (!PlayerController) return;
-	
-	FHitResult Hit;
-	if (PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
+	if (!IsLocallyControlled())
 	{
-		FVector LookAtCursor = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
-		if (LookAtCursor.IsNearlyZero()) return;
+		return;
+	}
 
-		FRotator TargetRotation = LookAtCursor.Rotation();
-		FRotator CurrentRotation = GetActorRotation();
-		//TurnInPlace(DeltaTime); // make sure this is the right spot later
+	const bool bLockToCamera = bUseControllerRotationYaw;
+	const float Speed2D = GetVelocity().Size2D();
 
-		// Compute aim offset BEFORE the interp — this is the lag the upper body needs to correct
-		if (Combat && Combat->EquippedWeapon)
-		{
-			FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, CurrentRotation);
-			AimOffset_Yaw = Delta.Yaw;
-		}
-		else
-		{
-			AimOffset_Yaw = 0.f;
-		}
-		
-		// Check if the body has "caught up" (small delta = not turning)
-		float AbsDelta = FMath::Abs(AimOffset_Yaw);
-		if (AbsDelta < 5.f)
-		{
-			TurningInPlace = ETurningInPlace::ETIP_NotTurning; // ← HERE
-		}
-		else
-		{
-			TurnInPlace(DeltaTime); // ← HERE — after delta is known, before body snaps
-		}
+	if (!bLockToCamera)
+	{
+		AimOffset_Yaw = FMath::FInterpTo(AimOffset_Yaw, 0.f, DeltaTime, 15.f);
+		AimOffset_Pitch = FMath::FInterpTo(AimOffset_Pitch, 0.f, DeltaTime, 15.f);
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		return;
+	}
 
-		// Now interp the body toward the cursor
-		FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, FaceCursorInterpSpeed);
-		SetActorRotation(FRotator(0.f, NewRotation.Yaw, 0.f));
+	const FRotator ControlRotation = GetControlRotation();
+	const FRotator ActorRotation = GetActorRotation();
+	const FRotator DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(ControlRotation, ActorRotation);
 
-		if (!HasAuthority())
-		{
-			ServerSetFacingYaw(NewRotation.Yaw);
-		}
+	AimOffset_Yaw = FMath::FInterpTo(AimOffset_Yaw, DeltaRotation.Yaw, DeltaTime, 15.f);
+
+	const float NormalizedPitch = FRotator::NormalizeAxis(ControlRotation.Pitch);
+	AimOffset_Pitch = FMath::FInterpTo(AimOffset_Pitch, NormalizedPitch, DeltaTime, 15.f);
+	AimOffset_Pitch = FMath::Clamp(AimOffset_Pitch, -90.f, 90.f);
+
+	if (Speed2D > 0.f)
+	{
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		return;
+	}
+
+	if (AimOffset_Yaw > 90.f)
+	{
+		TurningInPlace = ETurningInPlace::ETIP_Right;
+	}
+	else if (AimOffset_Yaw < -90.f)
+	{
+		TurningInPlace = ETurningInPlace::ETIP_Left;
+	}
+	else
+	{
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
 	}
 }
 
+void AShooterGameCharacter::SetRotationMode(bool bLockToCamera)
+{
+	bUseControllerRotationYaw = bLockToCamera;
+	GetCharacterMovement()->bOrientRotationToMovement = !bLockToCamera;
 
+	if (!bLockToCamera)
+	{
+		AimOffset_Yaw = 0.f;
+	}
+}
 
 void AShooterGameCharacter::TurnInPlace(float DeltaTime)
 {
@@ -253,11 +249,6 @@ void AShooterGameCharacter::TurnInPlace(float DeltaTime)
 	}
 }
 
-
-void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
-{
-	SetActorRotation(FRotator(0, Yaw, 0));
-}
 
 void AShooterGameCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 {

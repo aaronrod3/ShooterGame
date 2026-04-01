@@ -50,24 +50,20 @@ public:
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	
 	FORCEINLINE float GetAimOffset_Yaw() const { return AimOffset_Yaw; }
+	FORCEINLINE float GetAimOffset_Pitch() const { return AimOffset_Pitch; }
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
 	
 	
 	
 	/* Camera Settings */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-	float RotationSpeed = 120.f;
-	// Interp speed for snapping character to face cursor
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-	float FaceCursorInterpSpeed = 15.f;
+	
 
 	AWeapon* GetEquippedWeapon();
 	
 	/* Inputs */
-	void RotateCamera(const FInputActionValue& Value);
-	void FaceTowardCursor(float DeltaTime);
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void SetRotationMode(bool bLockToCamera);
 	void EquipButtonPressed();
 	void CrouchButtonPressed();
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -78,9 +74,9 @@ public:
 	
 	bool IsWeaponEquipped();
 	bool IsAiming();
-	
-	float DesiredYaw = 0.f;
+    
 	float AimOffset_Yaw;
+	float AimOffset_Pitch;
 	
 
 protected:
@@ -104,14 +100,9 @@ private:
 	/* INPUT */
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> MoveAction;
-	UPROPERTY(EditAnywhere, Category = "Input | Camera")
-	TObjectPtr<UInputAction> RotateCamera_Action;
 	/* Look Input Action */
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> LookAction;
-	/* Mouse Look Input Action */
-	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> MouseLookAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> CrouchAction;
 	/*
@@ -138,11 +129,10 @@ private:
 	
 	
 	/*** FUNCTIONS ***/
-	UFUNCTION(Server, Unreliable)
-	void ServerSetFacingYaw(float Yaw);
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 	
+	void AimOffsetTick(float DeltaTime);
 	void TurnInPlace(float DeltaTime);
 	
 	UFUNCTION()

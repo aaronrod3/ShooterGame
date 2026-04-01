@@ -37,23 +37,6 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		ShooterGameCharacter->GetActorRotation()
 	);
 	
-	// Cursor aim
-	APlayerController* PlayerController = Cast<APlayerController>(ShooterGameCharacter->GetController());
-	if (PlayerController)
-	{
-		FHitResult Hit;
-		if (PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
-		{
-			FVector LookAtCursor = (Hit.ImpactPoint - ShooterGameCharacter->GetActorLocation()).GetSafeNormal2D();
-			CursorDirection = FMath::RadiansToDegrees(
-				FMath::Atan2(
-					FVector::DotProduct(LookAtCursor, ShooterGameCharacter->GetActorRightVector()),
-					FVector::DotProduct(LookAtCursor, ShooterGameCharacter->GetActorForwardVector())
-				)
-			);
-		}
-	}
-	
 	
 	bIsAccelerating = ShooterGameCharacter->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f ? true : false;
 	bIsCrouched = ShooterGameCharacter->IsCrouched();
@@ -74,6 +57,7 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	Lean = FMath::Clamp(Interp, -45.f, 45.f);
 	
 	AimOffset_Yaw = ShooterGameCharacter->GetAimOffset_Yaw();
+	AimOffset_Pitch = ShooterGameCharacter->GetAimOffset_Pitch();
 	
 	if (bWeaponEquipped && EquippedWeapon && EquippedWeapon->GetWeaponMesh() && ShooterGameCharacter->GetMesh())
 	{

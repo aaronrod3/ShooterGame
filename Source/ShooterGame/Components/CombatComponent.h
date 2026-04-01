@@ -14,12 +14,11 @@ struct FReticleState
 {
 	GENERATED_BODY()
 
-	bool bIsEquipped			= false;
-	bool bIsAiming				= false;
-	bool bIsCrouched			= false;
-	float SpreadAlpha			= 0.f;								// 0 = fully accurate, 1 = max spread
-	FVector2D CursorScreenPos	= FVector2D(0.f, 0.f);		// mouse position in screen space
-	bool bCursorValid			= false;							// is mouse over valid viewport
+	bool bIsEquipped            = false;
+	bool bIsAiming              = false;
+	bool bIsCrouched            = false;
+	float SpreadAlpha           = 0.f;
+	bool bReticleValid          = true;
 };
 
 

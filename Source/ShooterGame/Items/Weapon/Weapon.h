@@ -15,50 +15,35 @@ struct FReticleConfig
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float DotSize = 4.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
+	float BaseRadius = 18.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FLinearColor DotColor = FLinearColor::White;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
+	float MaxRadius = 42.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float BaseRadius = 20.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float MaxRadius = 80.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float AimMultiplier = 0.4f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FLinearColor CircleColor = FLinearColor::White;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	int32 Segments = 32;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float Thickness = 1.5f;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float CursorCircleRadius = 12.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FLinearColor CursorCircleColor = FLinearColor::White;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float CursorCircleThickness = 1.5f;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
 	float CrosshairGapSize = 6.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float CenterDotSize = 4.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
+	float Thickness = 2.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
+	float AimMultiplier = 0.75f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
+	float CrouchMultiplier = 0.85f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
+	float CenterDotRadius = 3.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
+	int32 CenterDotSegments = 12;  // higher = smoother, 12 is fine for a small dot
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
 	FLinearColor CenterDotColor = FLinearColor::White;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float CrouchMultiplier = 0.7f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
+	FLinearColor LineColor = FLinearColor::White;
 };
 
 

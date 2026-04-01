@@ -13,6 +13,10 @@ void AShooterHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
+	if (!Canvas) return;
+
+	const FVector2D ScreenCenter(Canvas->SizeX * 0.5f, Canvas->SizeY * 0.5f);
+
 	AShooterGamePlayerController* ShooterGamePlayerController = Cast<AShooterGamePlayerController>(PlayerOwner);
 	if (!ShooterGamePlayerController) return;
     
@@ -26,90 +30,63 @@ void AShooterHUD::DrawHUD()
 
 	if (State.bIsEquipped)
 	{
-		const AWeapon* Weapon = ShooterCharacter->GetEquippedWeapon();
-		if (!Weapon) return;
-
-		const FReticleConfig& Config = Weapon->GetReticleConfig();
-
-		// Reticle crosshair — projected from world shot position
-		FVector2D ReticleScreenPos;
-		if (ShooterGamePlayerController->ProjectWorldLocationToScreen(
-			Combat->GetReticleWorldPosition(),
-			ReticleScreenPos,
-			true))
-		{
-			DrawCrosshairReticle(ReticleScreenPos, State, Config);
-		}
-
-		// Cursor circle — drawn at current mouse position, fixed size
-		float MouseX, MouseY;
-		if (ShooterGamePlayerController->GetMousePosition(MouseX, MouseY))
-		{
-			DrawCursorCircle(FVector2D(MouseX, MouseY), Config);
-		}
-		else
-		{
-			// Fallback: viewport center when mouse is captured
-			int32 SizeX, SizeY;
-			ShooterGamePlayerController->GetViewportSize(SizeX, SizeY);
-			DrawCursorCircle(FVector2D(SizeX * 0.5f, SizeY * 0.5f), Config);
-		}
+		DrawWeaponReticle(ScreenCenter, State, EquippedReticleConfig);
+	}
+	else
+	{
+		DrawDotReticle(ScreenCenter, UnequippedReticleConfig);
 	}
 }
 
 
-void AShooterHUD::DrawCrosshairReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config)
+void AShooterHUD::DrawDotReticle(const FVector2D& Center, const FReticleConfig& Config)
 {
 	if (!Canvas) return;
 
-	// Spread-driven radius, same logic as old circle
+	const float Radius = Config.CenterDotRadius;
+	const int32 Segments = FMath::Max(Config.CenterDotSegments, 3);
+	const float AngleStep = (2.f * PI) / Segments;
+
+	for (int32 i = 0; i < Segments; ++i)
+	{
+		const float A0 = AngleStep * i;
+		const float A1 = AngleStep * (i + 1);
+
+		const FVector2D P0(Center.X + Radius * FMath::Cos(A0), Center.Y + Radius * FMath::Sin(A0));
+		const FVector2D P1(Center.X + Radius * FMath::Cos(A1), Center.Y + Radius * FMath::Sin(A1));
+
+		DrawLine(P0.X, P0.Y, P1.X, P1.Y, Config.CenterDotColor, Config.Thickness);
+	}
+}
+
+
+void AShooterHUD::DrawWeaponReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config)
+{
+	if (!Canvas) return;
+
 	float Radius = FMath::Lerp(Config.BaseRadius, Config.MaxRadius, State.SpreadAlpha);
 	if (State.bIsCrouched) Radius *= Config.CrouchMultiplier;
 	if (State.bIsAiming)   Radius *= Config.AimMultiplier;
 
 	const float GapSize = Config.CrosshairGapSize;
-	const FLinearColor Color = Config.CircleColor;
-	const float T = Config.Thickness;
+	const float Thickness = Config.Thickness;
+	const FLinearColor LineColor = Config.LineColor;
 
 	// Top
-	DrawLine(Center.X, Center.Y - GapSize, Center.X, Center.Y - Radius, Color, T);
+	DrawLine(Center.X, Center.Y - GapSize, Center.X, Center.Y - Radius, LineColor, Thickness);
+
 	// Bottom
-	DrawLine(Center.X, Center.Y + GapSize, Center.X, Center.Y + Radius, Color, T);
+	DrawLine(Center.X, Center.Y + GapSize, Center.X, Center.Y + Radius, LineColor, Thickness);
+
 	// Left
-	DrawLine(Center.X - GapSize, Center.Y, Center.X - Radius, Center.Y, Color, T);
+	DrawLine(Center.X - GapSize, Center.Y, Center.X - Radius, Center.Y, LineColor, Thickness);
+
 	// Right
-	DrawLine(Center.X + GapSize, Center.Y, Center.X + Radius, Center.Y, Color, T);
-	
-	// center dot
-	DrawRect(
-		Config.CenterDotColor,
-		Center.X - Config.CenterDotSize * 0.5f,
-		Center.Y - Config.CenterDotSize * 0.5f,
-		Config.CenterDotSize,
-		Config.CenterDotSize
-	);
+	DrawLine(Center.X + GapSize, Center.Y, Center.X + Radius, Center.Y, LineColor, Thickness);
+
+	// Center dot — circle
+	DrawDotReticle(Center, Config);
 }
-
-void AShooterHUD::DrawCursorCircle(const FVector2D& Center, const FReticleConfig& Config)
-{
-	if (!Canvas) return;
-
-	const float Radius = Config.CursorCircleRadius; // fixed, never changes
-	const int32 Segments = Config.Segments;
-	const float AngleStep = (2.f * PI) / FMath::Max(Segments, 3);
-
-	for (int32 Index = 0; Index < Segments; ++Index)
-	{
-		const float A0 = AngleStep * Index;
-		const float A1 = AngleStep * (Index + 1);
-
-		const FVector2D P0(Center.X + Radius * FMath::Cos(A0), Center.Y + Radius * FMath::Sin(A0));
-		const FVector2D P1(Center.X + Radius * FMath::Cos(A1), Center.Y + Radius * FMath::Sin(A1));
-
-		DrawLine(P0.X, P0.Y, P1.X, P1.Y, Config.CursorCircleColor, Config.CursorCircleThickness);
-	}
-}
-
 
 
 
