@@ -113,7 +113,6 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	switch (EquippedWeapon->GetCurrentFireMode())
 	{
 	case EFireMode::EFM_Safe:
-		// Do nothing — weapon is on safe
 		break;
 
 	case EFireMode::EFM_SemiAuto:
@@ -157,82 +156,83 @@ void UCombatComponent::FireButtonReleased()
     }
 }
 
-// ADD - single shot fire + starts cooldown timer
 void UCombatComponent::HandleFire()
 {
-    if (!EquippedWeapon) return;
+	if (!EquippedWeapon || !GetWorld()) return;
 
-    bCanFire = false;
-    ServerFire(HitTarget);
+	bCanFire = false;
 
-    const float Rate = (EquippedWeapon->GetCurrentFireMode() == EFireMode::EFM_FullAuto)
-        ? EquippedWeapon->GetFullAutoFireRate()   // see note: need to expose this getter
-        : EquippedWeapon->GetFireRate();
+	ServerFire(HitTarget);
 
-    // Full auto: schedule the next shot while button held
-    if (bFullAutoFiring)
-    {
-        GetWorld()->GetTimerManager().SetTimer(
-            FireTimerHandle,
-            [this]()
-            {
-                bCanFire = true;
-                if (bFullAutoFiring && EquippedWeapon)
-                {
-                    HandleFire();
-                }
-            },
-            Rate,
-            false
-        );
-    }
-    else
-    {
-        // Semi / Burst: just reset the can-fire gate after the rate
-        GetWorld()->GetTimerManager().SetTimer(
-            FireTimerHandle,
-            [this]() { bCanFire = true; },
-            Rate,
-            false
-        );
-    }
+	const float Rate = (EquippedWeapon->GetCurrentFireMode() == EFireMode::EFM_FullAuto)
+		? EquippedWeapon->GetFullAutoFireRate()
+		: EquippedWeapon->GetFireRate();
+
+	GetWorld()->GetTimerManager().SetTimer(
+		FireTimerHandle,
+		this,
+		&UCombatComponent::ResetCanFire,
+		Rate,
+		false
+	);
 }
 
-// ADD - fires one burst shot, schedules next if more remain
+void UCombatComponent::ResetCanFire()
+{
+	bCanFire = true;
+
+	if (bFullAutoFiring && EquippedWeapon)
+	{
+		HandleFire();
+	}
+}
+
+
 void UCombatComponent::HandleBurstFire()
 {
-    if (!EquippedWeapon || BurstShotsRemaining <= 0)
-    {
-        // Burst done — start the between-burst cooldown
-        GetWorld()->GetTimerManager().SetTimer(
-            FireTimerHandle,
-            [this]() { bCanFire = true; },
-            EquippedWeapon ? EquippedWeapon->GetFireRate() : 0.15f,
-            false
-        );
-        return;
-    }
+	if (!EquippedWeapon || !GetWorld()) return;
 
-    BurstShotsRemaining--;
-    ServerFire(HitTarget);
+	if (BurstShotsRemaining <= 0)
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			FireTimerHandle,
+			this,
+			&UCombatComponent::ResetCanFire,
+			EquippedWeapon->GetFireRate(),
+			false
+		);
+		return;
+	}
 
-    // Schedule the next shot within this burst at full-auto rate (tighter spacing)
-    const float BurstIntraRate = EquippedWeapon->GetFullAutoFireRate();
-    GetWorld()->GetTimerManager().SetTimer(
-        BurstFireTimerHandle,
-        this, &UCombatComponent::HandleBurstFire,
-        BurstIntraRate,
-        false
-    );
+	BurstShotsRemaining--;
+	ServerFire(HitTarget);
+
+	GetWorld()->GetTimerManager().SetTimer(
+		BurstFireTimerHandle,
+		this,
+		&UCombatComponent::HandleBurstFire,
+		EquippedWeapon->GetFullAutoFireRate(),
+		false
+	);
 }
 
-// ADD - proxy called from character input
 void UCombatComponent::CycleFireMode()
 {
-    if (EquippedWeapon)
-    {
-        EquippedWeapon->CycleFireMode();
-    }
+	if (!EquippedWeapon) return;
+
+	EquippedWeapon->CycleFireMode();
+
+	const FString DisplayName = EquippedWeapon->GetCurrentFireModeDisplayName();
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			42,
+			3.f,
+			FColor::Yellow,
+			FString::Printf(TEXT("Fire Mode: %s"), *DisplayName)
+		);
+	}
 }
 
 

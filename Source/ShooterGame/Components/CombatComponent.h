@@ -93,6 +93,7 @@ private:
 	FReticleState ReticleState;
 	void UpdateReticleState();
 	void UpdateReticleWorldPosition();
+	void ResetCanFire();
 	
 	
 	UPROPERTY(EditAnywhere, Category = "Reticle")

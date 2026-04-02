@@ -84,6 +84,17 @@ public:
 	FORCEINLINE int32 GetBurstCount() const { return BurstCount; }
 	FORCEINLINE bool IsFireModeAllowed(EFireMode Mode) const { return AllowedFireModes.Contains(Mode); }
 	
+	FString GetCurrentFireModeDisplayName() const
+	{
+		switch (CurrentFireMode)
+		{
+		case EFireMode::EFM_Safe:       return TEXT("Safe");
+		case EFireMode::EFM_SemiAuto:   return TEXT("Semi Auto");
+		case EFireMode::EFM_Burst:      return TEXT("Burst");
+		case EFireMode::EFM_FullAuto:   return TEXT("Full Auto");
+		default:                        return TEXT("Unknown");
+		}
+	}
 	
 	void AddSpreadOnFire();
 	void CycleFireMode();
