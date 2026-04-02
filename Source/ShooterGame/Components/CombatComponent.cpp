@@ -107,7 +107,6 @@ void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 void UCombatComponent::FireButtonPressed(bool bPressed)
 {
 	bFireButtonPressed = bPressed;
-
 	if (!bFireButtonPressed || !EquippedWeapon) return;
 
 	switch (EquippedWeapon->GetCurrentFireMode())
@@ -116,15 +115,17 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 		break;
 
 	case EFireMode::EFM_SemiAuto:
-		if (bCanFire)
+		if (!bFiredThisPress)          // only fire on the first call per press
 		{
+			bFiredThisPress = true;
 			HandleFire();
 		}
 		break;
 
 	case EFireMode::EFM_Burst:
-		if (bCanFire)
+		if (!bFiredThisPress && BurstShotsRemaining <= 0)
 		{
+			bFiredThisPress = true;
 			BurstShotsRemaining = EquippedWeapon->GetBurstCount();
 			HandleBurstFire();
 		}
@@ -132,10 +133,7 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 
 	case EFireMode::EFM_FullAuto:
 		bFullAutoFiring = true;
-		if (bCanFire)
-		{
-			HandleFire();
-		}
+		HandleFire();
 		break;
 
 	default:
@@ -143,68 +141,61 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	}
 }
 
-
 void UCombatComponent::FireButtonReleased()
 {
-    bFireButtonPressed = false;
-    bFullAutoFiring = false;
+	UE_LOG(LogTemp, Warning, TEXT("FireButtonReleased called"));
+	bFireButtonPressed = false;
+	bFullAutoFiring = false;
+	bFiredThisPress = false;
 
-    // Clear full auto timer if it's running
-    if (GetWorld())
-    {
-        GetWorld()->GetTimerManager().ClearTimer(FireTimerHandle);
-    }
+	
 }
 
 void UCombatComponent::HandleFire()
 {
-	if (!EquippedWeapon || !GetWorld()) return;
-
-	bCanFire = false;
-
-	ServerFire(HitTarget);
+	if (!EquippedWeapon || !GetWorld() || !Character) return;
 
 	const float Rate = (EquippedWeapon->GetCurrentFireMode() == EFireMode::EFM_FullAuto)
 		? EquippedWeapon->GetFullAutoFireRate()
 		: EquippedWeapon->GetFireRate();
 
-	GetWorld()->GetTimerManager().SetTimer(
-		FireTimerHandle,
-		this,
-		&UCombatComponent::ResetCanFire,
-		Rate,
-		false
-	);
-}
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (Now - LastFireTime < Rate) return;
 
-void UCombatComponent::ResetCanFire()
-{
-	bCanFire = true;
+	LastFireTime = Now;
 
-	if (bFullAutoFiring && EquippedWeapon)
+	Character->PlayFireMontage(bAiming);
+	EquippedWeapon->Fire(HitTarget);
+	ServerFire(HitTarget);
+
+	// FullAuto: schedule next shot automatically while held
+	if (bFullAutoFiring)
 	{
-		HandleFire();
+		GetWorld()->GetTimerManager().SetTimer(
+			BurstFireTimerHandle,
+			this,
+			&UCombatComponent::HandleFire,
+			Rate,
+			false
+		);
 	}
 }
 
-
 void UCombatComponent::HandleBurstFire()
 {
-	if (!EquippedWeapon || !GetWorld()) return;
+	if (!EquippedWeapon || !GetWorld() || !Character) return;
 
 	if (BurstShotsRemaining <= 0)
 	{
-		GetWorld()->GetTimerManager().SetTimer(
-			FireTimerHandle,
-			this,
-			&UCombatComponent::ResetCanFire,
-			EquippedWeapon->GetFireRate(),
-			false
-		);
+		// Burst complete — reset so next press can trigger
+		BurstShotsRemaining = 0;
 		return;
 	}
 
 	BurstShotsRemaining--;
+
+	Character->PlayFireMontage(bAiming);
+	EquippedWeapon->Fire(HitTarget);
 	ServerFire(HitTarget);
 
 	GetWorld()->GetTimerManager().SetTimer(
@@ -214,6 +205,14 @@ void UCombatComponent::HandleBurstFire()
 		EquippedWeapon->GetFullAutoFireRate(),
 		false
 	);
+}
+
+void UCombatComponent::ResetCanFire()
+{
+	if (bFullAutoFiring && EquippedWeapon)
+	{
+		HandleFire();
+	}
 }
 
 void UCombatComponent::CycleFireMode()
@@ -246,7 +245,7 @@ void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& InHi
 void UCombatComponent::MulticastFire_Implementation()
 {
 	if (EquippedWeapon == nullptr) return;
-	if (Character)
+	if (Character && !Character->IsLocallyControlled())
 	{
 		Character->PlayFireMontage(bAiming);
 		EquippedWeapon->Fire(HitTarget);

@@ -76,11 +76,12 @@ private:
 	bool bFireButtonPressed;
 	FVector HitTarget;
 	FVector ReticleWorldPosition = FVector::ZeroVector;
-	FTimerHandle FireTimerHandle;
+	
 	FTimerHandle BurstFireTimerHandle;
-	bool bCanFire = true;              // semi / burst cooldown gate
-	int32 BurstShotsRemaining = 0;    // tracks shots left in a burst sequence
-	bool bFullAutoFiring = false;     // true while LMB is held in full auto
+	float LastFireTime = -1.f;
+	int32 BurstShotsRemaining = 0;
+	bool bFullAutoFiring = false;
+	bool bFiredThisPress = false;
 	
 
 	UPROPERTY(EditAnywhere)
