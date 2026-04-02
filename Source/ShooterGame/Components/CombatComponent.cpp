@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "CombatComponent.h"
@@ -207,14 +207,6 @@ void UCombatComponent::HandleBurstFire()
 	);
 }
 
-void UCombatComponent::ResetCanFire()
-{
-	if (bFullAutoFiring && EquippedWeapon)
-	{
-		HandleFire();
-	}
-}
-
 void UCombatComponent::CycleFireMode()
 {
 	if (!EquippedWeapon) return;
@@ -329,22 +321,3 @@ void UCombatComponent::UpdateReticleWorldPosition()
 
 	ReticleWorldPosition = Hit.bBlockingHit ? Hit.ImpactPoint : TraceEnd;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
