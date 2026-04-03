@@ -75,27 +75,35 @@ private:
 	
 	bool bFireButtonPressed;
 	FVector HitTarget;
-	FVector ReticleWorldPosition = FVector::ZeroVector;
-	
+
+	// ------------------------------------------------------------------
+	// Fire Cycle State
+	// ------------------------------------------------------------------
 	FTimerHandle BurstFireTimerHandle;
 	float LastFireTime = -1.f;
 	int32 BurstShotsRemaining = 0;
 	bool bFullAutoFiring = false;
 	bool bFiredThisPress = false;
-	
 
+	// ------------------------------------------------------------------
+	// Movement Config
+	// ------------------------------------------------------------------
 	UPROPERTY(EditAnywhere)
 	float BaseWalkSpeed;
+
 	UPROPERTY(EditAnywhere)
 	float AimWalkSpeed;
 
-	
-	// Reticle state, local client only, never replicated
+	// ------------------------------------------------------------------
+	// Reticle State (local client only, never replicated)
+	// ------------------------------------------------------------------
+	FVector ReticleWorldPosition = FVector::ZeroVector;
 	FReticleState ReticleState;
+
 	void UpdateReticleState();
 	void UpdateReticleWorldPosition();
-	
-	
+	float GetActiveFireRate() const;
+
 	UPROPERTY(EditAnywhere, Category = "Reticle")
 	float ReticleMaxDistance = 2000.f;
 	
@@ -104,5 +112,4 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Reticle")
 	float MovementSpreadMultiplier = 0.4f; // how much max movement adds to spread (0..1 range addition)
-	
 };

@@ -143,21 +143,26 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 
 void UCombatComponent::FireButtonReleased()
 {
-	UE_LOG(LogTemp, Warning, TEXT("FireButtonReleased called"));
 	bFireButtonPressed = false;
 	bFullAutoFiring = false;
 	bFiredThisPress = false;
-
 	
+}
+
+float UCombatComponent::GetActiveFireRate() const
+{
+	if (!EquippedWeapon) return 0.f;
+
+	return EquippedWeapon->GetCurrentFireMode() == EFireMode::EFM_FullAuto
+		? EquippedWeapon->GetFullAutoFireRate()
+		: EquippedWeapon->GetFireRate();
 }
 
 void UCombatComponent::HandleFire()
 {
 	if (!EquippedWeapon || !GetWorld() || !Character) return;
 
-	const float Rate = (EquippedWeapon->GetCurrentFireMode() == EFireMode::EFM_FullAuto)
-		? EquippedWeapon->GetFullAutoFireRate()
-		: EquippedWeapon->GetFireRate();
+	const float Rate = GetActiveFireRate();
 
 	const float Now = GetWorld()->GetTimeSeconds();
 	if (Now - LastFireTime < Rate) return;
@@ -198,11 +203,13 @@ void UCombatComponent::HandleBurstFire()
 	EquippedWeapon->Fire(HitTarget);
 	ServerFire(HitTarget);
 
+	const float BurstInterval = EquippedWeapon->GetBurstFireRate();
+
 	GetWorld()->GetTimerManager().SetTimer(
 		BurstFireTimerHandle,
 		this,
 		&UCombatComponent::HandleBurstFire,
-		EquippedWeapon->GetFullAutoFireRate(),
+		BurstInterval,
 		false
 	);
 }

@@ -81,6 +81,7 @@ public:
 	FORCEINLINE EFireMode GetCurrentFireMode() const { return CurrentFireMode; }
 	FORCEINLINE float GetFireRate() const { return FireRate; }
 	FORCEINLINE float GetFullAutoFireRate() const { return FullAutoFireRate; }
+	FORCEINLINE float GetBurstFireRate() const { return BurstFireRate; }
 	FORCEINLINE int32 GetBurstCount() const { return BurstCount; }
 	FORCEINLINE bool IsFireModeAllowed(EFireMode Mode) const { return AllowedFireModes.Contains(Mode); }
 	
@@ -154,6 +155,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Fire Mode")
 	float FullAutoFireRate = 0.1f; // seconds between shots when full auto
 
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Fire Mode")
+	float BurstFireRate = 0.1f;
+	
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Fire Mode")
 	int32 BurstCount = 3; // rounds per burst trigger pull
 	
