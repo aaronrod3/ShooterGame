@@ -152,7 +152,6 @@ void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
 	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
-	DOREPLIFETIME(AShooterGameCharacter, DesiredYaw);
 }
 
 
@@ -245,7 +244,6 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
 {
 	SetActorRotation(FRotator(0, Yaw, 0));
-	DesiredYaw = Yaw;   // server writes → replication pushes OnRep_DesiredYaw to all clients
 }
 
 
