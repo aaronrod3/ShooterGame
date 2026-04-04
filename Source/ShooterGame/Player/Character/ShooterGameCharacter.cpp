@@ -120,9 +120,6 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		EnhancedInputComponent->BindAction(RotateCamera_Action, ETriggerEvent::Started, this, &AShooterGameCharacter::RotateCamera);
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Move);
-		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Look);
-		// Looking
-		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Look);
 		// Crouch
 		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::CrouchButtonPressed);
 		
@@ -155,6 +152,7 @@ void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
 	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
+	DOREPLIFETIME(AShooterGameCharacter, DesiredYaw);
 }
 
 
@@ -182,19 +180,6 @@ void AShooterGameCharacter::DoMove(float Right, float Forward)
 	}
 }
 
-void AShooterGameCharacter::Look(const FInputActionValue& Value)
-{
-	FVector2D LookAxisVector = Value.Get<FVector2D>();
-	DoLook(LookAxisVector.X);
-}
-
-void AShooterGameCharacter::DoLook(float Yaw)
-{
-	if (GetController() != nullptr)
-	{
-		
-	}
-}
 
 void AShooterGameCharacter::RotateCamera(const FInputActionValue& Value)
 {
@@ -260,6 +245,7 @@ void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
 {
 	SetActorRotation(FRotator(0, Yaw, 0));
+	DesiredYaw = Yaw;   // server writes → replication pushes OnRep_DesiredYaw to all clients
 }
 
 
@@ -272,6 +258,17 @@ void AShooterGameCharacter::TurnInPlace(float DeltaTime)
 	else if (AimOffset_Yaw < -90.f) // may narrow down later
 	{
 		TurningInPlace = ETurningInPlace::ETIP_Left;
+	}
+}
+
+void AShooterGameCharacter::OnRep_DesiredYaw()
+{
+	// Fires on simulated proxies when the server replicates DesiredYaw.
+	// Applies the spring arm yaw so remote players see the correct camera angle.
+	if (CameraBoom)
+	{
+		const float CurrentPitch = CameraBoom->GetRelativeRotation().Pitch;
+		CameraBoom->SetRelativeRotation(FRotator(CurrentPitch, DesiredYaw, 0.f));
 	}
 }
 

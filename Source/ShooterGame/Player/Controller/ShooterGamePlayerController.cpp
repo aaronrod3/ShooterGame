@@ -44,7 +44,7 @@ void AShooterGamePlayerController::BeginPlay()
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	InputMode.SetHideCursorDuringCapture(false);
 	SetInputMode(InputMode);
-	bAutoManageActiveCameraTarget = false;
+	//bAutoManageActiveCameraTarget = false;
 
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
@@ -85,25 +85,19 @@ void AShooterGamePlayerController::UpdateCursorVisibility()
 	if (!ShooterCharacter) return;
 
 	const bool bIsEquipped = ShooterCharacter->IsWeaponEquipped();
-	if (bIsEquipped == bWasEquipped) return;	// no change, skip
+	if (bIsEquipped == bWasEquipped) return;
 	bWasEquipped = bIsEquipped;
 
-	if (bIsEquipped)
-	{
-		// Weapon equipped — hide OS cursor, game captures mouse for cursor aiming
-		bShowMouseCursor = false;
-		FInputModeGameOnly InputMode;
-		SetInputMode(InputMode);	
-	}
-	else
-	{
-		// Unequipped — show OS cursor for UI interaction
-		bShowMouseCursor = true;
-		FInputModeGameAndUI InputMode;
-		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-		InputMode.SetHideCursorDuringCapture(false);
-		SetInputMode(InputMode);
-	}
+	// Keep the same input mode in both cases so the viewport never enters
+	// mouse-capture camera-look behavior.
+	FInputModeGameAndUI InputMode;
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	InputMode.SetHideCursorDuringCapture(false);
+	SetInputMode(InputMode);
+
+	// Your project may still want the OS cursor hidden while equipped,
+	// but do not switch to GameOnly.
+	bShowMouseCursor = !bIsEquipped ? true : false;
 }
 
 void AShooterGamePlayerController::TraceForItem()

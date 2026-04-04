@@ -40,10 +40,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoMove(float Right, float Forward);
 
-	/** Handles look inputs from either controls or UI interfaces */
-	UFUNCTION(BlueprintCallable, Category="Input")
-	virtual void DoLook(float Yaw);
-
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	/** Returns FollowCamera subobject **/
@@ -69,7 +65,6 @@ public:
 	void RotateCamera(const FInputActionValue& Value);
 	void FaceTowardCursor(float DeltaTime);		
 	void Move(const FInputActionValue& Value);
-	void Look(const FInputActionValue& Value);
 	void SetRotationMode(bool bLockToCamera);
 	void EquipButtonPressed();
 	void CrouchButtonPressed();
@@ -82,8 +77,10 @@ public:
 	bool IsWeaponEquipped();
 	bool IsAiming();
     
+	UPROPERTY(ReplicatedUsing = OnRep_DesiredYaw)
 	float DesiredYaw = 0.f;
-	float TargetYaw  = 0.f;
+	
+	float TargetYaw  = 0.f;			// local only, no replication needed
 	float AimOffset_Yaw;
 	
 
@@ -111,10 +108,6 @@ private:
 	/* Look Input Action */
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> RotateCamera_Action;	
-	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> LookAction;
-	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> MouseLookAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> CrouchAction;
 	/*
@@ -145,6 +138,8 @@ private:
 	void ServerSetFacingYaw(float Yaw);	
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
+	UFUNCTION()
+	void OnRep_DesiredYaw();
 	
 	
 	void TurnInPlace(float DeltaTime);
