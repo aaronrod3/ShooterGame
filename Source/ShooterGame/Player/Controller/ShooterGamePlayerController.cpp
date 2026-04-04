@@ -30,24 +30,28 @@ void AShooterGamePlayerController::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	
 	TraceForItem();
+	UpdateCursorVisibility();
 }
 
 
 void AShooterGamePlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-    
-	bShowMouseCursor = false;
+	
+	// Start with cursor visible — unequipped default
+	bShowMouseCursor = true;
+	FInputModeGameAndUI InputMode;
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	InputMode.SetHideCursorDuringCapture(false);
+	SetInputMode(InputMode);
+	bAutoManageActiveCameraTarget = false;
 
-
-	// Add Input Mapping Contexts
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
 		for (UInputMappingContext* CurrentContext : DefaultIMCs)
 		{
 			Subsystem->AddMappingContext(CurrentContext, 0);
 		}
-
 	}
 	
 	InventoryComponent = FindComponentByClass<UInventoryComponent>();
@@ -75,6 +79,32 @@ void AShooterGamePlayerController::CreateHUDWidget()
 	}
 }
 
+void AShooterGamePlayerController::UpdateCursorVisibility()
+{
+	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(GetPawn());
+	if (!ShooterCharacter) return;
+
+	const bool bIsEquipped = ShooterCharacter->IsWeaponEquipped();
+	if (bIsEquipped == bWasEquipped) return;	// no change, skip
+	bWasEquipped = bIsEquipped;
+
+	if (bIsEquipped)
+	{
+		// Weapon equipped — hide OS cursor, game captures mouse for cursor aiming
+		bShowMouseCursor = false;
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);	
+	}
+	else
+	{
+		// Unequipped — show OS cursor for UI interaction
+		bShowMouseCursor = true;
+		FInputModeGameAndUI InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		InputMode.SetHideCursorDuringCapture(false);
+		SetInputMode(InputMode);
+	}
+}
 
 void AShooterGamePlayerController::TraceForItem()
 {

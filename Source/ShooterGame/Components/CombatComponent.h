@@ -18,7 +18,8 @@ struct FReticleState
 	bool bIsAiming              = false;
 	bool bIsCrouched            = false;
 	float SpreadAlpha           = 0.f;
-	bool bReticleValid          = true;
+	FVector2D CursorScreenPos	= FVector2D(0.f, 0.f);
+	bool bCursorValid			= false;
 };
 
 

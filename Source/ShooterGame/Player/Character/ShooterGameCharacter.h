@@ -42,7 +42,7 @@ public:
 
 	/** Handles look inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
-	virtual void DoLook(float Yaw, float Pitch);
+	virtual void DoLook(float Yaw);
 
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
@@ -50,17 +50,24 @@ public:
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	
 	FORCEINLINE float GetAimOffset_Yaw() const { return AimOffset_Yaw; }
-	FORCEINLINE float GetAimOffset_Pitch() const { return AimOffset_Pitch; }
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
 	
 	
 	
 	/* Camera Settings */
-	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+	float RotationSpeed = 120.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+	float FaceCursorInterpSpeed = 15.f;	
+
+	
+	
 	AWeapon* GetEquippedWeapon();
 	
 	/* Inputs */
+	void RotateCamera(const FInputActionValue& Value);
+	void FaceTowardCursor(float DeltaTime);		
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void SetRotationMode(bool bLockToCamera);
@@ -75,8 +82,9 @@ public:
 	bool IsWeaponEquipped();
 	bool IsAiming();
     
+	float DesiredYaw = 0.f;
+	float TargetYaw  = 0.f;
 	float AimOffset_Yaw;
-	float AimOffset_Pitch;
 	
 
 protected:
@@ -102,7 +110,11 @@ private:
 	TObjectPtr<UInputAction> MoveAction;
 	/* Look Input Action */
 	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> RotateCamera_Action;	
+	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> LookAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> MouseLookAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> CrouchAction;
 	/*
@@ -129,10 +141,12 @@ private:
 	
 	
 	/*** FUNCTIONS ***/
+	UFUNCTION(Server, Unreliable)
+	void ServerSetFacingYaw(float Yaw);	
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 	
-	void AimOffsetTick(float DeltaTime);
+	
 	void TurnInPlace(float DeltaTime);
 	
 	UFUNCTION()

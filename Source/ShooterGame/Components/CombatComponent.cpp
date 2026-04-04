@@ -61,7 +61,7 @@ void UCombatComponent::OnRep_EquippedWeapon()
 {
 	if (EquippedWeapon && Character)
 	{
-		Character->GetCharacterMovement()->bOrientRotationToMovement = true;
+		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 		Character->bUseControllerRotationYaw = false;
 	}
 }
@@ -80,7 +80,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	);
 	
 	EquippedWeapon->SetOwner(Character);
-	Character->GetCharacterMovement()->bOrientRotationToMovement = true;
+	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 	Character->bUseControllerRotationYaw = false;
 }
 
@@ -258,14 +258,24 @@ void UCombatComponent::UpdateReticleState()
 	ReticleState.bIsCrouched = Character->bIsCrouched;
 
 	APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
-	if (!PlayerController)
+	if (!PlayerController) return;
+	
+	float MouseX, MouseY;
+	ReticleState.bCursorValid = PlayerController->GetMousePosition(MouseX, MouseY);
+
+	if (ReticleState.bCursorValid)
 	{
-		ReticleState.bReticleValid = false;
-		return;
+		ReticleState.CursorScreenPos = FVector2D(MouseX, MouseY);
 	}
-
-	ReticleState.bReticleValid = true;
-
+	else
+	{
+		// Fallback to viewport center when mouse is captured (PIE / game-only input mode)
+		int32 SizeX, SizeY;
+		PlayerController->GetViewportSize(SizeX, SizeY);
+		ReticleState.CursorScreenPos = FVector2D(SizeX * 0.5f, SizeY * 0.5f);
+		ReticleState.bCursorValid = true; // center is always a valid draw position
+	}
+	
 	if (EquippedWeapon)
 	{
 		const float MaxSpread = FMath::Max(EquippedWeapon->GetMaxSpread(), 0.001f);
@@ -288,32 +298,29 @@ void UCombatComponent::UpdateReticleState()
 
 void UCombatComponent::UpdateReticleWorldPosition()
 {
-	if (!Character || !GetWorld())
+	if (!Character || !GetWorld()) return;
+	
+	FVector Origin = Character->GetActorLocation();
+
+	if (EquippedWeapon && EquippedWeapon->GetWeaponMesh())
 	{
-		return;
+		const USkeletalMeshSocket* MuzzleSocket =
+			EquippedWeapon->GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
+
+		if (MuzzleSocket)
+		{
+			const FVector MuzzleLocation =
+				MuzzleSocket->GetSocketTransform(EquippedWeapon->GetWeaponMesh()).GetLocation();
+
+			Origin.Z = MuzzleLocation.Z;	// trace starts at muzzle height
+		}
 	}
 
-	APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
-	if (!PlayerController)
-	{
-		return;
-	}
+	FVector Forward = Character->GetActorForwardVector();
+	Forward.Z = 0.f;						// ← enforces level trace, no pitch component
+	Forward.Normalize();
 
-	int32 ViewportSizeX = 0;
-	int32 ViewportSizeY = 0;
-	PlayerController->GetViewportSize(ViewportSizeX, ViewportSizeY);
-
-	const float ScreenX = ViewportSizeX * 0.5f;
-	const float ScreenY = ViewportSizeY * 0.5f;
-
-	FVector TraceStart;
-	FVector WorldDirection;
-	if (!PlayerController->DeprojectScreenPositionToWorld(ScreenX, ScreenY, TraceStart, WorldDirection))
-	{
-		return;
-	}
-
-	const FVector TraceEnd = TraceStart + (WorldDirection * ReticleMaxDistance);
+	const FVector TraceEnd = Origin + Forward * ReticleMaxDistance;
 
 	FHitResult Hit;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(ReticleWorldTrace), false);
@@ -324,7 +331,7 @@ void UCombatComponent::UpdateReticleWorldPosition()
 		Params.AddIgnoredActor(EquippedWeapon);
 	}
 
-	GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params);
+	GetWorld()->LineTraceSingleByChannel(Hit, Origin, TraceEnd, ECC_Visibility, Params);
 
 	ReticleWorldPosition = Hit.bBlockingHit ? Hit.ImpactPoint : TraceEnd;
 }

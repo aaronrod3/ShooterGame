@@ -57,7 +57,7 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	Lean = FMath::Clamp(Interp, -45.f, 45.f);
 	
 	AimOffset_Yaw = ShooterGameCharacter->GetAimOffset_Yaw();
-	AimOffset_Pitch = ShooterGameCharacter->GetAimOffset_Pitch();
+	AimOffset_Pitch = 0.f;
 	
 	if (bWeaponEquipped && EquippedWeapon && EquippedWeapon->GetWeaponMesh() && ShooterGameCharacter->GetMesh())
 	{

@@ -1,21 +1,13 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
-#include "ShooterHUD.h"
+﻿#include "ShooterHUD.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "Items/Weapon/Weapon.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Player/Controller/ShooterGamePlayerController.h"
 #include "Engine/Canvas.h"
 
-
 void AShooterHUD::DrawHUD()
 {
 	Super::DrawHUD();
-
-	if (!Canvas) return;
-
-	const FVector2D ScreenCenter(Canvas->SizeX * 0.5f, Canvas->SizeY * 0.5f);
 
 	AShooterGamePlayerController* ShooterGamePlayerController = Cast<AShooterGamePlayerController>(PlayerOwner);
 	if (!ShooterGamePlayerController) return;
@@ -30,37 +22,28 @@ void AShooterHUD::DrawHUD()
 
 	if (State.bIsEquipped)
 	{
-		DrawWeaponReticle(ScreenCenter, State, EquippedReticleConfig);
-	}
-	else
-	{
-		DrawDotReticle(ScreenCenter, UnequippedReticleConfig);
-	}
-}
+		const AWeapon* Weapon = ShooterCharacter->GetEquippedWeapon();
+		if (!Weapon) return;
 
+		const FReticleConfig& Config = Weapon->GetReticleConfig();
 
-void AShooterHUD::DrawDotReticle(const FVector2D& Center, const FReticleConfig& Config)
-{
-	if (!Canvas) return;
-
-	const float Radius = Config.CenterDotRadius;
-	const int32 Segments = FMath::Max(Config.CenterDotSegments, 3);
-	const float AngleStep = (2.f * PI) / Segments;
-
-	for (int32 i = 0; i < Segments; ++i)
-	{
-		const float A0 = AngleStep * i;
-		const float A1 = AngleStep * (i + 1);
-
-		const FVector2D P0(Center.X + Radius * FMath::Cos(A0), Center.Y + Radius * FMath::Sin(A0));
-		const FVector2D P1(Center.X + Radius * FMath::Cos(A1), Center.Y + Radius * FMath::Sin(A1));
-
-		DrawLine(P0.X, P0.Y, P1.X, P1.Y, Config.CenterDotColor, Config.Thickness);
+		// ── CHANGED: draw crosshair at mouse position, not world-projected shot point ──
+		float MouseX, MouseY;
+		if (ShooterGamePlayerController->GetMousePosition(MouseX, MouseY))
+		{
+			DrawCrosshairReticle(FVector2D(MouseX, MouseY), State, Config);
+		}
+		else
+		{
+			// Fallback: viewport center when mouse position unavailable
+			int32 SizeX, SizeY;
+			ShooterGamePlayerController->GetViewportSize(SizeX, SizeY);
+			DrawCrosshairReticle(FVector2D(SizeX * 0.5f, SizeY * 0.5f), State, Config);
+		}
 	}
 }
 
-
-void AShooterHUD::DrawWeaponReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config)
+void AShooterHUD::DrawCrosshairReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config)
 {
 	if (!Canvas) return;
 
@@ -69,26 +52,22 @@ void AShooterHUD::DrawWeaponReticle(const FVector2D& Center, const FReticleState
 	if (State.bIsAiming)   Radius *= Config.AimMultiplier;
 
 	const float GapSize = Config.CrosshairGapSize;
-	const float Thickness = Config.Thickness;
-	const FLinearColor LineColor = Config.LineColor;
+	const FLinearColor Color = FLinearColor::White;
+	const float T = Config.Thickness;
 
-	// Top
-	DrawLine(Center.X, Center.Y - GapSize, Center.X, Center.Y - Radius, LineColor, Thickness);
+	DrawLine(Center.X, Center.Y - GapSize, Center.X, Center.Y - Radius, Color, T);
+	DrawLine(Center.X, Center.Y + GapSize, Center.X, Center.Y + Radius, Color, T);
+	DrawLine(Center.X - GapSize, Center.Y, Center.X - Radius, Center.Y, Color, T);
+	DrawLine(Center.X + GapSize, Center.Y, Center.X + Radius, Center.Y, Color, T);
 
-	// Bottom
-	DrawLine(Center.X, Center.Y + GapSize, Center.X, Center.Y + Radius, LineColor, Thickness);
+	const float CenterDotSize = 4.f;								// ← ADDED: temporary local size, Config.CenterDotSize doesn't exist
+	const FLinearColor CenterDotColor = FLinearColor::White;		// ← ADDED: temporary local color, avoids missing config fields
 
-	// Left
-	DrawLine(Center.X - GapSize, Center.Y, Center.X - Radius, Center.Y, LineColor, Thickness);
-
-	// Right
-	DrawLine(Center.X + GapSize, Center.Y, Center.X + Radius, Center.Y, LineColor, Thickness);
-
-	// Center dot — circle
-	DrawDotReticle(Center, Config);
+	DrawRect(
+		CenterDotColor,
+		Center.X - CenterDotSize * 0.5f,
+		Center.Y - CenterDotSize * 0.5f,
+		CenterDotSize,
+		CenterDotSize
+	);
 }
-
-
-
-
-
