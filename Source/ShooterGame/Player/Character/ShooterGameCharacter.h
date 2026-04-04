@@ -57,12 +57,30 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float FaceCursorInterpSpeed = 15.f;	
 
+	// ── Zoom Settings ──
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Zoom")
+	float MinZoomDistance = 800.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Zoom")
+	float MaxZoomDistance = 3000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Zoom")
+	float ZoomStep = 150.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Zoom")
+	float ZoomInterpSpeed = 8.f;
+
+	/** Call from Blueprint to constrain zoom range at runtime (e.g. indoors vs open world) */
+	UFUNCTION(BlueprintCallable, Category = "Camera | Zoom")
+	void SetZoomRange(float NewMin, float NewMax);
+	// ───────────────────
 	
 	
 	AWeapon* GetEquippedWeapon();
 	
 	/* Inputs */
 	void RotateCamera(const FInputActionValue& Value);
+	void ZoomCamera(const FInputActionValue& Value); 
 	void FaceTowardCursor(float DeltaTime);		
 	void Move(const FInputActionValue& Value);
 	void SetRotationMode(bool bLockToCamera);
@@ -107,7 +125,9 @@ private:
 	TObjectPtr<UInputAction> MoveAction;
 	/* Look Input Action */
 	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> RotateCamera_Action;	
+	TObjectPtr<UInputAction> RotateCamera_Action;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> ZoomCamera_Action;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> CrouchAction;
 	/*
@@ -132,6 +152,9 @@ private:
 	/* Variables */
 	ETurningInPlace TurningInPlace;
 	
+	// Zoom interpolation state (local only, not replicated — camera is client-side)
+	float CurrentArmLength = 2000.f;
+	float TargetArmLength  = 2000.f;
 	
 	/*** FUNCTIONS ***/
 	UFUNCTION(Server, Unreliable)

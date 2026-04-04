@@ -57,6 +57,9 @@ AShooterGameCharacter::AShooterGameCharacter()
 	CameraBoom->bInheritRoll = false;									 // no roll
 	CameraBoom->bInheritYaw = false;
 	CameraBoom->bDoCollisionTest = false;								// camera pulls in on walls
+	
+	CurrentArmLength = 2000.f;
+	TargetArmLength  = 2000.f;
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -108,6 +111,16 @@ void AShooterGameCharacter::Tick(float DeltaTime)
 		}
 
 		CameraBoom->SetRelativeRotation(FRotator(CurrentPitch, DesiredYaw, 0.f));
+
+		// ── Interpolate zoom (arm length) toward TargetArmLength ──
+		CurrentArmLength = FMath::FInterpTo(
+			CurrentArmLength,
+			TargetArmLength,
+			DeltaTime,
+			ZoomInterpSpeed
+		);
+		CameraBoom->TargetArmLength = CurrentArmLength;
+		// ──────────────────────────────────────────────────────────
 	}
 }
 
@@ -118,6 +131,7 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 
 		// Camera
 		EnhancedInputComponent->BindAction(RotateCamera_Action, ETriggerEvent::Started, this, &AShooterGameCharacter::RotateCamera);
+		EnhancedInputComponent->BindAction(ZoomCamera_Action, ETriggerEvent::Triggered, this, &AShooterGameCharacter::ZoomCamera);
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Move);
 		// Crouch
@@ -192,6 +206,30 @@ void AShooterGameCharacter::RotateCamera(const FInputActionValue& Value)
 	TargetYaw += 90.f * Direction;
 }
 
+void AShooterGameCharacter::ZoomCamera(const FInputActionValue& Value)
+{
+	const float Axis = Value.Get<float>();
+	if (FMath::IsNearlyZero(Axis)) return;
+
+	// Positive axis (scroll up) = zoom in (shorter arm length)
+	// Negative axis (scroll down) = zoom out (longer arm length)
+	TargetArmLength = FMath::Clamp(
+		TargetArmLength - (Axis * ZoomStep),
+		MinZoomDistance,
+		MaxZoomDistance
+	);
+}
+
+
+void AShooterGameCharacter::SetZoomRange(float NewMin, float NewMax)
+{
+	MinZoomDistance = NewMin;
+	MaxZoomDistance = NewMax;
+
+	// Immediately clamp current target into the new range
+	// so the camera doesn't sit outside the new bounds until the player scrolls
+	TargetArmLength = FMath::Clamp(TargetArmLength, MinZoomDistance, MaxZoomDistance);
+}
 
 void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
 {
