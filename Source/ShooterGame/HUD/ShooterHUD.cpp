@@ -52,22 +52,21 @@ void AShooterHUD::DrawCrosshairReticle(const FVector2D& Center, const FReticleSt
 	if (State.bIsAiming)   Radius *= Config.AimMultiplier;
 
 	const float GapSize = Config.CrosshairGapSize;
-	const FLinearColor Color = FLinearColor::White;
+	const FLinearColor LineColor = Config.LineColor;         // ← now uses Config.LineColor
 	const float T = Config.Thickness;
 
-	DrawLine(Center.X, Center.Y - GapSize, Center.X, Center.Y - Radius, Color, T);
-	DrawLine(Center.X, Center.Y + GapSize, Center.X, Center.Y + Radius, Color, T);
-	DrawLine(Center.X - GapSize, Center.Y, Center.X - Radius, Center.Y, Color, T);
-	DrawLine(Center.X + GapSize, Center.Y, Center.X + Radius, Center.Y, Color, T);
+	DrawLine(Center.X, Center.Y - GapSize, Center.X, Center.Y - Radius, LineColor, T);
+	DrawLine(Center.X, Center.Y + GapSize, Center.X, Center.Y + Radius, LineColor, T);
+	DrawLine(Center.X - GapSize, Center.Y, Center.X - Radius, Center.Y, LineColor, T);
+	DrawLine(Center.X + GapSize, Center.Y, Center.X + Radius, Center.Y, LineColor, T);
 
-	const float CenterDotSize = 4.f;								// ← ADDED: temporary local size, Config.CenterDotSize doesn't exist
-	const FLinearColor CenterDotColor = FLinearColor::White;		// ← ADDED: temporary local color, avoids missing config fields
-
+	
+	const float DotHalfSize = Config.CenterDotRadius;      
 	DrawRect(
-		CenterDotColor,
-		Center.X - CenterDotSize * 0.5f,
-		Center.Y - CenterDotSize * 0.5f,
-		CenterDotSize,
-		CenterDotSize
+		Config.CenterDotColor,                               
+		Center.X - DotHalfSize,
+		Center.Y - DotHalfSize,
+		DotHalfSize * 2.f,
+		DotHalfSize * 2.f
 	);
 }

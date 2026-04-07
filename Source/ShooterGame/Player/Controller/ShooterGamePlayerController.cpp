@@ -13,6 +13,7 @@
 #include "ShooterGame/Components/CombatComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Interaction/HighlightableStaticMesh.h"
+#include "ShooterGame/Framework/GameMode/ShooterGameGameMode.h"
 #include "Player/Character/ShooterGameCharacter.h"
 
 
@@ -28,6 +29,9 @@ AShooterGamePlayerController::AShooterGamePlayerController()
 void AShooterGamePlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	// Do not run gameplay tick logic during match over / end screen
+	if (bMatchOverHandled) return;
 	
 	TraceForItem();
 	UpdateCursorVisibility();
@@ -148,8 +152,161 @@ void AShooterGamePlayerController::TraceForItem()
 	}
 }
 
+void AShooterGamePlayerController::PossessSpectatorPawn(
+	const TArray<AShooterGameCharacter*>& AlivePlayers)
+{
+	if (!SpectatorPawnClass)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("AShooterGamePlayerController::PossessSpectatorPawn — SpectatorPawnClass not set"));
+		return;
+	}
 
+	// Spawn spectator pawn at dead player's last location
+	FVector SpectatorSpawnLocation = FVector::ZeroVector;
+	if (GetPawn())
+	{
+		SpectatorSpawnLocation = GetPawn()->GetActorLocation();
+	}
 
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
 
+	ActiveSpectatorPawn = GetWorld()->SpawnActor<AShooterGameSpectatorPawn>(
+		SpectatorPawnClass,
+		SpectatorSpawnLocation,
+		FRotator::ZeroRotator,
+		SpawnParams
+	);
+
+	if (ActiveSpectatorPawn)
+	{
+		// Unpossess dead character, possess spectator pawn
+		UnPossess();
+		Possess(ActiveSpectatorPawn);
+
+		// Initialize with current alive players
+		ActiveSpectatorPawn->InitSpectator(AlivePlayers);
+
+		UE_LOG(LogTemp, Warning,
+			TEXT("AShooterGamePlayerController — now spectating, %d players alive"),
+			AlivePlayers.Num());
+	}
+}
+
+void AShooterGamePlayerController::UpdateSpectatorTargets(
+	const TArray<AShooterGameCharacter*>& AlivePlayers)
+{
+	if (ActiveSpectatorPawn)
+	{
+		ActiveSpectatorPawn->UpdateAlivePlayerList(AlivePlayers);
+	}
+}
+
+// -----------------------------------------------------------------------
+// HandleMatchOver — disables gameplay input, shows end screen
+// -----------------------------------------------------------------------
+
+void AShooterGamePlayerController::HandleMatchOver()
+{
+	UE_LOG(LogTemp, Warning,
+		TEXT("AShooterGamePlayerController::HandleMatchOver — disabling input, showing end screen"));
+
+	bMatchOverHandled = true;
+	
+	// Disable all gameplay input — player can still click UI
+	SetIgnoreMoveInput(true);
+	SetIgnoreLookInput(true);
+
+	// Show cursor for end screen interaction
+	bShowMouseCursor = true;
+	SetInputMode(FInputModeUIOnly());
+
+	// Destroy spectator pawn if still active — no longer needed
+	if (ActiveSpectatorPawn)
+	{
+		ActiveSpectatorPawn->Destroy();
+		ActiveSpectatorPawn = nullptr;
+	}
+
+	// Spawn and display end screen widget — local only
+	if (IsLocalController() && EndScreenWidgetClass)
+	{
+		EndScreenWidget = CreateWidget<UShooterEndScreenWidget>(this, EndScreenWidgetClass);
+		if (EndScreenWidget)
+		{
+			EndScreenWidget->AddToViewport(10); // ZOrder 10 — above HUD
+			UE_LOG(LogTemp, Log,
+				TEXT("AShooterGamePlayerController::HandleMatchOver — end screen added to viewport"));
+		}
+	}
+	else if (IsLocalController() && !EndScreenWidgetClass.Get())
+		
+	{
+		// 9c stub — EndScreenWidgetClass not set yet, log and continue
+		UE_LOG(LogTemp, Warning,
+			TEXT("AShooterGamePlayerController::HandleMatchOver — EndScreenWidgetClass not set, skipping widget (set in BP after 9c)"));
+	}
+}
+
+// -----------------------------------------------------------------------
+// HandleMatchRestart — re-enables input, removes end screen
+// -----------------------------------------------------------------------
+
+void AShooterGamePlayerController::HandleMatchRestart()
+{
+	if (!bMatchOverHandled) return;
+	bMatchOverHandled = false;
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("AShooterGamePlayerController::HandleMatchRestart — restoring input, hiding end screen"));
+
+	// Restore to project default input mode — matches BeginPlay
+	FInputModeGameAndUI InputMode;
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	InputMode.SetHideCursorDuringCapture(false);
+	SetInputMode(InputMode);
+
+	// Cursor visibility handled by UpdateCursorVisibility() in Tick once bMatchOverHandled = false
+	bShowMouseCursor = true;
+
+	// Remove end screen widget
+	if (EndScreenWidget)
+	{
+		EndScreenWidget->RemoveFromParent();
+		EndScreenWidget = nullptr;
+	}
+}
+
+// -----------------------------------------------------------------------
+// RequestMatchRestart — called by end screen button before auto-timer fires
+// -----------------------------------------------------------------------
+
+void AShooterGamePlayerController::RequestMatchRestart()
+{
+	UE_LOG(LogTemp, Warning,
+		TEXT("AShooterGamePlayerController::RequestMatchRestart — player requested early restart"));
+
+	// Only the server can restart — RPC if client
+	if (HasAuthority())
+	{
+		if (AShooterGameGameMode* GM = GetWorld()->GetAuthGameMode<AShooterGameGameMode>())
+		{
+			GM->RestartMatch();
+		}
+	}
+	else
+	{
+		ServerRequestMatchRestart();
+	}
+}
+
+void AShooterGamePlayerController::ServerRequestMatchRestart_Implementation()
+{
+	if (AShooterGameGameMode* GM = GetWorld()->GetAuthGameMode<AShooterGameGameMode>())
+	{
+		GM->RestartMatch();
+	}
+}
 
 

@@ -6,6 +6,10 @@
 #include "GameFramework/Actor.h"
 #include "Projectile.generated.h"
 
+class AShooterGameCharacter;
+class AController;
+
+
 UCLASS()
 class SHOOTERGAME_API AProjectile : public AActor
 {
@@ -16,7 +20,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void Destroyed() override;
 	
-	
+	// Called by AProjectileWeapon immediately after spawning to pass weapon damage values
+	void InitProjectile(float InDamage, float InHeadShotMultiplier);
 
 protected:
 	virtual void BeginPlay() override;
@@ -44,5 +49,18 @@ private:
 	UPROPERTY(EditAnywhere)
 	class USoundCue* ImpactSound;
 	
+	
+	// Damage fallback — used only if the weapon's AmmoData asset is not set.
+	// In normal gameplay AProjectileWeapon passes damage from AWeapon::GetDamage()
+	// into the projectile at spawn time via InitProjectile().
+	UPROPERTY(EditDefaultsOnly, Category = "Projectile|Damage")
+	float FallbackDamage = 20.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Projectile|Damage")
+	float FallbackHeadShotMultiplier = 2.f;
+
+	// Set by AProjectileWeapon::Fire() at spawn — carries weapon's actual damage values
+	float Damage = 20.f;
+	float HeadShotMultiplier = 2.f;
 	
 };

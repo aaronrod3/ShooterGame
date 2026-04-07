@@ -1,62 +1,54 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
+﻿// Source/ShooterGame/Items/Weapon/Weapon.cpp
 
 #include "Weapon.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
-#include "ShooterGame/Player/Character/ShooterGameCharacter.h"
-#include "Animation/AnimationAsset.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "CaseEject.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Net/UnrealNetwork.h"
+#include "Animation/AnimationAsset.h"
+#include "ShooterGame/Player/Character/ShooterGameCharacter.h"
+#include "ShooterGame/Items/Weapon/CaseEject.h"
 
-
-// Sets default values
 AWeapon::AWeapon()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
-	
-	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Weapon Mesh"));
+
+	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	SetRootComponent(WeaponMesh);
-	WeaponMesh->SetCollisionResponseToAllChannels(ECR_Block);
-	WeaponMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+
+	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	
-	CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("Collision Sphere"));
+
+	CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
 	CollisionSphere->SetupAttachment(RootComponent);
-	CollisionSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	
-	PickupWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("Pickup Widget"));
+	CollisionSphere->SetSphereRadius(96.f);
+	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	CollisionSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	CollisionSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+
+	PickupWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("PickupWidget"));
 	PickupWidget->SetupAttachment(RootComponent);
-	
-	
-	
 }
 
-// Called when the game starts or when spawned
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	
+
 	if (HasAuthority())
 	{
-		CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		CollisionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 		CollisionSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);
 		CollisionSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
 	}
+
 	if (PickupWidget)
 	{
 		PickupWidget->SetVisibility(false);
 	}
-	
 }
 
-// Called every frame
 void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -66,49 +58,33 @@ void AWeapon::Tick(float DeltaTime)
 void AWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	
+
 	DOREPLIFETIME(AWeapon, WeaponState);
+	DOREPLIFETIME(AWeapon, bRoundChambered);
+	DOREPLIFETIME(AWeapon, ReplicatedMagState);
 }
 
-void AWeapon::SetWeaponState(EWeaponState State)
-{
-	WeaponState = State;
+// -----------------------------------------------------------------------
+// Overlap / Pickup Widget
+// -----------------------------------------------------------------------
 
-	switch (WeaponState)
+void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor);
+	if (ShooterCharacter)
 	{
-	case EWeaponState::EWS_Equipped:
-		ShowPickupWidget(false);
-		CollisionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		break;
+		ShooterCharacter->SetOverlappingWeapon(this);
 	}
 }
 
-void AWeapon::OnRep_WeaponState()
+void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	switch (WeaponState)
+	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor);
+	if (ShooterCharacter)
 	{
-	case EWeaponState::EWS_Equipped:
-		ShowPickupWidget(false);
-		break;
-	}
-}
-
-void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	AShooterGameCharacter* Player = Cast<AShooterGameCharacter>(OtherActor);
-	if (Player)
-	{
-		Player->SetOverlappingWeapon(this);
-	}
-	
-}
-
-void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
-	AShooterGameCharacter* Player = Cast<AShooterGameCharacter>(OtherActor);
-	if (Player)
-	{
-		Player->SetOverlappingWeapon(nullptr);
+		ShooterCharacter->SetOverlappingWeapon(nullptr);
 	}
 }
 
@@ -120,75 +96,222 @@ void AWeapon::ShowPickupWidget(bool bShowWidget)
 	}
 }
 
+// -----------------------------------------------------------------------
+// Weapon State
+// -----------------------------------------------------------------------
+
+void AWeapon::SetWeaponState(EWeaponState State)
+{
+	WeaponState = State;
+
+	switch (WeaponState)
+	{
+	case EWeaponState::EWS_Equipped:
+		ShowPickupWidget(false);
+		CollisionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		break;
+	default:
+		break;
+	}
+}
+
+void AWeapon::OnRep_WeaponState()
+{
+	switch (WeaponState)
+	{
+	case EWeaponState::EWS_Equipped:
+		ShowPickupWidget(false);
+		break;
+	default:
+		break;
+	}
+}
+
+// -----------------------------------------------------------------------
+// Fire
+// -----------------------------------------------------------------------
 
 void AWeapon::Fire(const FVector& HitTarget)
 {
-	CurrentSpread = FMath::Clamp(CurrentSpread + SpreadIncreasePerShot, 0.f, MaxSpread);
-	
+	// Hard stop — no ammo, no fire
+	if (!CanFire()) return;
+
+	// Play fire animation
 	if (FireAnimation)
 	{
 		WeaponMesh->PlayAnimation(FireAnimation, false);
 	}
 
+	// Spawn case eject
 	if (CasingClass)
 	{
-		const USkeletalMeshSocket* CaseEjectSocket = WeaponMesh->GetSocketByName(FName("CaseEject"));
-		if (CaseEjectSocket)
+		const USkeletalMeshSocket* CaseSocket = WeaponMesh->GetSocketByName(FName("CaseEject"));
+		if (CaseSocket)
 		{
-			FTransform SocketTransform = CaseEjectSocket->GetSocketTransform(WeaponMesh);
-
-			UWorld* World = GetWorld();
-			if (World)
+			FTransform SocketTransform = CaseSocket->GetSocketTransform(WeaponMesh);
+			if (UWorld* World = GetWorld())
 			{
 				World->SpawnActor<ACaseEject>(
-				CasingClass,
-				SocketTransform.GetLocation(),
-				SocketTransform.GetRotation().Rotator()
+					CasingClass,
+					SocketTransform.GetLocation(),
+					SocketTransform.GetRotation().Rotator()
 				);
 			}
 		}
 	}
+
+	AddSpreadOnFire();
+}
+
+// -----------------------------------------------------------------------
+// Ammo / Feed
+// -----------------------------------------------------------------------
+
+bool AWeapon::CanFire() const
+{
+	// A chambered round is always available to fire
+	if (bRoundChambered) return true;
+
+	// Rounds in the inserted magazine
+	if (InsertedMagazine.IsSet() && !InsertedMagazine.GetValue().IsEmpty()) return true;
+
+	return false;
+}
+
+bool AWeapon::ConsumeRound()
+{
+	if (!CanFire()) return false;
+
+	if (bRoundChambered)
+	{
+		bRoundChambered = false;
+
+		// Auto-feed: advance the next round from the magazine into the chamber
+		if (InsertedMagazine.IsSet() && !InsertedMagazine.GetValue().IsEmpty())
+		{
+			InsertedMagazine.GetValue().ConsumeRound();
+			bRoundChambered = true;
+		}
+
+		SyncReplicatedLoadState();
+		return true;
+	}
+
+	// No chamber support (cylinder, single-shot) — consume directly from magazine
+	if (InsertedMagazine.IsSet() && InsertedMagazine.GetValue().ConsumeRound())
+	{
+		SyncReplicatedLoadState();
+		return true;
+	}
+
+	return false;
+}
+
+void AWeapon::InsertMagazine(const FMagazine& NewMag)
+{
+	// Reject magazines of the wrong caliber
+	if (NewMag.AmmoType != SupportedAmmoType)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("AWeapon::InsertMagazine — Caliber mismatch. Weapon accepts %d, mag is %d"),
+			(int32)SupportedAmmoType, (int32)NewMag.AmmoType);
+		return;
+	}
+
+	InsertedMagazine = NewMag;
+	SyncReplicatedLoadState();
+}
+
+FMagazine AWeapon::EjectMagazine()
+{
+	FMagazine Ejected;
+
+	if (InsertedMagazine.IsSet())
+	{
+		Ejected = InsertedMagazine.GetValue();
+		InsertedMagazine.Reset();
+		SyncReplicatedLoadState();
+	}
+
+	return Ejected;
+}
+
+void AWeapon::ChamberRound()
+{
+	// Weapon doesn't support a chambered round (revolver, launcher)
+	if (!bSupportsChamberedRound) return;
+
+	// Already chambered
+	if (bRoundChambered) return;
+
+	// No magazine to chamber from
+	if (!InsertedMagazine.IsSet()) return;
+
+	if (InsertedMagazine.GetValue().ConsumeRound())
+	{
+		bRoundChambered = true;
+		SyncReplicatedLoadState();
+	}
+}
+
+void AWeapon::SyncReplicatedLoadState()
+{
+	if (InsertedMagazine.IsSet())
+	{
+		ReplicatedMagState = InsertedMagazine.GetValue();
+	}
+	else
+	{
+		// Zero-state signals "no magazine inserted" to clients
+		ReplicatedMagState = FMagazine();
+		ReplicatedMagState.Capacity = 0;
+	}
+}
+
+void AWeapon::OnRep_LoadState()
+{
+	// Reconstruct TOptional from the replicated mirror on non-owning clients
+	if (ReplicatedMagState.Capacity > 0)
+	{
+		InsertedMagazine = ReplicatedMagState;
+	}
+	else
+	{
+		InsertedMagazine.Reset();
+	}
+
+	// TODO: notify HUD to refresh ammo counter display
+}
+
+// -----------------------------------------------------------------------
+// Spread
+// -----------------------------------------------------------------------
+
+void AWeapon::AddSpreadOnFire()
+{
+	CurrentSpread = FMath::Clamp(CurrentSpread + SpreadIncreasePerShot, 0.f, MaxSpread);
 }
 
 void AWeapon::DecaySpread(float DeltaTime)
 {
-	CurrentSpread = FMath::Clamp(
-		CurrentSpread - SpreadDecayRate * DeltaTime,
-		0.f, MaxSpread
-	);
+	CurrentSpread = FMath::Max(0.f, CurrentSpread - SpreadDecayRate * DeltaTime);
 }
 
-void AWeapon::AddSpreadOnFire()
-{
-	CurrentSpread = FMath::Clamp(
-		CurrentSpread + SpreadIncreasePerShot,
-		0.f, MaxSpread
-	);
-}
+// -----------------------------------------------------------------------
+// Fire Mode
+// -----------------------------------------------------------------------
 
 void AWeapon::CycleFireMode()
 {
-	if (AllowedFireModes.Num() == 0) return;
+	if (AllowedFireModes.Num() <= 1) return;
 
-	// Find current index in allowed modes
 	int32 CurrentIndex = AllowedFireModes.IndexOfByKey(CurrentFireMode);
-
-	// Move to next, wrap around
 	int32 NextIndex = (CurrentIndex + 1) % AllowedFireModes.Num();
 	CurrentFireMode = AllowedFireModes[NextIndex];
-
-	UE_LOG(LogTemp, Log, TEXT("Fire Mode switched to: %s"),
-		*UEnum::GetValueAsString(CurrentFireMode));
 }
 
-
-
-
-
-
-
-	
-
-
-
-
+void AWeapon::ApplySpreadMultiplier(float Multiplier)
+{
+	// Clamp to max spread — don't let debuff exceed the weapon's ceiling
+	CurrentSpread = FMath::Min(CurrentSpread * Multiplier, MaxSpread);
+}

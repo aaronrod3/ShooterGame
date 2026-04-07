@@ -4,10 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Inventory/InventoryComponent.h"
+#include "ShooterGame/Components/DownedComponent.h"
+#include "ShooterGame/Components/ReviveComponent.h"
 #include "ShooterGame/Types/TurningInPlace.h"
 #include "Items/Weapon/Weapon.h"
 #include "Logging/LogMacros.h"
 #include "ShooterGameCharacter.generated.h"
+
 
 class USpringArmComponent;
 class UCameraComponent;
@@ -30,6 +34,9 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
 	
+	// Overrides AActor::TakeDamage — called by UGameplayStatics::ApplyPointDamage
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	
 	void PlayFireMontage(bool bAiming);
 	void PlayHitReactMontage();
 	
@@ -45,9 +52,17 @@ public:
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	
+	FORCEINLINE ETeam GetTeam() const { return Team; }
+	
 	FORCEINLINE float GetAimOffset_Yaw() const { return AimOffset_Yaw; }
 	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
+	FORCEINLINE UInventoryComponent* GetInventory() const { return Inventory; }
+	FORCEINLINE UDownedComponent* GetDownedComponent() const { return DownedComp; }
+	FORCEINLINE UReviveComponent* GetReviveComponent()  const { return ReviveComp; }
 	
+	FORCEINLINE float GetHealth()    const { return Health; }
+	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
+	void SetHealth(float NewHealth);
 	
 	
 	/* Camera Settings */
@@ -76,6 +91,10 @@ public:
 	// ───────────────────
 	
 	
+	// -- Team settings
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Team")
+	ETeam Team = ETeam::ET_Players; // all human players share this for now
+	
 	AWeapon* GetEquippedWeapon();
 	
 	/* Inputs */
@@ -91,6 +110,10 @@ public:
 	void FireButtonPressed();
 	void FireButtonReleased();
 	void CycleFireModeButtonPressed();
+	void ReloadButtonPressed();
+	void RevivePressed();
+	void ReviveReleased();
+	
 	
 	bool IsWeaponEquipped();
 	bool IsAiming();
@@ -101,6 +124,10 @@ public:
 	float TargetYaw  = 0.f;			// local only, no replication needed
 	float AimOffset_Yaw;
 	
+	float GetBaseWalkSpeed() const;
+	
+	
+	
 
 protected:
 	virtual void BeginPlay() override;
@@ -110,6 +137,12 @@ private:
 	/*** COMPONENTS ***/
 	UPROPERTY(VisibleAnywhere)
 	class UCombatComponent* Combat;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UDownedComponent* DownedComp;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UReviveComponent* ReviveComp;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UInventoryComponent* Inventory;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
 	
@@ -142,11 +175,26 @@ private:
 	TObjectPtr<UInputAction> FireAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> CycleFireModeAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> ReloadAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* ReviveAction;
 	
 	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
 	class UAnimMontage* FireWeaponMontage;
 	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
 	class UAnimMontage* HitReactMontage;
+	
+	
+	// Current health — replicated so HUD stays in sync on all clients
+	UPROPERTY(ReplicatedUsing = OnRep_Health, VisibleAnywhere, Category = "Player Stats")
+	float Health = 100.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Player Stats")
+	float MaxHealth = 100.f;
+
+	UFUNCTION()
+	void OnRep_Health();
 	
 	
 	/* Variables */

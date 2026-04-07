@@ -25,7 +25,7 @@ void AProjectileWeapon::Tick(float DeltaTime)
 void AProjectileWeapon::Fire(const FVector& HitTarget)
 {
 	Super::Fire(HitTarget);
-	
+
 	if (!HasAuthority()) return;
 	
 	APawn* InstigatorPawn = Cast<APawn>(GetOwner());
@@ -35,11 +35,11 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 		FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
 		FVector MuzzleFlashLocation = SocketTransform.GetLocation();
 		FVector FlatTarget = HitTarget;
-		FlatTarget.Z = MuzzleFlashLocation.Z;					// keep same height as muzzle
+		FlatTarget.Z = MuzzleFlashLocation.Z;
 		FVector ToTarget = FlatTarget - MuzzleFlashLocation;
-		FRotator TargetRotation = ToTarget.Rotation();			// purely horizontal
-		TargetRotation.Pitch = 0.f;								// safety clamp
-		
+		FRotator TargetRotation = ToTarget.Rotation();
+		TargetRotation.Pitch = 0.f;
+
 		if (ProjectileClass && InstigatorPawn)
 		{
 			FActorSpawnParameters SpawnParams;
@@ -48,12 +48,17 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 			UWorld* World = GetWorld();
 			if (World)
 			{
-				World->SpawnActor<AProjectile>(
+				AProjectile* SpawnedProjectile = World->SpawnActor<AProjectile>(
 					ProjectileClass,
 					MuzzleFlashLocation,
 					TargetRotation,
 					SpawnParams
-					);
+				);
+
+				if (SpawnedProjectile)
+				{
+					SpawnedProjectile->InitProjectile(GetDamage(), GetHeadShotMultiplier());
+				}
 			}
 		}
 	}

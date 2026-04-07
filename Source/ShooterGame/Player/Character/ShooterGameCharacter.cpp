@@ -13,6 +13,7 @@
 #include "InputActionValue.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "Framework/ShooterGame.h"
+#include "Inventory/InventoryComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -68,6 +69,10 @@ AShooterGameCharacter::AShooterGameCharacter()
 
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	Combat->SetIsReplicated(true);
+	
+	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+	DownedComp = CreateDefaultSubobject<UDownedComponent>(TEXT("DownedComponent"));
+	ReviveComp = CreateDefaultSubobject<UReviveComponent>(TEXT("ReviveComponent"));
 	
 	
 	
@@ -141,9 +146,13 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		//EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::PrimaryInteract);
 		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Started, this, &AShooterGameCharacter::EquipButtonPressed);
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::ToggleAim);
-		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered,   this, &AShooterGameCharacter::FireButtonPressed);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started,   this, &AShooterGameCharacter::FireButtonPressed);
 		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &AShooterGameCharacter::FireButtonReleased);
 		EnhancedInputComponent->BindAction(CycleFireModeAction, ETriggerEvent::Started, this, &AShooterGameCharacter::CycleFireModeButtonPressed);
+		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AShooterGameCharacter::ReloadButtonPressed);
+		EnhancedInputComponent->BindAction(ReviveAction, ETriggerEvent::Started,this, &AShooterGameCharacter::RevivePressed);
+		EnhancedInputComponent->BindAction(ReviveAction, ETriggerEvent::Completed,this, &AShooterGameCharacter::ReviveReleased);
+		EnhancedInputComponent->BindAction(ReviveAction, ETriggerEvent::Canceled,this, &AShooterGameCharacter::ReviveReleased);
 	}
 	else
 	{
@@ -166,6 +175,7 @@ void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
 	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
+	DOREPLIFETIME(AShooterGameCharacter, Health);
 }
 
 
@@ -376,6 +386,8 @@ void AShooterGameCharacter::EquipButtonPressed()
 
 void AShooterGameCharacter::ServerEquipButtonPressed_Implementation()
 {
+	if (DownedComp && !DownedComp->IsAlive()) return;
+	
 	if (Combat && OverlappingWeapon)
 	{
 		Combat->EquipWeapon(OverlappingWeapon);
@@ -424,6 +436,12 @@ void AShooterGameCharacter::CycleFireModeButtonPressed()
 	if (Combat) Combat->CycleFireMode();
 }
 
+void AShooterGameCharacter::ReloadButtonPressed()
+{
+	if (!Combat) return;
+	Combat->ReloadEquippedWeapon();
+}
+
 
 void AShooterGameCharacter::PlayFireMontage(bool bAiming)
 {
@@ -460,4 +478,92 @@ void AShooterGameCharacter::MulticastHit_Implementation()
 
 
 
+float AShooterGameCharacter::TakeDamage(
+	float DamageAmount,
+	FDamageEvent const& DamageEvent,
+	AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
+	if (!HasAuthority()) return ActualDamage;
+
+	// -----------------------------------------------------------------------
+	// Downed — hit spikes bleedout rate, does NOT reduce health further
+	// -----------------------------------------------------------------------
+	if (DownedComp && DownedComp->IsDowned())
+	{
+		DownedComp->ServerApplyHitSpike();
+		UE_LOG(LogTemp, Log,
+			TEXT("AShooterGameCharacter::TakeDamage — %s hit while downed (spike applied)"),
+			*GetName());
+		return ActualDamage;
+	}
+
+	// -----------------------------------------------------------------------
+	// Dead — ignore all damage
+	// -----------------------------------------------------------------------
+	if (DownedComp && DownedComp->IsDead())
+	{
+		return 0.f;
+	}
+
+	// -----------------------------------------------------------------------
+	// Alive — apply damage to health
+	// -----------------------------------------------------------------------
+	Health = FMath::Clamp(Health - ActualDamage, 0.f, MaxHealth);
+
+	UE_LOG(LogTemp, Log,
+		TEXT("AShooterGameCharacter::TakeDamage — %.1f damage | Health: %.1f / %.1f"),
+		ActualDamage, Health, MaxHealth);
+
+	// Transition to downed when health hits zero
+	if (Health <= 0.f && DownedComp && DownedComp->IsAlive())
+	{
+		DownedComp->ServerGoDown();
+	}
+
+	return ActualDamage;
+}
+
+void AShooterGameCharacter::OnRep_Health()
+{
+	// TODO: update HUD health bar here
+	// TODO: trigger hit flash / pain sound here
+	UE_LOG(LogTemp, Log, TEXT("OnRep_Health — Health: %.1f"), Health);
+}
+
+
+
+void AShooterGameCharacter::SetHealth(float NewHealth)
+{
+	// Authority only — clients receive via OnRep_Health
+	if (!HasAuthority()) return;
+	Health = FMath::Clamp(NewHealth, 0.f, MaxHealth);
+}
+
+float AShooterGameCharacter::GetBaseWalkSpeed() const
+{
+	// Reads from CombatComponent which owns the authoritative base speed
+	if (Combat)
+	{
+		return Combat->GetBaseWalkSpeed();
+	}
+	return 600.f; // fallback
+}
+
+void AShooterGameCharacter::RevivePressed()
+{
+	if (ReviveComp)
+	{
+		ReviveComp->RevivePressed();
+	}
+}
+
+void AShooterGameCharacter::ReviveReleased()
+{
+	if (ReviveComp)
+	{
+		ReviveComp->ReviveReleased();
+	}
+}
