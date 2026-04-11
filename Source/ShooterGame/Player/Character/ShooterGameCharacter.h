@@ -7,6 +7,7 @@
 #include "Inventory/InventoryComponent.h"
 #include "ShooterGame/Components/DownedComponent.h"
 #include "ShooterGame/Components/ReviveComponent.h"
+#include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Types/TurningInPlace.h"
 #include "Items/Weapon/Weapon.h"
 #include "Logging/LogMacros.h"
@@ -54,14 +55,15 @@ public:
 	
 	FORCEINLINE ETeam GetTeam() const { return Team; }
 	
-	FORCEINLINE float GetAimOffset_Yaw() const { return AimOffset_Yaw; }
-	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
-	FORCEINLINE UInventoryComponent* GetInventory() const { return Inventory; }
-	FORCEINLINE UDownedComponent* GetDownedComponent() const { return DownedComp; }
+	FORCEINLINE float GetAimOffset_Yaw()				const { return AimOffset_Yaw; }
+	FORCEINLINE ETurningInPlace GetTurningInPlace()		const { return TurningInPlace; }
+	FORCEINLINE UInventoryComponent* GetInventory()		const { return Inventory; }
+	FORCEINLINE UDownedComponent* GetDownedComponent()	const { return DownedComp; }
 	FORCEINLINE UReviveComponent* GetReviveComponent()  const { return ReviveComp; }
+	FORCEINLINE UCombatComponent* GetCombat()			const { return Combat; }
 	
-	FORCEINLINE float GetHealth()    const { return Health; }
-	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
+	FORCEINLINE float GetHealth()						const { return Health; }
+	FORCEINLINE float GetMaxHealth()					const { return MaxHealth; }
 	void SetHealth(float NewHealth);
 	
 	

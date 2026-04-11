@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "Engine/EngineTypes.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "HUD/ShooterHUD.h"
 #include "Kismet/GameplayStatics.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
@@ -71,23 +72,20 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	{
 		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 	}
-
-	// TEMPORARY — starter mags for testing Steps 7 & 8
-	// Remove after Step 9 ammo pickup actors are complete
-	if (Character->HasAuthority())
+	
+	// Notify the HUD to bind to the new weapon's ammo delegate
+	if (Character && Character->IsLocallyControlled())
 	{
-		UInventoryComponent* Inventory = Character->GetInventory();
-		if (Inventory)
+		AShooterHUD* HUD = nullptr;
+		if (APlayerController* PC = Cast<APlayerController>(Character->GetController()))
 		{
-			FMagazine Mag1 = FMagazine::MakeFull(EquippedWeapon->GetSupportedAmmoType(), 15);
-			FMagazine Mag2 = FMagazine::MakeFull(EquippedWeapon->GetSupportedAmmoType(), 15);
-			FMagazine Mag3 = FMagazine::MakeFull(EquippedWeapon->GetSupportedAmmoType(), 15);
-			Inventory->AddMagazine(Mag1);
-			Inventory->AddMagazine(Mag2);
-			Inventory->AddMagazine(Mag3);
+			HUD = Cast<AShooterHUD>(PC->GetHUD());
+		}
+		if (HUD)
+		{
+			HUD->BindToWeapon(EquippedWeapon);
 		}
 	}
-	// END TEMPORARY
 }
 
 void UCombatComponent::OnRep_EquippedWeapon()
@@ -114,6 +112,11 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	if (Character && Character->GetCharacterMovement())
 	{
 		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
+	}
+	
+	if (bIsAiming && EquippedWeapon)
+	{
+		EquippedWeapon->ApplySpreadMultiplier(AimAccuracyBonusMultiplier);
 	}
 }
 
@@ -513,4 +516,19 @@ void UCombatComponent::ApplyDownedDebuffsPreFire()
 	// Weapon's DecaySpread tick will still run normally
 	const float Multiplier = DownedComp->DebuffConfig.SpreadMultiplier;
 	EquippedWeapon->ApplySpreadMultiplier(Multiplier);
+}
+
+void UCombatComponent::SetAimAccuracyBonus(float InMultiplier)
+{
+	AimAccuracyBonusMultiplier = FMath::Clamp(InMultiplier, 0.1f, 2.0f);
+
+	// Apply immediately to the equipped weapon if one is active
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->ApplySpreadMultiplier(AimAccuracyBonusMultiplier);
+	}
+
+	UE_LOG(LogTemp, Log,
+		TEXT("UCombatComponent::SetAimAccuracyBonus — Multiplier set to %.2f"),
+		AimAccuracyBonusMultiplier);
 }

@@ -46,6 +46,15 @@ public:
 
 	// Returns true if a reload is currently possible
 	bool CanReload() const;
+	
+	/**
+	 * Called by the progression/perk system to apply an accuracy bonus.
+	 * Values below 1.0 tighten spread (improve accuracy).
+	 * Values above 1.0 widen spread (penalty).
+	 * Default 1.0 = no modification.
+	 * Clamped to 0.1 - 2.0 to prevent extreme values.
+	 */
+	void SetAimAccuracyBonus(float InMultiplier);
 
 	FORCEINLINE const FReticleState& GetReticleState()			const { return ReticleState; }
 	FORCEINLINE FVector              GetReticleWorldPosition()	const { return ReticleWorldPosition; }
@@ -152,6 +161,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Reticle")
 	float ProjectileFireHeightOffset = 50.f;
 	
+	// Accuracy multiplier set by the progression system.
+	// Applied to weapon spread when aiming. Default = 1.0 (no change).
+	float AimAccuracyBonusMultiplier = 1.0f;
 	
 	void ApplyDownedDebuffsPreFire();
 };

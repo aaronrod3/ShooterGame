@@ -5,6 +5,77 @@
 #include "ShooterGame/Player/Controller/ShooterGamePlayerController.h"
 #include "Engine/Canvas.h"
 
+
+
+void AShooterHUD::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (HUDWidgetClass)
+	{
+		APlayerController* PC = GetOwningPlayerController();
+		if (PC)
+		{
+			HUDWidget = CreateWidget<UHUDWidget>(PC, HUDWidgetClass);
+			if (HUDWidget)
+			{
+				HUDWidget->AddToViewport();
+			}
+		}
+	}
+	
+	if (HUDWidget)
+	{
+		HUDWidget->AddToViewport();
+		HUDWidget->UpdateAmmoDisplay(0, 0); // ← ADD — sets initial 0 / 0 display
+	}
+}
+
+void AShooterHUD::BindToWeapon(AWeapon* NewWeapon)
+{
+	// Unbind from previous weapon — RemoveAll removes every binding on this object
+	if (BoundWeapon)
+	{
+		BoundWeapon->OnAmmoChanged.RemoveAll(this);
+	}
+
+	BoundWeapon = NewWeapon;
+
+	if (BoundWeapon)
+	{
+		// Dynamic delegates use AddDynamic, not AddUObject
+		BoundWeapon->OnAmmoChanged.AddDynamic(this, &AShooterHUD::OnAmmoChanged);
+
+		// Immediately sync counter to new weapon's current state
+		if (HUDWidget)
+		{
+			HUDWidget->UpdateAmmoDisplay(BoundWeapon->GetLoadedRounds(), BoundWeapon->GetMagCapacity());
+		}
+	}
+	else
+	{
+		if (HUDWidget)
+		{
+			HUDWidget->UpdateAmmoDisplay(0, 0);
+		}
+	}
+}
+
+
+void AShooterHUD::OnAmmoChanged(int32 MagRounds, int32 MagCapacity)
+{
+	UE_LOG(LogTemp, Warning,
+		TEXT("AShooterHUD::OnAmmoChanged — Received %d / %d"),
+		MagRounds, MagCapacity);
+	
+	if (HUDWidget)
+	{
+		HUDWidget->UpdateAmmoDisplay(MagRounds, MagCapacity);
+	}
+}
+
+
+
 void AShooterHUD::DrawHUD()
 {
 	Super::DrawHUD();

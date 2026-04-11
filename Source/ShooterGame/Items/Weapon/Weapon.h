@@ -10,6 +10,9 @@
 #include "Weapon.generated.h"
 
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAmmoChanged, int32, MagRounds, int32, MagCapacity);
+
+
 class USphereComponent;
 
 // -----------------------------------------------------------------------
@@ -78,6 +81,11 @@ public:
 	AWeapon();
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	// Broadcasts whenever mag rounds or chamber state changes.
+	// Bound by AShooterHUD to update the ammo counter widget.
+	UPROPERTY(BlueprintAssignable, Category = "Weapon|Ammo")
+	FOnAmmoChanged OnAmmoChanged;
 
 	void ShowPickupWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
@@ -165,7 +173,9 @@ public:
 
 	// Damage from assigned ammo data asset; falls back to safe default
 	FORCEINLINE float					GetDamage()					const { return AmmoData ? AmmoData->BaseDamage : 20.f; }
-	FORCEINLINE float					GetHeadShotMultiplier()		const { return AmmoData ? AmmoData->HeadShotMultiplier : 2.f; }
+
+	// Full asset accessor — passed to AProjectile at spawn for per-hit damage resolution
+	FORCEINLINE UAmmoData*				GetAmmoData()				const { return AmmoData; }
 
 	// Spread / fire mode helpers — unchanged
 	void AddSpreadOnFire();

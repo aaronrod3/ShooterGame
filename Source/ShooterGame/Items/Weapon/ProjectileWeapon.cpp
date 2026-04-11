@@ -34,11 +34,9 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 	{
 		FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
 		FVector MuzzleFlashLocation = SocketTransform.GetLocation();
-		FVector FlatTarget = HitTarget;
-		FlatTarget.Z = MuzzleFlashLocation.Z;
-		FVector ToTarget = FlatTarget - MuzzleFlashLocation;
+		
+		FVector ToTarget = HitTarget - MuzzleFlashLocation;
 		FRotator TargetRotation = ToTarget.Rotation();
-		TargetRotation.Pitch = 0.f;
 
 		if (ProjectileClass && InstigatorPawn)
 		{
@@ -57,7 +55,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 
 				if (SpawnedProjectile)
 				{
-					SpawnedProjectile->InitProjectile(GetDamage(), GetHeadShotMultiplier());
+					SpawnedProjectile->InitProjectile(GetAmmoData());
 				}
 			}
 		}

@@ -1,5 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
+﻿// Source/ShooterGame/Items/Weapon/Projectile.cpp
 
 #include "Projectile.h"
 #include "Components/BoxComponent.h"
@@ -17,7 +16,7 @@ AProjectile::AProjectile()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
-	
+
 	CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionBox"));
 	SetRootComponent(CollisionBox);
 	CollisionBox->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
@@ -26,7 +25,7 @@ AProjectile::AProjectile()
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Block);
-	
+
 	ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Projectile Movement Component"));
 	ProjectileMovementComponent->bRotationFollowsVelocity = true;
 
@@ -34,29 +33,25 @@ AProjectile::AProjectile()
 	{
 		CollisionBox->OnComponentHit.AddDynamic(this, &AProjectile::OnHit);
 	}
-
 }
-
 
 void AProjectile::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	
-	if (TraceParticles){
-		TraceParticlesComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
-		TraceParticles,
-		CollisionBox,
-		FName(),
-		GetActorLocation(),
-		GetActorRotation(),
-		EAttachLocation::KeepWorldPosition,
-		true);
-	}
-	
-	
-}
 
+	if (TraceParticles)
+	{
+		TraceParticlesComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
+			TraceParticles,
+			CollisionBox,
+			FName(),
+			GetActorLocation(),
+			GetActorRotation(),
+			EAttachLocation::KeepWorldPosition,
+			true
+		);
+	}
+}
 
 void AProjectile::Tick(float DeltaTime)
 {
@@ -70,7 +65,7 @@ void AProjectile::OnHit(
 	FVector NormalImpulse,
 	const FHitResult& Hit)
 {
-	// Cosmetic hit reaction — unchanged
+	// Cosmetic hit reaction — runs on all machines
 	AShooterGameCharacter* HitCharacter = Cast<AShooterGameCharacter>(OtherActor);
 	if (HitCharacter)
 	{
@@ -80,9 +75,12 @@ void AProjectile::OnHit(
 	// Damage — server only
 	if (HasAuthority() && OtherActor && OtherActor != GetOwner())
 	{
-		// -----------------------------------------------------------------------
+		// -------------------------------------------------------------------
 		// Friendly fire check
-		// -----------------------------------------------------------------------
+		// NOTE: bSameTeam is set to false here temporarily for damage testing.
+		// When team/PvP logic is implemented, replace with:
+		//     const bool bSameTeam = HitCharacter->GetTeam() == InstigatorCharacter->GetTeam();
+		// -------------------------------------------------------------------
 		AShooterGameCharacter* InstigatorCharacter = Cast<AShooterGameCharacter>(GetOwner());
 
 		if (HitCharacter && InstigatorCharacter && HitCharacter != InstigatorCharacter)
@@ -92,18 +90,7 @@ void AProjectile::OnHit(
 
 			if (GameMode && !GameMode->IsFriendlyFireEnabled())
 			{
-				// -------------------------------------------------------
-				// CURRENT (PvE) — all AShooterGameCharacter are friendly
-				// Any player hitting any other player is blocked when FF off
-				// -------------------------------------------------------
-				const bool bSameTeam = true; // all humans = same team in PvE
-
-				// -------------------------------------------------------
-				// FUTURE (PvP) — swap the line above with this:
-				// const bool bSameTeam =
-				//     HitCharacter->GetTeam() == InstigatorCharacter->GetTeam();
-				// -------------------------------------------------------
-
+				const bool bSameTeam = false; // TEMP: disabled for ammo/damage testing — see note above
 				if (bSameTeam)
 				{
 					UE_LOG(LogTemp, Log,
@@ -114,16 +101,25 @@ void AProjectile::OnHit(
 					Destroy();
 					return;
 				}
-				
 			}
 		}
-		// -----------------------------------------------------------------------
+		// -------------------------------------------------------------------
 
-		// Headshot check
-		const bool bHeadShot =
-			Hit.BoneName.ToString().ToLower().Contains(TEXT("head"));
-		const float AppliedDamage =
-			bHeadShot ? Damage * HeadShotMultiplier : Damage;
+		// -------------------------------------------------------------------
+		// Damage resolution — reads from AmmoData asset
+		// Body shot: BaseDamage
+		// Head shot: BaseDamage * HeadShotMultiplier (bone name contains "head")
+		// No asset assigned: falls back to FallbackDamage
+		// -------------------------------------------------------------------
+		float AppliedDamage = FallbackDamage;
+
+		if (AmmoDataAsset)
+		{
+			const bool bHeadShot = Hit.BoneName.ToString().ToLower().Contains(TEXT("head"));
+			AppliedDamage = bHeadShot
+				? AmmoDataAsset->BaseDamage * AmmoDataAsset->HeadShotMultiplier
+				: AmmoDataAsset->BaseDamage;
+		}
 
 		AController* InstigatorController = nullptr;
 		if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
@@ -142,15 +138,14 @@ void AProjectile::OnHit(
 		);
 
 		UE_LOG(LogTemp, Log,
-			TEXT("AProjectile::OnHit — Applied %.1f damage to %s%s"),
-			AppliedDamage,
+			TEXT("AProjectile::OnHit — Hit: %s | Bone: %s | Damage: %.1f"),
 			*OtherActor->GetName(),
-			bHeadShot ? TEXT(" [HEADSHOT]") : TEXT(""));
+			*Hit.BoneName.ToString(),
+			AppliedDamage);
 	}
 
 	Destroy();
 }
-
 
 void AProjectile::Destroyed()
 {
@@ -171,9 +166,7 @@ void AProjectile::Destroyed()
 	}
 }
 
-
-void AProjectile::InitProjectile(float InDamage, float InHeadShotMultiplier)
+void AProjectile::InitProjectile(UAmmoData* InAmmoData)
 {
-	Damage             = InDamage;
-	HeadShotMultiplier = InHeadShotMultiplier;
+	AmmoDataAsset = InAmmoData;
 }

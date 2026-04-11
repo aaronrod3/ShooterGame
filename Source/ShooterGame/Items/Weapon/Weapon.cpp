@@ -266,11 +266,15 @@ void AWeapon::SyncReplicatedLoadState()
 		ReplicatedMagState = FMagazine();
 		ReplicatedMagState.Capacity = 0;
 	}
+	
+	if (HasAuthority())
+	{
+		OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
+	}
 }
 
 void AWeapon::OnRep_LoadState()
 {
-	// Reconstruct TOptional from the replicated mirror on non-owning clients
 	if (ReplicatedMagState.Capacity > 0)
 	{
 		InsertedMagazine = ReplicatedMagState;
@@ -279,8 +283,13 @@ void AWeapon::OnRep_LoadState()
 	{
 		InsertedMagazine.Reset();
 	}
-
-	// TODO: notify HUD to refresh ammo counter display
+	
+	// Only broadcast on non-authority clients
+	// Server already broadcasts via SyncReplicatedLoadState
+	if (!HasAuthority())
+	{
+		OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
+	}
 }
 
 // -----------------------------------------------------------------------
