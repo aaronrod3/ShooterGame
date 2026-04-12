@@ -2,6 +2,9 @@
 
 #include "ShooterGameCharacter.h"
 #include "ShooterGame/Player/Animation/PlayerAnimInstance.h"
+#include "ShooterGame/Items/Ammo/AmmoPickup.h"
+#include "ShooterGame/Components/CombatComponent.h"
+#include "ShooterGame/Items/Weapon/Weapon.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -11,11 +14,9 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
-#include "ShooterGame/Components/CombatComponent.h"
 #include "Framework/ShooterGame.h"
 #include "Inventory/InventoryComponent.h"
 #include "Net/UnrealNetwork.h"
-#include "ShooterGame/Items/Weapon/Weapon.h"
 #include "Kismet/KismetMathLibrary.h"
 
 
@@ -175,6 +176,7 @@ void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
 	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingAmmoPickup, COND_OwnerOnly);
 	DOREPLIFETIME(AShooterGameCharacter, Health);
 }
 
@@ -348,6 +350,35 @@ void AShooterGameCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 }
 
 
+void AShooterGameCharacter::SetOverlappingAmmoPickup(AAmmoPickup* AmmoPickup)
+{
+	if (OverlappingAmmoPickup)
+	{
+		OverlappingAmmoPickup->ShowPickupWidget(false);
+	}
+	OverlappingAmmoPickup = AmmoPickup;
+	if (IsLocallyControlled())
+	{
+		if (OverlappingAmmoPickup)
+		{
+			OverlappingAmmoPickup->ShowPickupWidget(true);
+		}
+	}
+}
+
+void AShooterGameCharacter::OnRep_OverlappingAmmoPickup(AAmmoPickup* LastAmmoPickup)
+{
+	if (OverlappingAmmoPickup)
+	{
+		OverlappingAmmoPickup->ShowPickupWidget(true);
+	}
+	if (LastAmmoPickup)
+	{
+		LastAmmoPickup->ShowPickupWidget(false);
+	}
+}
+
+
 void AShooterGameCharacter::CrouchButtonPressed()
 {
 	if (bIsCrouched)
@@ -382,6 +413,18 @@ void AShooterGameCharacter::EquipButtonPressed()
 		}
 	}
 	
+	if (!OverlappingWeapon && OverlappingAmmoPickup)
+    {
+        if (HasAuthority())
+        {
+            ServerCollectAmmo();
+        }
+        else
+        {
+            ServerCollectAmmo();
+        }
+    }
+	
 }
 
 void AShooterGameCharacter::ServerEquipButtonPressed_Implementation()
@@ -392,6 +435,17 @@ void AShooterGameCharacter::ServerEquipButtonPressed_Implementation()
 	{
 		Combat->EquipWeapon(OverlappingWeapon);
 	}
+}
+
+void AShooterGameCharacter::ServerCollectAmmo_Implementation()
+{
+	if (!OverlappingAmmoPickup) return;
+
+	UCombatComponent* CombatComp = GetCombat();
+	if (!CombatComp) return;
+
+	CombatComp->PickupMagazine(OverlappingAmmoPickup->GetGrantedMagazine());
+	OverlappingAmmoPickup->Destroy();
 }
 
 bool AShooterGameCharacter::IsWeaponEquipped()

@@ -4,6 +4,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/TextBlock.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Net/UnrealNetwork.h"
 #include "Animation/AnimationAsset.h"
@@ -93,6 +94,19 @@ void AWeapon::ShowPickupWidget(bool bShowWidget)
 	if (PickupWidget)
 	{
 		PickupWidget->SetVisibility(bShowWidget);
+
+		// ── When showing, push PickupMessage directly into the TextBlock ──
+		if (bShowWidget && PickupWidget->GetUserWidgetObject())
+		{
+			UTextBlock* TextBlock = Cast<UTextBlock>(
+				PickupWidget->GetUserWidgetObject()->GetWidgetFromName(
+					TEXT("TextBlock_PickupMessage")));  // ← must match your TextBlock's name exactly
+			if (TextBlock)
+			{
+				TextBlock->SetText(FText::FromString(PickupMessage));
+			}
+		}
+		// ────────────────────────────────────────────────────────────────
 	}
 }
 

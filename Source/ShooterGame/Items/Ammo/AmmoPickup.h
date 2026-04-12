@@ -9,6 +9,7 @@
 class USphereComponent;
 class UStaticMeshComponent;
 class UCombatComponent;
+class UWidgetComponent;
 
 UCLASS()
 class SHOOTERGAME_API AAmmoPickup : public AActor
@@ -26,6 +27,14 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pickup|Ammo", meta = (ExposeOnSpawn = "true"))
 	FMagazine GrantedMagazine;
+	
+	UPROPERTY(EditAnywhere, Category = "Pickup|Widget")
+	FString PickupMessage = TEXT("Press E to pick up");
+
+	void ShowPickupWidget(bool bShowWidget);
+	
+	
+	FORCEINLINE FMagazine GetGrantedMagazine() const { return GrantedMagazine; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -39,6 +48,14 @@ protected:
 		bool bFromSweep,
 		const FHitResult& SweepResult
 	);
+	
+	UFUNCTION()
+	void OnSphereEndOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex
+	);
 
 private:
 
@@ -47,4 +64,8 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Pickup|Components")
 	UStaticMeshComponent* PickupMesh;
+	
+	
+	UPROPERTY(VisibleAnywhere, Category = "Pickup|Components")
+	UWidgetComponent* PickupWidget;
 };

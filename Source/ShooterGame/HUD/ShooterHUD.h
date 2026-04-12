@@ -25,6 +25,8 @@ public:
 	 * Unbinds from the previous weapon automatically.
 	 */
 	void BindToWeapon(AWeapon* NewWeapon);
+	
+	
 
 private:
 	void DrawCrosshairReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config);

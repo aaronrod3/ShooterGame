@@ -17,6 +17,7 @@
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
+class AAmmoPickup;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogShooterGameCharacter, Log, All);
@@ -108,6 +109,7 @@ public:
 	void EquipButtonPressed();
 	void CrouchButtonPressed();
 	void SetOverlappingWeapon(AWeapon* Weapon);
+	void SetOverlappingAmmoPickup(AAmmoPickup* AmmoPickup);
 	void ToggleAim();
 	void FireButtonPressed();
 	void FireButtonReleased();
@@ -147,6 +149,8 @@ private:
 	UInventoryComponent* Inventory;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
+	UPROPERTY(ReplicatedUsing = OnRep_OverlappingAmmoPickup)
+	class AAmmoPickup* OverlappingAmmoPickup;
 	
 	/** Camera  **/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
@@ -211,6 +215,8 @@ private:
 	void ServerSetFacingYaw(float Yaw);	
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
+	UFUNCTION(Server, Reliable)
+	void ServerCollectAmmo();
 	UFUNCTION()
 	void OnRep_DesiredYaw();
 	
@@ -219,6 +225,8 @@ private:
 	
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
+	UFUNCTION()
+	void OnRep_OverlappingAmmoPickup(AAmmoPickup* LastAmmoPickup);
 
 	
 

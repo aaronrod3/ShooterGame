@@ -5,6 +5,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Components/CombatComponent.h"
+#include "Components/WidgetComponent.h"
+#include "Components/TextBlock.h"
 
 AAmmoPickup::AAmmoPickup()
 {
@@ -23,6 +25,9 @@ AAmmoPickup::AAmmoPickup()
 	PickupSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	PickupSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	PickupSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	
+	PickupWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("PickupWidget"));
+	PickupWidget->SetupAttachment(RootComponent);
 }
 
 void AAmmoPickup::BeginPlay()
@@ -33,6 +38,12 @@ void AAmmoPickup::BeginPlay()
 	if (HasAuthority())
 	{
 		PickupSphere->OnComponentBeginOverlap.AddDynamic(this, &AAmmoPickup::OnSphereOverlap);
+		PickupSphere->OnComponentEndOverlap.AddDynamic(this, &AAmmoPickup::OnSphereEndOverlap);
+	}
+	
+	if (PickupWidget)
+	{
+		PickupWidget->SetVisibility(false);
 	}
 }
 
@@ -45,27 +56,41 @@ void AAmmoPickup::OnSphereOverlap(
 	const FHitResult& SweepResult)
 {
 	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor);
-	if (!ShooterCharacter) return;
-
-	// Validate the magazine has rounds before granting —
-	// prevents empty pickups from wasting inventory slots
-	if (GrantedMagazine.IsEmpty())
+	if (ShooterCharacter)
 	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("AAmmoPickup::OnSphereOverlap — GrantedMagazine is empty, pickup ignored"));
-		return;
+		ShooterCharacter->SetOverlappingAmmoPickup(this);
 	}
+}
 
-	UCombatComponent* Combat = ShooterCharacter->GetCombat();
-	if (!Combat) return;
+void AAmmoPickup::OnSphereEndOverlap(
+	UPrimitiveComponent* OverlappedComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex)
+{
+	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor);
+	if (ShooterCharacter)
+	{
+		ShooterCharacter->SetOverlappingAmmoPickup(nullptr);
+	}
+}
 
-	Combat->PickupMagazine(GrantedMagazine);
 
-	UE_LOG(LogTemp, Log,
-		TEXT("AAmmoPickup — %s picked up %d rounds of ammo"),
-		*ShooterCharacter->GetName(),
-		GrantedMagazine.CurrentRounds);
+void AAmmoPickup::ShowPickupWidget(bool bShowWidget)
+{
+	if (PickupWidget)
+	{
+		PickupWidget->SetVisibility(bShowWidget);
 
-	// Consume the pickup — destroy on server, replication removes it on clients
-	Destroy();
+		if (bShowWidget && PickupWidget->GetUserWidgetObject())
+		{
+			UTextBlock* TextBlock = Cast<UTextBlock>(
+				PickupWidget->GetUserWidgetObject()->GetWidgetFromName(
+					TEXT("TextBlock_PickupMessage")));  // ← same TextBlock name as weapon widget
+			if (TextBlock)
+			{
+				TextBlock->SetText(FText::FromString(PickupMessage));
+			}
+		}
+	}
 }

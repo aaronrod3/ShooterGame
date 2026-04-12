@@ -227,6 +227,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	class UWidgetComponent* PickupWidget;
+	
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	FString PickupMessage = TEXT("Press E to pick up");
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	class UAnimationAsset* FireAnimation;
