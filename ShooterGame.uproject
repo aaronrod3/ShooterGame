@@ -49,6 +49,14 @@
 		{
 			"Name": "OnlineServicesNull",
 			"Enabled": true
+		},
+		{
+			"Name": "Weapons_Sounds_I",
+			"Enabled": true
+		},
+		{
+			"Name": "Suppressed_Weapons_I",
+			"Enabled": true
 		}
 	]
 }

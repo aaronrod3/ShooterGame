@@ -67,7 +67,7 @@ void AZombieAIController::OnPossess(APawn* InPawn)
         if (Blackboard)
         {
             Blackboard->SetValueAsBool(BB_bCanSprint, ZombieOwner->GetCanSprint());
-            Blackboard->SetValueAsEnum(BB_ZombieState, (uint8)EZombieState::EZS_Wandering);
+            SetZombieStateAndBB(EZombieState::EZS_Wandering);
         }
     }
 
@@ -86,10 +86,30 @@ void AZombieAIController::Tick(float DeltaTime)
 
     if (!ZombieOwner || !Blackboard) return;
 
-    FRotator PawnFacing = ZombieOwner->GetActorForwardVector().Rotation();
-    PawnFacing.Pitch = 0.f;
-    PawnFacing.Roll  = 0.f;
-    SetControlRotation(PawnFacing);
+    // During chase/sprint, rotate control toward the target — not just pawn forward
+    AActor* ChaseTarget = Cast<AActor>(Blackboard->GetValueAsObject(BB_TargetActor));
+    if (ChaseTarget &&
+        (ZombieOwner->GetZombieState() == EZombieState::EZS_Chasing ||
+         ZombieOwner->GetZombieState() == EZombieState::EZS_Sprinting))
+    {
+        FRotator LookAt = (ChaseTarget->GetActorLocation() - ZombieOwner->GetActorLocation()).Rotation();
+        LookAt.Pitch = 0.f;
+        LookAt.Roll  = 0.f;
+        SetControlRotation(LookAt);
+    }
+    else
+    {
+        // Use velocity direction so zombie naturally faces where it's walking
+        const FVector Velocity = ZombieOwner->GetVelocity();
+        if (!Velocity.IsNearlyZero(1.f))
+        {
+            FRotator MovementFacing = Velocity.Rotation();
+            MovementFacing.Pitch = 0.f;
+            MovementFacing.Roll  = 0.f;
+            SetControlRotation(MovementFacing);
+        }
+        // If velocity is zero (idle/standing still), hold current facing — no change
+    }
 
     // Log state every 1 second
     static float LastLog = -999.f;
@@ -101,7 +121,7 @@ void AZombieAIController::Tick(float DeltaTime)
         UE_LOG(LogTemp, Warning, TEXT("[TICK] State=%d | Target=%s | BBState=%d"),
             (int32)ZombieOwner->GetZombieState(),
             T ? *T->GetName() : TEXT("NULL"),
-            (int32)Blackboard->GetValueAsEnum(BB_ZombieState)
+            Blackboard->GetValueAsInt(BB_ZombieState)
         );
     }
 
@@ -112,7 +132,21 @@ void AZombieAIController::Tick(float DeltaTime)
     if (Target)
     {
         const float Dist = FVector::Dist(ZombieOwner->GetActorLocation(), Target->GetActorLocation());
-        Blackboard->SetValueAsBool(BB_bIsInMeleeRange, Dist <= ZombieOwner->GetZombieConfig().MeleeRange);
+        const bool bInRange = Dist <= ZombieOwner->GetZombieConfig().MeleeRange;
+        Blackboard->SetValueAsBool(BB_bIsInMeleeRange, bInRange);
+
+        // Log every second so we can see the distance vs MeleeRange
+        static float LastMeleeLog = -999.f;
+        const float NowM = GetWorld()->GetTimeSeconds();
+        if (NowM - LastMeleeLog >= 1.0f)
+        {
+            LastMeleeLog = NowM;
+            UE_LOG(LogTemp, Warning, TEXT("[MELEE] Dist=%.0f | MeleeRange=%.0f | bInRange=%s | BBSet=%s"),
+                Dist,
+                ZombieOwner->GetZombieConfig().MeleeRange,
+                bInRange ? TEXT("YES") : TEXT("NO"),
+                Blackboard->GetValueAsBool(BB_bIsInMeleeRange) ? TEXT("YES") : TEXT("NO"));
+        }
     }
     else
     {
@@ -150,6 +184,8 @@ void AZombieAIController::UpdatePerceptionConfig()
 void AZombieAIController::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActors)
 {
     if (!ZombieOwner || !Blackboard) return;
+    
+    UE_LOG(LogTemp, Warning, TEXT("[PERCEPTION] OnPerceptionUpdated fired — %d actors updated"), UpdatedActors.Num());
 
     for (AActor* Actor : UpdatedActors)
     {
@@ -162,12 +198,16 @@ void AZombieAIController::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActo
         {
             if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
             {
+                UE_LOG(LogTemp, Warning, TEXT("[PERCEPTION] Sight stimulus for %s — bSensed=%s"),
+                    *Actor->GetName(), Stimulus.WasSuccessfullySensed() ? TEXT("TRUE") : TEXT("FALSE"));
                 HandleSightStimulus(Actor, Stimulus.WasSuccessfullySensed());
             }
             else if (Stimulus.Type == UAISense::GetSenseID<UAISense_Hearing>())
             {
                 if (Stimulus.WasSuccessfullySensed())
                 {
+                    UE_LOG(LogTemp, Warning, TEXT("[PERCEPTION] Hearing stimulus for %s at location %s"),
+                        *Actor->GetName(), *Stimulus.StimulusLocation.ToString());
                     HandleHearingStimulus(Actor, Stimulus.StimulusLocation);
                 }
             }
@@ -175,29 +215,42 @@ void AZombieAIController::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActo
     }
 }
 
+void AZombieAIController::SetZombieStateAndBB(EZombieState NewState)
+{
+    if (!ZombieOwner || !Blackboard) return;
+    ZombieOwner->SetZombieState(NewState);
+    Blackboard->SetValueAsInt(BB_ZombieState, (int32)NewState);    // Int key — reliable cross-version
+    UE_LOG(LogTemp, Warning, TEXT("[STATE] SetZombieStateAndBB -> %d"), (int32)NewState);
+}
+
 void AZombieAIController::HandleSightStimulus(AActor* SensedActor, bool bWasSensed)
 {
     if (!Blackboard || !ZombieOwner) return;
 
     const float Now = GetWorld()->GetTimeSeconds();
+    AActor* CurrentTarget = Cast<AActor>(Blackboard->GetValueAsObject(BB_TargetActor));
+    const bool bInCooldown = (Now - TargetLostTime < ReacquireCooldown);
 
-    UE_LOG(LogTemp, Warning, TEXT(">>> HandleSightStimulus: Actor=%s | bWasSensed=%s | TimeSinceLost=%.2f | Cooldown=%.2f"),
+    UE_LOG(LogTemp, Warning, TEXT("[SIGHT] Actor=%s | bWasSensed=%s | CurrentTarget=%s | bInCooldown=%s (%.2fs since lost) | CurrentState=%d"),
         *SensedActor->GetName(),
         bWasSensed ? TEXT("TRUE") : TEXT("FALSE"),
+        CurrentTarget ? *CurrentTarget->GetName() : TEXT("NULL"),
+        bInCooldown ? TEXT("YES") : TEXT("NO"),
         Now - TargetLostTime,
-        ReacquireCooldown);
+        (int32)ZombieOwner->GetZombieState());
 
     if (bWasSensed)
     {
-        const bool bInCooldown = (Now - TargetLostTime < ReacquireCooldown);
-        AActor* CurrentTarget = Cast<AActor>(Blackboard->GetValueAsObject(BB_TargetActor));
-
-        UE_LOG(LogTemp, Warning, TEXT("    bInCooldown=%s | CurrentTarget=%s"),
-            bInCooldown ? TEXT("YES — BLOCKED") : TEXT("NO"),
-            CurrentTarget ? *CurrentTarget->GetName() : TEXT("NULL"));
-
-        if (bInCooldown) return;
-        if (CurrentTarget) return;
+        if (bInCooldown)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[SIGHT] BLOCKED by cooldown — skipping target acquisition"));
+            return;
+        }
+        if (CurrentTarget)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[SIGHT] Already has target — skipping"));
+            return;
+        }
 
         Blackboard->SetValueAsObject(BB_TargetActor, SensedActor);
         Blackboard->SetValueAsVector(BB_LastKnownLocation, SensedActor->GetActorLocation());
@@ -206,23 +259,26 @@ void AZombieAIController::HandleSightStimulus(AActor* SensedActor, bool bWasSens
             ? EZombieState::EZS_Sprinting
             : EZombieState::EZS_Chasing;
 
-        ZombieOwner->SetZombieState(NewState);
-        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = ZombieOwner->GetCanSprint()
+        const float NewSpeed = ZombieOwner->GetCanSprint()
             ? ZombieOwner->GetZombieConfig().SprintSpeed
-            : ZombieOwner->GetZombieConfig().WalkSpeed;
+            : ZombieOwner->GetZombieConfig().ChaseSpeed;
 
-        UE_LOG(LogTemp, Warning, TEXT("    *** TARGET ACQUIRED: %s ***"), *SensedActor->GetName());
+        SetZombieStateAndBB(NewState);
+        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = NewSpeed;
+
+        UE_LOG(LogTemp, Warning, TEXT("[SIGHT] *** TARGET ACQUIRED: %s | NewState=%d | Speed=%.0f ***"),
+            *SensedActor->GetName(), (int32)NewState, NewSpeed);
     }
     else
     {
         if (Blackboard->GetValueAsObject(BB_TargetActor) == SensedActor)
         {
-            UE_LOG(LogTemp, Warning, TEXT("    *** PERCEPTION LOST TARGET — calling LoseTarget ***"));
+            UE_LOG(LogTemp, Warning, TEXT("[SIGHT] Perception lost target %s — calling LoseTarget"), *SensedActor->GetName());
             LoseTarget(SensedActor);
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("    Lost sight of non-target actor — ignoring"));
+            UE_LOG(LogTemp, Warning, TEXT("[SIGHT] Lost non-target actor %s — ignoring"), *SensedActor->GetName());
         }
     }
 }
@@ -236,7 +292,7 @@ void AZombieAIController::HandleHearingStimulus(AActor* SensedActor, const FVect
     if (CurrentTarget) return;
 
     Blackboard->SetValueAsVector(BB_LastKnownLocation, SoundLocation);
-    ZombieOwner->SetZombieState(EZombieState::EZS_Investigating);
+    SetZombieStateAndBB(EZombieState::EZS_Investigating);
 }
 
 // ─────────────────────────────────────────────
@@ -248,7 +304,9 @@ void AZombieAIController::ValidateLineOfSight()
     if (!Blackboard || !ZombieOwner) return;
 
     const EZombieState State = ZombieOwner->GetZombieState();
-    if (State != EZombieState::EZS_Chasing && State != EZombieState::EZS_Sprinting) return;
+    if (State != EZombieState::EZS_Chasing && 
+    State != EZombieState::EZS_Sprinting && 
+    State != EZombieState::EZS_Attacking) return;
 
     AActor* Target = Cast<AActor>(Blackboard->GetValueAsObject(BB_TargetActor));
     if (!Target) return;
@@ -265,15 +323,32 @@ void AZombieAIController::ValidateLineOfSight()
         HitResult, Start, End, ECollisionChannel::ECC_Visibility, Params
     );
 
-    UE_LOG(LogTemp, Verbose, TEXT("ValidateLineOfSight: bBlocked=%s | HitActor=%s"),
-        bBlocked ? TEXT("YES") : TEXT("NO"),
-        (bBlocked && HitResult.GetActor()) ? *HitResult.GetActor()->GetName() : TEXT("none"));
-
     if (bBlocked)
     {
-        UE_LOG(LogTemp, Warning, TEXT("ValidateLineOfSight: LOS BLOCKED by %s — calling LoseTarget"),
-            HitResult.GetActor() ? *HitResult.GetActor()->GetName() : TEXT("unknown"));
-        LoseTarget(Target);
+        if (LOSBlockedStartTime < 0.f)
+        {
+            LOSBlockedStartTime = GetWorld()->GetTimeSeconds();
+            UE_LOG(LogTemp, Warning, TEXT("[LOS] LOS blocked — grace timer started"));
+        }
+
+        const float BlockedDuration = GetWorld()->GetTimeSeconds() - LOSBlockedStartTime;
+        UE_LOG(LogTemp, Verbose, TEXT("[LOS] Still blocked — duration=%.2fs / grace=%.2fs"), BlockedDuration, LOSGracePeriod);
+
+        if (BlockedDuration >= LOSGracePeriod)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[LOS] Grace period expired (%.2fs) — calling LoseTarget"), BlockedDuration);
+            LOSBlockedStartTime = -999.f;
+            LoseTarget(Target);
+        }
+    }
+    else
+    {
+        if (LOSBlockedStartTime >= 0.f)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[LOS] LOS restored — grace timer reset"));
+        }
+        LOSBlockedStartTime = -999.f;
+        Blackboard->SetValueAsVector(BB_LastKnownLocation, Target->GetActorLocation());
     }
 }
 
@@ -291,7 +366,8 @@ void AZombieAIController::CheckDisengage()
     const float Dist = FVector::Dist(ZombieOwner->GetActorLocation(), Target->GetActorLocation());
     if (Dist > ZombieOwner->GetZombieConfig().DisengageDistance)
     {
-        UE_LOG(LogTemp, Warning, TEXT("ZombieAIController: Target exceeded disengage distance — losing target"));
+        UE_LOG(LogTemp, Warning, TEXT("[DISENGAGE] Distance=%.0f > DisengageDistance=%.0f — calling LoseTarget"),
+            Dist, ZombieOwner->GetZombieConfig().DisengageDistance);
         LoseTarget(Target);
     }
 }
@@ -302,23 +378,37 @@ void AZombieAIController::CheckDisengage()
 
 void AZombieAIController::LoseTarget(AActor* LostTarget)
 {
+    LOSBlockedStartTime = -999.f;
+
     if (!Blackboard || !ZombieOwner) return;
+
+    const float SpeedBefore = ZombieOwner->GetCharacterMovement()->MaxWalkSpeed;
 
     TargetLostTime = GetWorld()->GetTimeSeconds();
     Blackboard->SetValueAsVector(BB_LastKnownLocation, LostTarget->GetActorLocation());
     Blackboard->SetValueAsObject(BB_TargetActor, nullptr);
-    ZombieOwner->SetZombieState(EZombieState::EZS_Investigating);
-
-    // Keep chase speed while investigating — zombie doesn't know player is gone yet
-    // Speed drops to WalkSpeed only once Investigating resolves to Wandering
+    SetZombieStateAndBB(EZombieState::EZS_Investigating);
     ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = ZombieOwner->GetZombieConfig().ChaseSpeed;
+
+    UE_LOG(LogTemp, Warning, TEXT("[LOSETARGET] Lost=%s | SpeedBefore=%.0f | SpeedAfter=%.0f | TargetSet=NULL | State=Investigating"),
+        *LostTarget->GetName(), SpeedBefore, ZombieOwner->GetCharacterMovement()->MaxWalkSpeed);
 }
 
 void AZombieAIController::OnInvestigateComplete()
 {
     if (!ZombieOwner) return;
-    ZombieOwner->SetZombieState(EZombieState::EZS_Wandering);
+
+    const float SpeedBefore = ZombieOwner->GetCharacterMovement()->MaxWalkSpeed;
+
+    SetZombieStateAndBB(EZombieState::EZS_Wandering);
     ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = ZombieOwner->GetZombieConfig().WalkSpeed;
+
+    UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATECOMPLETE] SpeedBefore=%.0f | SpeedAfter=%.0f | State=Wandering — WHO CALLED THIS?"),
+        SpeedBefore, ZombieOwner->GetCharacterMovement()->MaxWalkSpeed);
+
+    // This will print the C++ callstack in the output log
+    UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATECOMPLETE] CallStack follows:"));
+    FDebug::DumpStackTraceToLog(ELogVerbosity::Warning);
 }
 
 // ─────────────────────────────────────────────
@@ -327,8 +417,23 @@ void AZombieAIController::OnInvestigateComplete()
 
 void AZombieAIController::TriggerMeleeAttack()
 {
-    if (ZombieOwner)
+    if (!ZombieOwner) return;
+    
+    if (ZombieOwner->GetZombieState() == EZombieState::EZS_Attacking) return;
+    
+    SetZombieStateAndBB(EZombieState::EZS_Attacking);
+    ZombieOwner->PerformMeleeAttack();
+
+    // Return to chasing after the attack animation window (matches MeleeAttackRate)
+    const float ReturnDelay = FMath::Max(ZombieOwner->GetZombieConfig().MeleeAttackRate, 1.0f);
+    GetWorldTimerManager().ClearTimer(AttackReturnHandle); // cancel any previous
+    GetWorldTimerManager().SetTimer(AttackReturnHandle, [this]()
     {
-        ZombieOwner->PerformMeleeAttack();
-    }
+        if (!ZombieOwner || !Blackboard) return;
+        AActor* CurrentTarget = Cast<AActor>(Blackboard->GetValueAsObject(BB_TargetActor));
+        if (CurrentTarget)
+        {
+            SetZombieStateAndBB(EZombieState::EZS_Chasing);
+        }
+    }, ReturnDelay, false);
 }

@@ -5,6 +5,7 @@
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "Perception/AISenseConfig_Hearing.h"
+#include "ShooterGame/Types/ZombieTypes.h"
 #include "ZombieAIController.generated.h"
 
 class AZombieCharacter;
@@ -60,12 +61,20 @@ private:
 
     // Cooldown timer — prevents re-acquiring target immediately after losing sight
     float TargetLostTime    = -999.f;
-    float ReacquireCooldown = 2.0f;   // seconds before zombie can lock onto a new target
+    float ReacquireCooldown = 0.3f;   // seconds before zombie can lock onto a new target
+    
+    float LOSBlockedStartTime = -999.f;         // When did we first lose LOS?
+    float LOSGracePeriod      = 1.5f;           // Seconds of blocked LOS before we drop the target
 
+    void SetZombieStateAndBB(EZombieState NewState);
+    
     void UpdatePerceptionConfig();
     void HandleSightStimulus(AActor* SensedActor, bool bWasSensed);
     void HandleHearingStimulus(AActor* SensedActor, const FVector& SoundLocation);
     void ValidateLineOfSight();
     void CheckDisengage();
     void LoseTarget(AActor* LostTarget);   // centralized target-loss handler
+    
+    
+    FTimerHandle AttackReturnHandle;
 };

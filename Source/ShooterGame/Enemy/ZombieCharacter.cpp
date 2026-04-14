@@ -15,9 +15,10 @@ AZombieCharacter::AZombieCharacter()
     bReplicates = true;
     bAlwaysRelevant = true;
 
-    GetCharacterMovement()->bOrientRotationToMovement = true;
-    // Slow, lumbering rotation — feels like a zombie
-    GetCharacterMovement()->RotationRate = FRotator(0.f, 80.f, 0.f);
+    GetCharacterMovement()->bOrientRotationToMovement = false;
+    GetCharacterMovement()->bUseControllerDesiredRotation = true;
+    // RotationRate controls how fast the zombie turns to face target/movement direction
+    GetCharacterMovement()->RotationRate = FRotator(0.f, 480.f, 0.f);
     bUseControllerRotationYaw = false;
 }
 
@@ -181,8 +182,6 @@ void AZombieCharacter::PerformMeleeAttack()
     const float Now = GetWorld()->GetTimeSeconds();
     if (Now - LastMeleeTime < ZombieConfig.MeleeAttackRate) return;
     LastMeleeTime = Now;
-
-    SetZombieState(EZombieState::EZS_Attacking);
 
     // Sphere sweep at zombie's forward position
     const FVector MeleeOrigin = GetActorLocation() + GetActorForwardVector() * 60.f;

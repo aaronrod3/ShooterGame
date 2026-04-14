@@ -39,18 +39,18 @@ struct FZombieConfig
 
     // Normal walk/chase speed
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Movement")
-    float WalkSpeed = 175.f;
+    float WalkSpeed = 50.f;
     
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Movement")
-    float ChaseSpeed = 275.f; // Between walk and sprint — used during chase + investigate
+    float ChaseSpeed = 150.f; // Between walk and sprint — used during chase + investigate
 
     // Sprint speed — only used if bCanSprint is rolled true
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Movement")
-    float SprintSpeed = 425.f;
+    float SprintSpeed = 150.f;
 
     // Speed while in crawler/downed state
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Movement")
-    float CrawlSpeed = 80.f;
+    float CrawlSpeed = 40.f;
 
     // --- Sprint Randomness ---
 
