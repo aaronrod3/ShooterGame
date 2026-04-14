@@ -19,7 +19,9 @@ public class ShooterGame : ModuleRules
 			"GameplayStateTreeModule",
 			"UMG",
 			"Slate",
-			"Niagara"
+			"Niagara",
+			"NavigationSystem",   
+			"GameplayTasks"       
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AnimGraphRuntime", "OnlineServicesInterface" });
