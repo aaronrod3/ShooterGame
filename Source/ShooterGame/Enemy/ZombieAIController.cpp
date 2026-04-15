@@ -10,12 +10,13 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 
-const FName AZombieAIController::BB_TargetActor       = TEXT("TargetActor");
-const FName AZombieAIController::BB_LastKnownLocation = TEXT("LastKnownLocation");
-const FName AZombieAIController::BB_ZombieState       = TEXT("ZombieState");
-const FName AZombieAIController::BB_bCanSprint        = TEXT("bCanSprint");
-const FName AZombieAIController::BB_bIsInMeleeRange   = TEXT("bIsInMeleeRange");
-const FName AZombieAIController::BB_bIsIdling         = TEXT("bIsIdling");
+const FName AZombieAIController::BB_TargetActor                     = TEXT("TargetActor");
+const FName AZombieAIController::BB_LastKnownLocation               = TEXT("LastKnownLocation");
+const FName AZombieAIController::BB_ZombieState                     = TEXT("ZombieState");
+const FName AZombieAIController::BB_bCanSprint                      = TEXT("bCanSprint");
+const FName AZombieAIController::BB_bIsInMeleeRange                 = TEXT("bIsInMeleeRange");
+const FName AZombieAIController::BB_bIsIdling                       = TEXT("bIsIdling");
+const FName AZombieAIController::BB_bInvestigationTimerStarted      = TEXT("bInvestigationTimerStarted");
 
 AZombieAIController::AZombieAIController()
 {
@@ -220,9 +221,50 @@ void AZombieAIController::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActo
 void AZombieAIController::SetZombieStateAndBB(EZombieState NewState)
 {
     if (!ZombieOwner || !Blackboard) return;
+
+    const FZombieConfig& Config = ZombieOwner->GetZombieConfig();
+
+    // Centralized speed assignment — every state transition goes through here
+    switch (NewState)
+    {
+    case EZombieState::EZS_Wandering:
+        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = Config.WalkSpeed;
+        break;
+
+    case EZombieState::EZS_Investigating:
+        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = Config.ChaseSpeed;
+        break;
+
+    case EZombieState::EZS_Chasing:
+        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = Config.ChaseSpeed;
+        break;
+
+    case EZombieState::EZS_Sprinting:
+        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = Config.SprintSpeed;
+        break;
+
+    case EZombieState::EZS_Attacking:
+        // Stop moving during attack — BT MoveTo will resume after attack window
+        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = 0.f;
+        break;
+
+    case EZombieState::EZS_Crawling:
+        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = Config.CrawlSpeed;
+        break;
+
+    case EZombieState::EZS_Dead:
+        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = 0.f;
+        break;
+
+    default:
+        break;
+    }
+
     ZombieOwner->SetZombieState(NewState);
-    Blackboard->SetValueAsInt(BB_ZombieState, (int32)NewState);    // Int key — reliable cross-version
-    UE_LOG(LogTemp, Warning, TEXT("[STATE] SetZombieStateAndBB -> %d"), (int32)NewState);
+    Blackboard->SetValueAsInt(BB_ZombieState, (int32)NewState);
+
+    UE_LOG(LogTemp, Warning, TEXT("[STATE] SetZombieStateAndBB -> %d | Speed=%.0f"),
+        (int32)NewState, ZombieOwner->GetCharacterMovement()->MaxWalkSpeed);
 }
 
 void AZombieAIController::HandleSightStimulus(AActor* SensedActor, bool bWasSensed)
@@ -262,6 +304,8 @@ void AZombieAIController::HandleSightStimulus(AActor* SensedActor, bool bWasSens
         if (GetWorldTimerManager().IsTimerActive(InvestigationTimerHandle))
         {
             GetWorldTimerManager().ClearTimer(InvestigationTimerHandle);
+            Blackboard->SetValueAsBool(BB_bInvestigationTimerStarted, false);
+            
             UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATE] Investigation timer cancelled — target re-acquired"));
         }
 
@@ -272,15 +316,10 @@ void AZombieAIController::HandleSightStimulus(AActor* SensedActor, bool bWasSens
             ? EZombieState::EZS_Sprinting
             : EZombieState::EZS_Chasing;
 
-        const float NewSpeed = ZombieOwner->GetCanSprint()
-            ? ZombieOwner->GetZombieConfig().SprintSpeed
-            : ZombieOwner->GetZombieConfig().ChaseSpeed;
-
         SetZombieStateAndBB(NewState);
-        ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = NewSpeed;
-
-        UE_LOG(LogTemp, Warning, TEXT("[SIGHT] *** TARGET ACQUIRED: %s | NewState=%d | Speed=%.0f ***"),
-            *SensedActor->GetName(), (int32)NewState, NewSpeed);
+        UE_LOG(LogTemp, Warning, TEXT("[SIGHT] *** TARGET ACQUIRED: %s | NewState=%d ***"),
+    *SensedActor->GetName(), (int32)NewState);
+        
     }
     else
     {
@@ -300,12 +339,25 @@ void AZombieAIController::HandleHearingStimulus(AActor* SensedActor, const FVect
 {
     if (!Blackboard || !ZombieOwner) return;
 
-    // Don't override an active chase with a hearing event
+    // Don't override an active chase/sprint with a hearing event
     const AActor* CurrentTarget = Cast<AActor>(Blackboard->GetValueAsObject(BB_TargetActor));
     if (CurrentTarget) return;
 
+    // Also don't restart investigation if already investigating — just update the target location
+    const EZombieState CurrentState = ZombieOwner->GetZombieState();
+    if (CurrentState == EZombieState::EZS_Investigating)
+    {
+        Blackboard->SetValueAsVector(BB_LastKnownLocation, SoundLocation);
+        UE_LOG(LogTemp, Warning, TEXT("[HEARING] Already investigating — updated LastKnownLocation to sound at %s"), *SoundLocation.ToString());
+        return;
+    }
+
     Blackboard->SetValueAsVector(BB_LastKnownLocation, SoundLocation);
     SetZombieStateAndBB(EZombieState::EZS_Investigating);
+    
+
+    UE_LOG(LogTemp, Warning, TEXT("[HEARING] Sound heard at %s — entering Investigating"),
+    *SoundLocation.ToString());
 }
 
 // ─────────────────────────────────────────────
@@ -373,6 +425,14 @@ void AZombieAIController::CheckDisengage()
 {
     if (!Blackboard || !ZombieOwner) return;
 
+    // Only disengage during active chase — never interrupt an attack or investigation
+    const EZombieState CurrentState = ZombieOwner->GetZombieState();
+    if (CurrentState != EZombieState::EZS_Chasing &&
+        CurrentState != EZombieState::EZS_Sprinting)
+    {
+        return;
+    }
+
     AActor* Target = Cast<AActor>(Blackboard->GetValueAsObject(BB_TargetActor));
     if (!Target) return;
 
@@ -405,30 +465,25 @@ void AZombieAIController::LoseTarget(AActor* LostTarget)
     Blackboard->SetValueAsVector(BB_LastKnownLocation, LostTarget->GetActorLocation());
     Blackboard->SetValueAsObject(BB_TargetActor, nullptr);
     SetZombieStateAndBB(EZombieState::EZS_Investigating);
-    ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = ZombieOwner->GetZombieConfig().ChaseSpeed;
 
-    UE_LOG(LogTemp, Warning, TEXT("[LOSETARGET] Lost=%s | SpeedBefore=%.0f | SpeedAfter=%.0f | TargetSet=NULL | State=Investigating"),
-        *LostTarget->GetName(), SpeedBefore, ZombieOwner->GetCharacterMovement()->MaxWalkSpeed);
+    UE_LOG(LogTemp, Warning, TEXT("[LOSETARGET] Lost=%s | SpeedBefore=%.0f | State=Investigating"),
+    *LostTarget->GetName(), SpeedBefore);
 }
 
 void AZombieAIController::OnInvestigateComplete()
 {
-    if (!ZombieOwner) return;
-    
+    if (!ZombieOwner || !Blackboard) return;
+
     GetWorldTimerManager().ClearTimer(InvestigationTimerHandle);
+
+    // Clear both keys — releases the BT investigate branch entirely
+    Blackboard->SetValueAsBool(BB_bInvestigationTimerStarted, false);
     Blackboard->ClearValue(BB_LastKnownLocation);
 
     const float SpeedBefore = ZombieOwner->GetCharacterMovement()->MaxWalkSpeed;
-
     SetZombieStateAndBB(EZombieState::EZS_Wandering);
-    ZombieOwner->GetCharacterMovement()->MaxWalkSpeed = ZombieOwner->GetZombieConfig().WalkSpeed;
 
-    UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATECOMPLETE] SpeedBefore=%.0f | SpeedAfter=%.0f | State=Wandering — WHO CALLED THIS?"),
-        SpeedBefore, ZombieOwner->GetCharacterMovement()->MaxWalkSpeed);
-
-    // This will print the C++ callstack in the output log
-    UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATECOMPLETE] CallStack follows:"));
-    FDebug::DumpStackTraceToLog(ELogVerbosity::Warning);
+    UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATECOMPLETE] SpeedBefore=%.0f | State=Wandering"), SpeedBefore);
 }
 
 // ─────────────────────────────────────────────
@@ -504,14 +559,15 @@ void AZombieAIController::OnIdleDwellComplete()
 void AZombieAIController::StartInvestigationTimer()
 {
     if (!ZombieOwner || !Blackboard) return;
-
-    // Guard: only run when actually investigating
     if (ZombieOwner->GetZombieState() != EZombieState::EZS_Investigating) return;
 
-    // Clear any previous investigation timer
     GetWorldTimerManager().ClearTimer(InvestigationTimerHandle);
 
-    const float InvestigationTime = ZombieOwner->GetZombieConfig().InvestigationTime;
+    const FZombieConfig& Config = ZombieOwner->GetZombieConfig();
+    const float InvestigationTime = FMath::FRandRange(Config.MinInvestigationTime, Config.MaxInvestigationTime);
+
+    // Gate — prevents BT from calling this again before the timer expires
+    Blackboard->SetValueAsBool(BB_bInvestigationTimerStarted, true);
 
     GetWorldTimerManager().SetTimer(InvestigationTimerHandle, this,
         &AZombieAIController::OnInvestigateComplete, InvestigationTime, false);

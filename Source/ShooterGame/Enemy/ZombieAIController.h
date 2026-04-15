@@ -43,6 +43,7 @@ public:
     static const FName BB_bCanSprint;
     static const FName BB_bIsInMeleeRange;
     static const FName BB_bIsIdling;
+    static const FName BB_bInvestigationTimerStarted;
 
 protected:
     virtual void BeginPlay() override;

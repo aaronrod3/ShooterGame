@@ -114,10 +114,22 @@ struct FZombieConfig
     // Maximum seconds the zombie stands idle between wander moves
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Wander")
     float MaxIdleTime = 6.0f;
+    
+    // Radius around the zombie's current location to pick a random wander destination
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Wander")
+    float WanderRadius = 800.f;
 
     // --- Investigation ---
 
-    // Seconds the zombie investigates LastKnownLocation before giving up and returning to wander
+    // Randomized investigation duration — zombie searches for a random time in this range
+    // before giving up and returning to wander (spec: 12–17 seconds)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Investigation")
-    float InvestigationTime = 15.0f;
+    float MinInvestigationTime = 12.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Investigation")
+    float MaxInvestigationTime = 17.0f;
+    
+    // radius around LastKnownLocation the zombie searches while investigating
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Investigation")
+    float InvestigateWanderRadius = 400.f;
 };
