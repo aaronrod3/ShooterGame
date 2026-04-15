@@ -15,6 +15,7 @@ const FName AZombieAIController::BB_LastKnownLocation = TEXT("LastKnownLocation"
 const FName AZombieAIController::BB_ZombieState       = TEXT("ZombieState");
 const FName AZombieAIController::BB_bCanSprint        = TEXT("bCanSprint");
 const FName AZombieAIController::BB_bIsInMeleeRange   = TEXT("bIsInMeleeRange");
+const FName AZombieAIController::BB_bIsIdling         = TEXT("bIsIdling");
 
 AZombieAIController::AZombieAIController()
 {
@@ -68,6 +69,7 @@ void AZombieAIController::OnPossess(APawn* InPawn)
         {
             Blackboard->SetValueAsBool(BB_bCanSprint, ZombieOwner->GetCanSprint());
             SetZombieStateAndBB(EZombieState::EZS_Wandering);
+            Blackboard->SetValueAsBool(BB_bIsIdling, false);
         }
     }
 
@@ -252,6 +254,17 @@ void AZombieAIController::HandleSightStimulus(AActor* SensedActor, bool bWasSens
             return;
         }
 
+        // Cancel idle dwell — zombie is leaving wander state
+        GetWorldTimerManager().ClearTimer(IdleDwellHandle);
+        Blackboard->SetValueAsBool(BB_bIsIdling, false);
+
+        // Cancel any active investigation timer — player re-acquired
+        if (GetWorldTimerManager().IsTimerActive(InvestigationTimerHandle))
+        {
+            GetWorldTimerManager().ClearTimer(InvestigationTimerHandle);
+            UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATE] Investigation timer cancelled — target re-acquired"));
+        }
+
         Blackboard->SetValueAsObject(BB_TargetActor, SensedActor);
         Blackboard->SetValueAsVector(BB_LastKnownLocation, SensedActor->GetActorLocation());
 
@@ -380,6 +393,10 @@ void AZombieAIController::LoseTarget(AActor* LostTarget)
 {
     LOSBlockedStartTime = -999.f;
 
+    // Cancel idle dwell — zombie is leaving wander state
+    GetWorldTimerManager().ClearTimer(IdleDwellHandle);
+    if (Blackboard) Blackboard->SetValueAsBool(BB_bIsIdling, false);
+
     if (!Blackboard || !ZombieOwner) return;
 
     const float SpeedBefore = ZombieOwner->GetCharacterMovement()->MaxWalkSpeed;
@@ -397,6 +414,9 @@ void AZombieAIController::LoseTarget(AActor* LostTarget)
 void AZombieAIController::OnInvestigateComplete()
 {
     if (!ZombieOwner) return;
+    
+    GetWorldTimerManager().ClearTimer(InvestigationTimerHandle);
+    Blackboard->ClearValue(BB_LastKnownLocation);
 
     const float SpeedBefore = ZombieOwner->GetCharacterMovement()->MaxWalkSpeed;
 
@@ -436,4 +456,65 @@ void AZombieAIController::TriggerMeleeAttack()
             SetZombieStateAndBB(EZombieState::EZS_Chasing);
         }
     }, ReturnDelay, false);
+}
+
+// ─────────────────────────────────────────────
+// Idle Dwell (Wander pause)
+// ─────────────────────────────────────────────
+
+void AZombieAIController::StartIdleDwell()
+{
+    if (!ZombieOwner || !Blackboard) return;
+
+    // Guard: only start an idle dwell while wandering
+    if (ZombieOwner->GetZombieState() != EZombieState::EZS_Wandering) return;
+
+    // Clear any previous dwell timer that may still be running
+    GetWorldTimerManager().ClearTimer(IdleDwellHandle);
+
+    const FZombieConfig& Config = ZombieOwner->GetZombieConfig();
+    const float DwellTime = FMath::FRandRange(Config.MinIdleTime, Config.MaxIdleTime);
+
+    // Tell the BT the zombie is now idling — wander movement will pause
+    Blackboard->SetValueAsBool(BB_bIsIdling, true);
+
+    GetWorldTimerManager().SetTimer(IdleDwellHandle, this,
+        &AZombieAIController::OnIdleDwellComplete, DwellTime, false);
+
+    UE_LOG(LogTemp, Warning, TEXT("[IDLE] StartIdleDwell — dwelling for %.2fs"), DwellTime);
+}
+
+void AZombieAIController::OnIdleDwellComplete()
+{
+    if (!ZombieOwner || !Blackboard) return;
+
+    // Clear the timer handle and release the BT gate
+    GetWorldTimerManager().ClearTimer(IdleDwellHandle);
+    Blackboard->SetValueAsBool(BB_bIsIdling, false);
+
+    UE_LOG(LogTemp, Warning, TEXT("[IDLE] OnIdleDwellComplete — resuming wander"));
+}
+
+
+
+// ─────────────────────────────────────────────
+// Investigation Timer
+// ─────────────────────────────────────────────
+
+void AZombieAIController::StartInvestigationTimer()
+{
+    if (!ZombieOwner || !Blackboard) return;
+
+    // Guard: only run when actually investigating
+    if (ZombieOwner->GetZombieState() != EZombieState::EZS_Investigating) return;
+
+    // Clear any previous investigation timer
+    GetWorldTimerManager().ClearTimer(InvestigationTimerHandle);
+
+    const float InvestigationTime = ZombieOwner->GetZombieConfig().InvestigationTime;
+
+    GetWorldTimerManager().SetTimer(InvestigationTimerHandle, this,
+        &AZombieAIController::OnInvestigateComplete, InvestigationTime, false);
+
+    UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATE] StartInvestigationTimer — will expire in %.2fs"), InvestigationTime);
 }

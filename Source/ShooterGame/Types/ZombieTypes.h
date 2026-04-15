@@ -104,4 +104,20 @@ struct FZombieConfig
     // Rolled at the moment the fatal hit lands.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Crawler", meta = (ClampMin = "0.0", ClampMax = "1.0"))
     float CrawlerChance = 0.30f;
+    
+    // --- Idle / Wander ---
+
+    // Minimum seconds the zombie stands idle between wander moves
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Wander")
+    float MinIdleTime = 2.0f;
+
+    // Maximum seconds the zombie stands idle between wander moves
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Wander")
+    float MaxIdleTime = 6.0f;
+
+    // --- Investigation ---
+
+    // Seconds the zombie investigates LastKnownLocation before giving up and returning to wander
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Investigation")
+    float InvestigationTime = 15.0f;
 };

@@ -24,17 +24,25 @@ public:
     virtual void OnUnPossess() override;
     virtual void Tick(float DeltaTime) override;
 
-    UFUNCTION(BlueprintCallable, Category = "Zombie|Combat")
+    UFUNCTION(BlueprintCallable, Category = "Zombie|AI")
     void TriggerMeleeAttack();
     
     UFUNCTION(BlueprintCallable, Category = "Zombie|AI")
     void OnInvestigateComplete();
 
+    UFUNCTION(BlueprintCallable, Category = "Zombie|AI")
+    void StartIdleDwell();
+    
+    UFUNCTION(BlueprintCallable, Category = "Zombie|AI")
+    void StartInvestigationTimer();
+    
+    
     static const FName BB_TargetActor;
     static const FName BB_LastKnownLocation;
     static const FName BB_ZombieState;
     static const FName BB_bCanSprint;
     static const FName BB_bIsInMeleeRange;
+    static const FName BB_bIsIdling;
 
 protected:
     virtual void BeginPlay() override;
@@ -59,22 +67,26 @@ private:
 
     AZombieCharacter* ZombieOwner = nullptr;
 
-    // Cooldown timer — prevents re-acquiring target immediately after losing sight
     float TargetLostTime    = -999.f;
-    float ReacquireCooldown = 0.3f;   // seconds before zombie can lock onto a new target
-    
-    float LOSBlockedStartTime = -999.f;         // When did we first lose LOS?
-    float LOSGracePeriod      = 1.5f;           // Seconds of blocked LOS before we drop the target
+    float ReacquireCooldown = 0.3f;
+
+    float LOSBlockedStartTime = -999.f;
+    float LOSGracePeriod      = 1.5f;
 
     void SetZombieStateAndBB(EZombieState NewState);
-    
     void UpdatePerceptionConfig();
     void HandleSightStimulus(AActor* SensedActor, bool bWasSensed);
     void HandleHearingStimulus(AActor* SensedActor, const FVector& SoundLocation);
     void ValidateLineOfSight();
     void CheckDisengage();
-    void LoseTarget(AActor* LostTarget);   // centralized target-loss handler
-    
-    
+    void LoseTarget(AActor* LostTarget);
+
     FTimerHandle AttackReturnHandle;
+    FTimerHandle IdleDwellHandle;
+    FTimerHandle InvestigationTimerHandle;
+
+    
+    void OnIdleDwellComplete();
+
+    
 };
