@@ -36,6 +36,11 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Zombie|AI")
     void StartInvestigationTimer();
     
+    // Called by a nearby alerted zombie's controller to pull this zombie
+    // into the group alert response. Only acts on wandering zombies.
+    // Server-only — never called on clients.
+    void ReceiveGroupAlert(const FVector& AlerterLocation);
+    
     
     static const FName BB_TargetActor;
     static const FName BB_LastKnownLocation;
@@ -44,6 +49,7 @@ public:
     static const FName BB_bIsInMeleeRange;
     static const FName BB_bIsIdling;
     static const FName BB_bInvestigationTimerStarted;
+    static const FName BB_AlertSourceLocation; 
 
 protected:
     virtual void BeginPlay() override;
@@ -73,6 +79,9 @@ private:
 
     float LOSBlockedStartTime = -999.f;
     float LOSGracePeriod      = 1.5f;
+    
+    float LastBroadcastTime = -999.f;   // throttles BroadcastGroupAlert overlap cost
+    float LastInvestigateCompleteTime = -999.f;  // tracks when last investigation ended
 
     void SetZombieStateAndBB(EZombieState NewState);
     void UpdatePerceptionConfig();
@@ -81,13 +90,19 @@ private:
     void ValidateLineOfSight();
     void CheckDisengage();
     void LoseTarget(AActor* LostTarget);
+    void OnIdleDwellComplete();
+    void BroadcastGroupAlert();
 
     FTimerHandle AttackReturnHandle;
     FTimerHandle IdleDwellHandle;
     FTimerHandle InvestigationTimerHandle;
+    
+    // True when this zombie entered Investigating via a group alert (not direct perception).
+    // Used only to select AlertInvestigationTime vs normal MinInvestigationTime in StartInvestigationTimer().
+    bool bIsGroupAlerted = false;
 
     
-    void OnIdleDwellComplete();
+    
 
     
 };

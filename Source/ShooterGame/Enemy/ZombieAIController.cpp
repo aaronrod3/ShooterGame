@@ -8,6 +8,7 @@
 #include "Perception/AISense_Sight.h"
 #include "Perception/AISense_Hearing.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Engine/OverlapResult.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 
 const FName AZombieAIController::BB_TargetActor                     = TEXT("TargetActor");
@@ -17,6 +18,7 @@ const FName AZombieAIController::BB_bCanSprint                      = TEXT("bCan
 const FName AZombieAIController::BB_bIsInMeleeRange                 = TEXT("bIsInMeleeRange");
 const FName AZombieAIController::BB_bIsIdling                       = TEXT("bIsIdling");
 const FName AZombieAIController::BB_bInvestigationTimerStarted      = TEXT("bInvestigationTimerStarted");
+const FName AZombieAIController::BB_AlertSourceLocation             = TEXT("AlertSourceLocation");
 
 AZombieAIController::AZombieAIController()
 {
@@ -130,6 +132,7 @@ void AZombieAIController::Tick(float DeltaTime)
 
     ValidateLineOfSight();
     CheckDisengage();
+    BroadcastGroupAlert(); 
 
     AActor* Target = Cast<AActor>(Blackboard->GetValueAsObject(BB_TargetActor));
     if (Target)
@@ -155,6 +158,8 @@ void AZombieAIController::Tick(float DeltaTime)
     {
         Blackboard->SetValueAsBool(BB_bIsInMeleeRange, false);
     }
+    
+    
 }
 
 // ─────────────────────────────────────────────
@@ -299,6 +304,10 @@ void AZombieAIController::HandleSightStimulus(AActor* SensedActor, bool bWasSens
         // Cancel idle dwell — zombie is leaving wander state
         GetWorldTimerManager().ClearTimer(IdleDwellHandle);
         Blackboard->SetValueAsBool(BB_bIsIdling, false);
+        
+        // If this zombie was group-alerted, it now has a real target — clear the flag
+        // so if it later loses the player it gets a full investigation window
+        bIsGroupAlerted = false;
 
         // Cancel any active investigation timer — player re-acquired
         if (GetWorldTimerManager().IsTimerActive(InvestigationTimerHandle))
@@ -479,6 +488,9 @@ void AZombieAIController::OnInvestigateComplete()
     // Clear both keys — releases the BT investigate branch entirely
     Blackboard->SetValueAsBool(BB_bInvestigationTimerStarted, false);
     Blackboard->ClearValue(BB_LastKnownLocation);
+    
+    bIsGroupAlerted = false;
+    LastInvestigateCompleteTime = GetWorld()->GetTimeSeconds(); 
 
     const float SpeedBefore = ZombieOwner->GetCharacterMovement()->MaxWalkSpeed;
     SetZombieStateAndBB(EZombieState::EZS_Wandering);
@@ -564,13 +576,110 @@ void AZombieAIController::StartInvestigationTimer()
     GetWorldTimerManager().ClearTimer(InvestigationTimerHandle);
 
     const FZombieConfig& Config = ZombieOwner->GetZombieConfig();
-    const float InvestigationTime = FMath::FRandRange(Config.MinInvestigationTime, Config.MaxInvestigationTime);
 
-    // Gate — prevents BT from calling this again before the timer expires
+    // Group-alerted zombies use a shorter window — they didn't see the player
+    // directly so they give up sooner, letting the horde dissolve naturally
+    const float InvestigationTime = bIsGroupAlerted
+        ? FMath::FRandRange(Config.MinAlertInvestigationTime, Config.MaxAlertInvestigationTime)
+        : FMath::FRandRange(Config.MinInvestigationTime,      Config.MaxInvestigationTime);
+
     Blackboard->SetValueAsBool(BB_bInvestigationTimerStarted, true);
 
     GetWorldTimerManager().SetTimer(InvestigationTimerHandle, this,
         &AZombieAIController::OnInvestigateComplete, InvestigationTime, false);
 
-    UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATE] StartInvestigationTimer — will expire in %.2fs"), InvestigationTime);
+    UE_LOG(LogTemp, Warning, TEXT("[INVESTIGATE] StartInvestigationTimer — will expire in %.2fs | GroupAlert=%s"),
+        InvestigationTime,
+        bIsGroupAlerted ? TEXT("YES") : TEXT("NO"));
+}
+
+
+// ─────────────────────────────────────────────
+// Group Alert — receive broadcast from a nearby alerted zombie
+// ─────────────────────────────────────────────
+
+void AZombieAIController::BroadcastGroupAlert()
+{
+    if (!ZombieOwner || !Blackboard) return;
+    if (!ZombieOwner->HasAuthority()) return;
+
+    const EZombieState CurrentState = ZombieOwner->GetZombieState();
+    if (CurrentState == EZombieState::EZS_Wandering ||
+        CurrentState == EZombieState::EZS_Dead       ||
+        CurrentState == EZombieState::EZS_Crawling)
+    {
+        return;
+    }
+
+    // Throttle — only run the sphere overlap every 0.5s per zombie.
+    // Firing every tick is redundant and expensive with large hordes.
+    const float Now = GetWorld()->GetTimeSeconds();
+    if (Now - LastBroadcastTime < 0.5f) return;
+    LastBroadcastTime = Now;
+
+    const FVector MyLocation  = ZombieOwner->GetActorLocation();
+    const float   AlertRadius = ZombieOwner->GetZombieConfig().AlertRadius;
+
+    TArray<FOverlapResult> Overlaps;
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(ZombieOwner);
+
+    GetWorld()->OverlapMultiByObjectType(
+        Overlaps,
+        MyLocation,
+        FQuat::Identity,
+        FCollisionObjectQueryParams(ECollisionChannel::ECC_Pawn),
+        FCollisionShape::MakeSphere(AlertRadius),
+        QueryParams
+    );
+
+    for (const FOverlapResult& Overlap : Overlaps)
+    {
+        AZombieCharacter* NearbyZombie = Cast<AZombieCharacter>(Overlap.GetActor());
+        if (!NearbyZombie) continue;
+
+        // Only pull in purely wandering zombies — never interrupt an engaged one
+        if (NearbyZombie->GetZombieState() != EZombieState::EZS_Wandering) continue;
+
+        AZombieAIController* NearbyController =
+            Cast<AZombieAIController>(NearbyZombie->GetController());
+        if (!NearbyController) continue;
+
+        NearbyController->ReceiveGroupAlert(MyLocation);
+    }
+}
+
+void AZombieAIController::ReceiveGroupAlert(const FVector& AlerterLocation)
+{
+    if (!ZombieOwner || !Blackboard) return;
+    if (!ZombieOwner->HasAuthority()) return;
+
+    const EZombieState CurrentState = ZombieOwner->GetZombieState();
+    if (CurrentState != EZombieState::EZS_Wandering) return;
+
+    // Don't re-alert a zombie that just finished investigating — give it time
+    // to wander away from the cluster before it can be pulled in again
+    const float Now = GetWorld()->GetTimeSeconds();
+    const float CooldownRemaining = ZombieOwner->GetZombieConfig().ReAlertCooldown
+                                    - (Now - LastInvestigateCompleteTime);
+    if (CooldownRemaining > 0.f)
+    {
+        UE_LOG(LogTemp, Verbose,
+            TEXT("[GROUP ALERT] %s blocked by re-alert cooldown (%.1fs remaining)"),
+            *ZombieOwner->GetName(), CooldownRemaining);
+        return;
+    }
+
+    // Cancel idle dwell so the zombie moves immediately
+    GetWorldTimerManager().ClearTimer(IdleDwellHandle);
+    Blackboard->SetValueAsBool(BB_bIsIdling, false);
+
+    Blackboard->SetValueAsVector(BB_LastKnownLocation, AlerterLocation);
+    bIsGroupAlerted = true;
+    SetZombieStateAndBB(EZombieState::EZS_Investigating);
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("[GROUP ALERT] %s received alert — moving to alerter at %s"),
+        *ZombieOwner->GetName(),
+        *AlerterLocation.ToString());
 }
