@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "ShooterGame/Components/AudioPerceptionComponent.h"
 #include "CaseEject.generated.h"
 
 UCLASS()
@@ -20,6 +21,11 @@ public:
 	
 	// In public section of header
 	float GetSpawnTime() const { return SpawnTime; }
+	
+	// Emits a small hearing radius when the casing hits a hard surface.
+	// Shorter range than gunshots — only alerts very nearby zombies.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Audio")
+	UAudioPerceptionComponent* AudioPerceptionComp;
 	
 
 protected:

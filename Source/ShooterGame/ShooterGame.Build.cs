@@ -21,7 +21,8 @@ public class ShooterGame : ModuleRules
 			"Slate",
 			"Niagara",
 			"NavigationSystem",   
-			"GameplayTasks"       
+			"GameplayTasks",
+			"AudioMixer"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AnimGraphRuntime", "OnlineServicesInterface" });

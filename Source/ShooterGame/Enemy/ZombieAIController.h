@@ -19,7 +19,8 @@ class SHOOTERGAME_API AZombieAIController : public AAIController
 
 public:
     AZombieAIController();
-
+    
+    virtual void BeginPlay() override;
     virtual void OnPossess(APawn* InPawn) override;
     virtual void OnUnPossess() override;
     virtual void Tick(float DeltaTime) override;
@@ -52,7 +53,7 @@ public:
     static const FName BB_AlertSourceLocation; 
 
 protected:
-    virtual void BeginPlay() override;
+    
 
     UFUNCTION()
     void OnPerceptionUpdated(const TArray<AActor*>& UpdatedActors);

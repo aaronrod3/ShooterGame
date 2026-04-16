@@ -32,6 +32,9 @@ AWeapon::AWeapon()
 
 	PickupWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("PickupWidget"));
 	PickupWidget->SetupAttachment(RootComponent);
+	
+	WeaponAudioComp = CreateDefaultSubobject<UWeaponAudioComponent>(TEXT("WeaponAudioComp"));
+	AudioPerceptionComp = CreateDefaultSubobject<UAudioPerceptionComponent>(TEXT("AudioPerceptionComp"));
 }
 
 void AWeapon::BeginPlay()
@@ -63,6 +66,7 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AWeapon, WeaponState);
 	DOREPLIFETIME(AWeapon, bRoundChambered);
 	DOREPLIFETIME(AWeapon, ReplicatedMagState);
+	DOREPLIFETIME(AWeapon, bHasSuppressor);
 }
 
 // -----------------------------------------------------------------------
@@ -175,6 +179,23 @@ void AWeapon::Fire(const FVector& HitTarget)
 	}
 
 	AddSpreadOnFire();
+	
+	if (WeaponAudioComp)
+	{
+		WeaponAudioComp->PlayGunshot_ForMultiplayer();
+	}
+	
+	// Notify nearby zombies — suppressed shots use 30% of the normal radius
+	if (AudioPerceptionComp)
+	{
+		const float PerceptionRadius = bHasSuppressor
+			? AudioPerceptionComp->DefaultEmitRadius * 0.3f
+			: -1.f; // -1 = use DefaultEmitRadius as-is
+
+		const float PerceptionLoudness = bHasSuppressor ? 0.3f : -1.f;
+
+		AudioPerceptionComp->EmitSoundEvent(PerceptionRadius, PerceptionLoudness);
+	}
 }
 
 // -----------------------------------------------------------------------
@@ -337,4 +358,38 @@ void AWeapon::ApplySpreadMultiplier(float Multiplier)
 {
 	// Clamp to max spread — don't let debuff exceed the weapon's ceiling
 	CurrentSpread = FMath::Min(CurrentSpread * Multiplier, MaxSpread);
+}
+
+
+// -----------------------------------------------------------------------
+// Suppressor Attachment
+// -----------------------------------------------------------------------
+
+// Source/ShooterGame/Items/Weapon/Weapon.cpp
+// Place after AWeapon::ApplySpreadMultiplier()
+
+void AWeapon::SetSuppressor(bool bEquipped)
+{
+	// Must only be called on the server — UCombatComponent enforces this.
+	if (!HasAuthority()) return;
+
+	if (bHasSuppressor == bEquipped) return; // No change, no broadcast
+
+	bHasSuppressor = bEquipped;
+
+	// Broadcast on server immediately (RepNotify only auto-fires on clients)
+	OnRep_SuppressorState();
+}
+
+void AWeapon::OnRep_SuppressorState()
+{
+	// Fires on clients via replication, and manually on the server via SetSuppressor().
+	// Notify any Blueprint listeners (e.g., weapon mesh visibility toggle,
+	// equip/unequip sound). WeaponAudioComponent reads bHasSuppressor directly
+	// at fire time, so no additional call is needed here for audio routing.
+	OnSuppressorChanged.Broadcast(bHasSuppressor);
+
+	UE_LOG(LogTemp, Log, TEXT("AWeapon::OnRep_SuppressorState — Suppressor: %s on %s"),
+		bHasSuppressor ? TEXT("EQUIPPED") : TEXT("REMOVED"),
+		*GetName());
 }

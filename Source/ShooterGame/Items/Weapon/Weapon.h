@@ -7,11 +7,15 @@
 #include "ShooterGame/Types/AmmoType.h"
 #include "ShooterGame/Items/Ammo/WeaponFeedTypes.h"
 #include "ShooterGame/Items/Ammo/AmmoData.h"
+#include "ShooterGame/Components/WeaponAudioComponent.h"
+#include "ShooterGame/Components/AudioPerceptionComponent.h"
 #include "Weapon.generated.h"
 
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAmmoChanged, int32, MagRounds, int32, MagCapacity);
-
+// Fired on server and all clients whenever the suppressor state changes.
+// Bind in weapon Blueprints to toggle suppressor mesh visibility.
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSuppressorChanged, bool, bEquipped);
 
 class USphereComponent;
 
@@ -91,6 +95,21 @@ public:
 	virtual void Fire(const FVector& HitTarget);
 	void SetWeaponState(EWeaponState State);
 	void ApplySpreadMultiplier(float Multiplier);
+	
+	UPROPERTY(BlueprintAssignable, Category = "Weapon|Attachments")
+	FOnSuppressorChanged OnSuppressorChanged;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Attachments")
+	void SetSuppressor(bool bEquipped);
+
+	UFUNCTION(BlueprintPure, Category = "Weapon|Attachments")
+	bool HasSuppressor() const { return bHasSuppressor; }
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Audio")
+	UWeaponAudioComponent* WeaponAudioComp;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Audio")
+	UAudioPerceptionComponent* AudioPerceptionComp;
 
 	// -----------------------------------------------------------------------
 	// Ammo / Feed — public interface
@@ -134,18 +153,20 @@ public:
 	// Accessors
 	// -----------------------------------------------------------------------
 
-	FORCEINLINE USphereComponent*		GetAreaSphere()				const { return CollisionSphere; }
-	FORCEINLINE USkeletalMeshComponent*	GetWeaponMesh()				const { return WeaponMesh; }
-	FORCEINLINE float					GetCurrentSpread()			const { return CurrentSpread; }
-	FORCEINLINE float					GetMaxSpread()				const { return MaxSpread; }
-	FORCEINLINE float					GetWeaponRange()			const { return WeaponRange; }
-	FORCEINLINE const FReticleConfig&	GetReticleConfig()			const { return ReticleConfig; }
-	FORCEINLINE EFireMode				GetCurrentFireMode()		const { return CurrentFireMode; }
-	FORCEINLINE float					GetFireRate()				const { return FireRate; }
-	FORCEINLINE float					GetFullAutoFireRate()		const { return FullAutoFireRate; }
-	FORCEINLINE float					GetBurstFireRate()			const { return BurstFireRate; }
-	FORCEINLINE int32					GetBurstCount()				const { return BurstCount; }
-	FORCEINLINE bool					IsFireModeAllowed(EFireMode Mode) const { return AllowedFireModes.Contains(Mode); }
+	FORCEINLINE USphereComponent*		GetAreaSphere()						const { return CollisionSphere; }
+	FORCEINLINE USkeletalMeshComponent*	GetWeaponMesh()						const { return WeaponMesh; }
+	FORCEINLINE float					GetCurrentSpread()					const { return CurrentSpread; }
+	FORCEINLINE float					GetMaxSpread()						const { return MaxSpread; }
+	FORCEINLINE float					GetWeaponRange()					const { return WeaponRange; }
+	FORCEINLINE const FReticleConfig&	GetReticleConfig()					const { return ReticleConfig; }
+	FORCEINLINE EFireMode				GetCurrentFireMode()				const { return CurrentFireMode; }
+	FORCEINLINE float					GetFireRate()						const { return FireRate; }
+	FORCEINLINE float					GetFullAutoFireRate()				const { return FullAutoFireRate; }
+	FORCEINLINE float					GetBurstFireRate()					const { return BurstFireRate; }
+	FORCEINLINE int32					GetBurstCount()						const { return BurstCount; }
+	FORCEINLINE bool					IsFireModeAllowed(EFireMode Mode)	const { return AllowedFireModes.Contains(Mode); }
+	
+	
 
 	// Ammo type this weapon accepts — magazines must match to be inserted
 	FORCEINLINE EAmmoType				GetSupportedAmmoType()		const { return SupportedAmmoType; }
@@ -338,4 +359,17 @@ private:
 	void SyncReplicatedLoadState();
 
 	void DecaySpread(float DeltaTime);
+	
+	
+	// -----------------------------------------------------------------------
+	// Suppressor Attachment State
+	// -----------------------------------------------------------------------
+	// True when a suppressor is currently equipped on this weapon.
+	// Replicated so all clients know to swap audio and show/hide mesh.
+	UPROPERTY(ReplicatedUsing = OnRep_SuppressorState, VisibleAnywhere, Category = "Weapon Properties|Attachments")
+	bool bHasSuppressor = false;
+	
+	
+	UFUNCTION()
+	void OnRep_SuppressorState();
 };

@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "ShooterGameCharacter.h"
+#include "Perception/AIPerceptionStimuliSourceComponent.h"
+#include "Perception/AISense_Hearing.h"
 #include "ShooterGame/Player/Animation/PlayerAnimInstance.h"
 #include "ShooterGame/Items/Ammo/AmmoPickup.h"
 #include "ShooterGame/Components/CombatComponent.h"
@@ -18,6 +20,7 @@
 #include "Inventory/InventoryComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/KismetMathLibrary.h"
+
 
 
 DEFINE_LOG_CATEGORY(LogShooterGameCharacter);
@@ -82,12 +85,33 @@ AShooterGameCharacter::AShooterGameCharacter()
 	TurningInPlace = ETurningInPlace::ETIP_NotTurning;
 	
 	
+	// Allows AI hearing sense to detect noise events reported with this pawn as instigator
+	UAIPerceptionStimuliSourceComponent* StimuliSource = 
+		CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("StimuliSource"));
+	StimuliSource->bAutoRegister = true;
+	StimuliSource->RegisterForSense(TSubclassOf<UAISense>(UAISense_Hearing::StaticClass()));
+	
 }
 
 void AShooterGameCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	UAIPerceptionStimuliSourceComponent* StimuliComp =
+	FindComponentByClass<UAIPerceptionStimuliSourceComponent>();
 
+	if (!StimuliComp)
+	{
+		StimuliComp = NewObject<UAIPerceptionStimuliSourceComponent>(
+			this, TEXT("StimuliSource"));
+		StimuliComp->RegisterComponent();
+	}
+
+	StimuliComp->RegisterForSense(UAISense_Hearing::StaticClass());
+	StimuliComp->RegisterWithPerceptionSystem();
+
+	UE_LOG(LogTemp, Warning, TEXT("[STIMULI] %s registered for UAISense_Hearing"),
+		*GetName());
 	
 	// ── initialize camera arm to top-down position for all clients ──
 	if (CameraBoom)

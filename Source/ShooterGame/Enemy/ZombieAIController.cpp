@@ -3,6 +3,7 @@
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Perception/AIPerceptionComponent.h"
+#include "Perception/AIPerceptionSystem.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "Perception/AISenseConfig_Hearing.h"
 #include "Perception/AISense_Sight.h"
@@ -31,13 +32,16 @@ AZombieAIController::AZombieAIController()
     SightConfig->DetectionByAffiliation.bDetectEnemies    = true;
     SightConfig->DetectionByAffiliation.bDetectNeutrals   = true;
     SightConfig->DetectionByAffiliation.bDetectFriendlies = false;
-    PerceptionComp->ConfigureSense(*SightConfig);
 
     HearingConfig = CreateDefaultSubobject<UAISenseConfig_Hearing>(TEXT("HearingConfig"));
+    HearingConfig->HearingRange = 950.f;   // set a real default so CDO isn't 0
     HearingConfig->DetectionByAffiliation.bDetectEnemies    = true;
     HearingConfig->DetectionByAffiliation.bDetectNeutrals   = true;
     HearingConfig->DetectionByAffiliation.bDetectFriendlies = false;
-    PerceptionComp->ConfigureSense(*HearingConfig);
+
+    // Configure BOTH senses here in constructor so BP CDO picks them up
+    PerceptionComp->ConfigureSense(*SightConfig);
+    PerceptionComp->ConfigureSense(*HearingConfig);   // ← keep this
 
     PerceptionComp->SetDominantSense(SightConfig->GetSenseImplementation());
 }
@@ -45,6 +49,22 @@ AZombieAIController::AZombieAIController()
 void AZombieAIController::BeginPlay()
 {
     Super::BeginPlay();
+
+    if (ZombieOwner)
+    {
+        UpdatePerceptionConfig();
+    }
+
+    // Nuclear option: re-register this controller's listener with the
+    // global perception system after BeginPlay — fixes placed instance bug
+    if (UAIPerceptionSystem* PerceptionSystem =
+        UAIPerceptionSystem::GetCurrent(GetWorld()))
+    {
+        PerceptionSystem->UpdateListener(*PerceptionComp);
+    }
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("[BEGINPLAY] ZombieAIController — forced listener update on perception system"));
 }
 
 void AZombieAIController::OnPossess(APawn* InPawn)
@@ -63,6 +83,13 @@ void AZombieAIController::OnPossess(APawn* InPawn)
 
     UpdatePerceptionConfig();
     PerceptionComp->OnPerceptionUpdated.AddDynamic(this, &AZombieAIController::OnPerceptionUpdated);
+    
+    // TEMP — log all configured senses to confirm hearing is registered
+    TArray<UAISenseConfig*> SenseConfigs;
+    
+    // TEMP:
+    UE_LOG(LogTemp, Warning, TEXT("[POSSESS] OnPerceptionUpdated bound — zombie: %s"),
+        ZombieOwner ? *ZombieOwner->GetName() : TEXT("NULL"));
 
     if (ZombieBehaviorTree)
     {
@@ -160,6 +187,30 @@ void AZombieAIController::Tick(float DeltaTime)
     }
     
     
+    // TEMP — add inside Tick, after the existing LastLog timer block
+    static float LastDistLog = -999.f;
+    if (Now - LastDistLog > 2.0f)
+    {
+        LastDistLog = Now;
+        if (ZombieOwner)
+        {
+            // Get player location from first player controller
+            if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+            {
+                if (APawn* PlayerPawn = PC->GetPawn())
+                {
+                    const float Dist = FVector::Dist(
+                        ZombieOwner->GetActorLocation(),
+                        PlayerPawn->GetActorLocation());
+                    UE_LOG(LogTemp, Warning,
+                        TEXT("[DIST] Zombie<->Player: %.0f units | HearingRange: %.0f"),
+                        Dist,
+                        ZombieOwner->GetZombieConfig().HearingRange);
+                }
+            }
+        }
+    }
+    
 }
 
 // ─────────────────────────────────────────────
@@ -169,11 +220,10 @@ void AZombieAIController::Tick(float DeltaTime)
 void AZombieAIController::UpdatePerceptionConfig()
 {
     if (!ZombieOwner) return;
+    const FZombieConfig Config = ZombieOwner->GetZombieConfig();
 
-    const FZombieConfig& Config = ZombieOwner->GetZombieConfig();
-
-    SightConfig->SightRadius                  = Config.SightRange;
-    SightConfig->LoseSightRadius              = Config.SightRange + 50.f;
+    SightConfig->SightRadius = Config.SightRange;
+    SightConfig->LoseSightRadius = Config.SightRange + 50.f;
     SightConfig->PeripheralVisionAngleDegrees = Config.SightAngle;
     SightConfig->SetMaxAge(5.0f);
 
@@ -182,7 +232,23 @@ void AZombieAIController::UpdatePerceptionConfig()
 
     PerceptionComp->ConfigureSense(*SightConfig);
     PerceptionComp->ConfigureSense(*HearingConfig);
+
+    // Force hearing into the listener whitelist — fixes UE bug where
+    // hearing config set in constructor doesn't register with FPerceptionListener
+    PerceptionComp->UpdatePerceptionWhitelist(
+        UAISense::GetSenseID<UAISense_Hearing>(), true);
+
     PerceptionComp->RequestStimuliListenerUpdate();
+
+    // TEMP — verify hearing sense is live
+    const UAISenseConfig* HearingCheck = PerceptionComp->GetSenseConfig(
+        UAISense::GetSenseID<UAISense_Hearing>());
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("[PERCEPTION CONFIG] Applied — HearingRange:%.0f SightRange:%.0f | HearingLive:%s"),
+        Config.HearingRange,
+        Config.SightRange,
+        HearingCheck ? TEXT("YES") : TEXT("NO"));
 }
 
 // ─────────────────────────────────────────────
@@ -192,8 +258,9 @@ void AZombieAIController::UpdatePerceptionConfig()
 void AZombieAIController::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActors)
 {
     if (!ZombieOwner || !Blackboard) return;
-    
-    UE_LOG(LogTemp, Warning, TEXT("[PERCEPTION] OnPerceptionUpdated fired — %d actors updated"), UpdatedActors.Num());
+
+    UE_LOG(LogTemp, Warning, TEXT("[PERCEPTION] OnPerceptionUpdated fired — %d actors updated"),
+        UpdatedActors.Num());
 
     for (AActor* Actor : UpdatedActors)
     {
@@ -206,15 +273,17 @@ void AZombieAIController::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActo
         {
             if (Stimulus.Type == UAISense::GetSenseID<UAISense_Sight>())
             {
-                UE_LOG(LogTemp, Warning, TEXT("[PERCEPTION] Sight stimulus for %s — bSensed=%s"),
-                    *Actor->GetName(), Stimulus.WasSuccessfullySensed() ? TEXT("TRUE") : TEXT("FALSE"));
+                UE_LOG(LogTemp, Warning, TEXT("[PERCEPTION] Sight stimulus for %s bSensed:%s"),
+                    *Actor->GetName(),
+                    Stimulus.WasSuccessfullySensed() ? TEXT("TRUE") : TEXT("FALSE"));
                 HandleSightStimulus(Actor, Stimulus.WasSuccessfullySensed());
             }
             else if (Stimulus.Type == UAISense::GetSenseID<UAISense_Hearing>())
             {
                 if (Stimulus.WasSuccessfullySensed())
                 {
-                    UE_LOG(LogTemp, Warning, TEXT("[PERCEPTION] Hearing stimulus for %s at location %s"),
+                    UE_LOG(LogTemp, Warning,
+                        TEXT("[PERCEPTION] Hearing stimulus for %s at location %s"),
                         *Actor->GetName(), *Stimulus.StimulusLocation.ToString());
                     HandleHearingStimulus(Actor, Stimulus.StimulusLocation);
                 }
@@ -346,6 +415,9 @@ void AZombieAIController::HandleSightStimulus(AActor* SensedActor, bool bWasSens
 
 void AZombieAIController::HandleHearingStimulus(AActor* SensedActor, const FVector& SoundLocation)
 {
+    UE_LOG(LogTemp, Warning, TEXT("[HEARING] HandleHearingStimulus called — SoundLocation: %s"),
+        *SoundLocation.ToString());
+    
     if (!Blackboard || !ZombieOwner) return;
 
     // Don't override an active chase/sprint with a hearing event

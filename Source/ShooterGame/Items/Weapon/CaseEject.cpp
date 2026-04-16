@@ -22,6 +22,11 @@ ACaseEject::ACaseEject()
 	
 	// Casings are purely cosmetic, no need to replicate
 	SetReplicates(false);
+	
+	
+	AudioPerceptionComp = CreateDefaultSubobject<UAudioPerceptionComponent>(TEXT("AudioPerceptionComp"));
+	AudioPerceptionComp->DefaultEmitRadius = 300.f;  // Casings are quiet — very short range
+	AudioPerceptionComp->Loudness = 0.2f;
 }
 
 
@@ -81,6 +86,12 @@ void ACaseEject::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimit
 	{
 		bHasPlayedSound = true;
 		UGameplayStatics::PlaySoundAtLocation(this, ShellSound, GetActorLocation());
+	}
+	
+	// After the shell sound plays:
+	if (AudioPerceptionComp)
+	{
+		AudioPerceptionComp->EmitSoundEvent();
 	}
 }
 
