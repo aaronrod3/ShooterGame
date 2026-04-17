@@ -11,6 +11,7 @@
 #include "ShooterGame/Types/TurningInPlace.h"
 #include "Items/Weapon/Weapon.h"
 #include "Logging/LogMacros.h"
+#include "GenericTeamAgentInterface.h" 
 #include "ShooterGameCharacter.generated.h"
 
 
@@ -23,8 +24,8 @@ struct FInputActionValue;
 DECLARE_LOG_CATEGORY_EXTERN(LogShooterGameCharacter, Log, All);
 
 
-UCLASS()
-class SHOOTERGAME_API AShooterGameCharacter : public ACharacter
+UCLASS(config=Game)
+class AShooterGameCharacter : public ACharacter, public IGenericTeamAgentInterface
 {
 	GENERATED_BODY()
 
@@ -35,6 +36,9 @@ public:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
+	
+	// IGenericTeamAgentInterface — Team 0 = Player faction
+	virtual FGenericTeamId GetGenericTeamId() const override { return FGenericTeamId(0); }
 	
 	// Overrides AActor::TakeDamage — called by UGameplayStatics::ApplyPointDamage
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
+#include "GenericTeamAgentInterface.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "Perception/AISenseConfig_Hearing.h"
@@ -25,6 +26,8 @@ public:
     virtual void OnUnPossess() override;
     virtual void Tick(float DeltaTime) override;
 
+    virtual FGenericTeamId GetGenericTeamId() const override { return FGenericTeamId(1); }
+    
     UFUNCTION(BlueprintCallable, Category = "Zombie|AI")
     void TriggerMeleeAttack();
     

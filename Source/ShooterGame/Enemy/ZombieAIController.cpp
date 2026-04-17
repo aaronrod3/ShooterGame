@@ -30,7 +30,7 @@ AZombieAIController::AZombieAIController()
 
     SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
     SightConfig->DetectionByAffiliation.bDetectEnemies    = true;
-    SightConfig->DetectionByAffiliation.bDetectNeutrals   = true;
+    SightConfig->DetectionByAffiliation.bDetectNeutrals   = false;
     SightConfig->DetectionByAffiliation.bDetectFriendlies = false;
 
     HearingConfig = CreateDefaultSubobject<UAISenseConfig_Hearing>(TEXT("HearingConfig"));
@@ -62,9 +62,6 @@ void AZombieAIController::BeginPlay()
     {
         PerceptionSystem->UpdateListener(*PerceptionComp);
     }
-
-    UE_LOG(LogTemp, Warning,
-        TEXT("[BEGINPLAY] ZombieAIController — forced listener update on perception system"));
 }
 
 void AZombieAIController::OnPossess(APawn* InPawn)
@@ -83,9 +80,6 @@ void AZombieAIController::OnPossess(APawn* InPawn)
 
     UpdatePerceptionConfig();
     PerceptionComp->OnPerceptionUpdated.AddDynamic(this, &AZombieAIController::OnPerceptionUpdated);
-    
-    // TEMP — log all configured senses to confirm hearing is registered
-    TArray<UAISenseConfig*> SenseConfigs;
     
     // TEMP:
     UE_LOG(LogTemp, Warning, TEXT("[POSSESS] OnPerceptionUpdated bound — zombie: %s"),
@@ -186,31 +180,6 @@ void AZombieAIController::Tick(float DeltaTime)
         Blackboard->SetValueAsBool(BB_bIsInMeleeRange, false);
     }
     
-    
-    // TEMP — add inside Tick, after the existing LastLog timer block
-    static float LastDistLog = -999.f;
-    if (Now - LastDistLog > 2.0f)
-    {
-        LastDistLog = Now;
-        if (ZombieOwner)
-        {
-            // Get player location from first player controller
-            if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
-            {
-                if (APawn* PlayerPawn = PC->GetPawn())
-                {
-                    const float Dist = FVector::Dist(
-                        ZombieOwner->GetActorLocation(),
-                        PlayerPawn->GetActorLocation());
-                    UE_LOG(LogTemp, Warning,
-                        TEXT("[DIST] Zombie<->Player: %.0f units | HearingRange: %.0f"),
-                        Dist,
-                        ZombieOwner->GetZombieConfig().HearingRange);
-                }
-            }
-        }
-    }
-    
 }
 
 // ─────────────────────────────────────────────
@@ -235,8 +204,7 @@ void AZombieAIController::UpdatePerceptionConfig()
 
     // Force hearing into the listener whitelist — fixes UE bug where
     // hearing config set in constructor doesn't register with FPerceptionListener
-    PerceptionComp->UpdatePerceptionWhitelist(
-        UAISense::GetSenseID<UAISense_Hearing>(), true);
+    PerceptionComp->UpdatePerceptionAllowList(UAISense::GetSenseID<UAISense_Hearing>(), true);
 
     PerceptionComp->RequestStimuliListenerUpdate();
 
