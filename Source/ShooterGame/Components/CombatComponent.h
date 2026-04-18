@@ -47,6 +47,10 @@ public:
 	// Returns true if a reload is currently possible
 	bool CanReload() const;
 	
+	void EquipSuppressor();
+	void RemoveSuppressor();
+	bool CurrentWeaponHasSuppressor() const;
+	
 	/**
 	 * Called by the progression/perk system to apply an accuracy bonus.
 	 * Values below 1.0 tighten spread (improve accuracy).

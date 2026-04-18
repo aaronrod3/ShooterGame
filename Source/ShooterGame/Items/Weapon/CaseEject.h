@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "ShooterGame/Components/AudioPerceptionComponent.h"
+#include "ShooterGame/Components/ShellAudioComponent.h"
 #include "CaseEject.generated.h"
 
 UCLASS()
@@ -22,10 +22,10 @@ public:
 	// In public section of header
 	float GetSpawnTime() const { return SpawnTime; }
 	
-	// Emits a small hearing radius when the casing hits a hard surface.
-	// Shorter range than gunshots — only alerts very nearby zombies.
+	// Surface-aware shell casing impact audio.
+	// Assign cues per surface in BP_CaseEject_* Details panel.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Audio")
-	UAudioPerceptionComponent* AudioPerceptionComp;
+	UShellAudioComponent* ShellAudioComp;
 	
 
 protected:
@@ -56,11 +56,6 @@ private:
 	// Random spin on eject
 	UPROPERTY(EditAnywhere, Category = "Ejection")
 	float AngularImpulseStrength = 500.f;
-	
-	
-	
-	UPROPERTY(EditAnywhere)
-	class USoundCue* ShellSound;
 	
 	// Hard cap before destroy regardless of physics state
 	UPROPERTY(EditAnywhere)

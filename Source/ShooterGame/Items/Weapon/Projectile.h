@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ShooterGame/Items/Ammo/AmmoData.h"
+#include "ShooterGame/Components/ImpactAudioComponent.h"
 #include "Projectile.generated.h"
 
 class AShooterGameCharacter;
@@ -45,6 +46,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	class UProjectileMovementComponent* ProjectileMovementComponent;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile|Audio", meta=( AllowPrivateAccess = "true"))
+	UImpactAudioComponent* ImpactAudioComp;
 
 	UPROPERTY(EditAnywhere)
 	class UNiagaraSystem* TraceParticles;

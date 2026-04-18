@@ -2,6 +2,7 @@
 
 #include "Projectile.h"
 #include "Components/BoxComponent.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Framework/GameMode/ShooterGameGameMode.h"
 #include "GameFramework/ProjectileMovementComponent.h"
@@ -33,6 +34,8 @@ AProjectile::AProjectile()
 	{
 		CollisionBox->OnComponentHit.AddDynamic(this, &AProjectile::OnHit);
 	}
+	
+	ImpactAudioComp = CreateDefaultSubobject<UImpactAudioComponent>(TEXT("ImpactAudioComp"));
 }
 
 void AProjectile::BeginPlay()
@@ -143,6 +146,14 @@ void AProjectile::OnHit(
 			*Hit.BoneName.ToString(),
 			AppliedDamage);
 	}
+	
+	const EPhysicalSurface SurfaceType =
+		UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+
+	if (ImpactAudioComp)
+	{
+		ImpactAudioComp->PlayImpactAtLocation_ForMultiplayer(Hit.ImpactPoint, SurfaceType);
+	}
 
 	Destroy();
 }
@@ -159,10 +170,6 @@ void AProjectile::Destroyed()
 			GetActorLocation(),
 			GetActorRotation()
 		);
-	}
-	if (ImpactSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation());
 	}
 }
 

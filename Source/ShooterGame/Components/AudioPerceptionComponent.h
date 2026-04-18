@@ -45,29 +45,30 @@ public:
     // -----------------------------------------------------------------------
 
     // How far this sound travels in open air (unreal units).
-    // Zombies within this radius whose hearing range covers this distance
-    // will receive the stimulus. Tune per actor type in each BP.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SoundPerception")
     float DefaultEmitRadius = 1500.f;
 
-    // Whether to perform an occlusion line-trace when emitting.
-    // When true, a wall between source and emit point reduces effective radius.
+    // How far a suppressed shot travels (unreal units).
+    // Zombies outside this radius will not hear suppressed fire.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SoundPerception")
+    float SuppressedNoiseRadius = 450.f;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SoundPerception")
     bool bUseOcclusion = true;
 
-    // Fraction of DefaultEmitRadius used when the sound is occluded by geometry.
-    // 0.3 = sound through a wall travels 30% of the open-air radius.
-    // Range: 0.0 (completely blocked) to 1.0 (walls have no effect).
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SoundPerception",
         meta = (ClampMin = "0.0", ClampMax = "1.0"))
     float OcclusionRadiusReduction = 0.3f;
 
-    // Loudness value passed to ReportNoiseEvent.
-    // 1.0 = full volume. Scales against the zombie's HearingRange.
-    // Suppressed weapon shots should use a lower value (e.g. 0.3).
+    // Loudness for unsuppressed shots. Scales against zombie HearingRange.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SoundPerception",
         meta = (ClampMin = "0.0", ClampMax = "1.0"))
     float Loudness = 1.0f;
+
+    // Loudness for suppressed shots. Lower value = shorter effective zombie reaction range.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SoundPerception",
+        meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float SuppressedLoudness = 0.3f;
 
     // -----------------------------------------------------------------------
     // Public API

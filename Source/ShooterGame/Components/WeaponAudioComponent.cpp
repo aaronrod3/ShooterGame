@@ -2,15 +2,11 @@
 
 #include "WeaponAudioComponent.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
-#include "Kismet/GameplayStatics.h"
-#include "Net/UnrealNetwork.h"
-#include "TimerManager.h"
+#include "ShooterGame/Components/ShooterSoundFunctionLibrary.h"
 
 UWeaponAudioComponent::UWeaponAudioComponent()
 {
     PrimaryComponentTick.bCanEverTick = false;
-
-    // Must be replicated so Server RPCs can be called from owning client
     SetIsReplicatedByDefault(true);
 }
 
@@ -26,85 +22,120 @@ void UWeaponAudioComponent::TickComponent(float DeltaTime, ELevelTick TickType,
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }
 
-// -----------------------------------------------------------------------
-// Initialisation — pre-create all audio components at BeginPlay
-// so there's zero allocation cost when the weapon fires
-// -----------------------------------------------------------------------
-
 void UWeaponAudioComponent::InitialiseAllSounds()
 {
-    ACs_Start            = CreateAudioComps(Cues_OneShot);
-    ACs_Loop             = CreateAudioComps(Cues_Loop);
-    ACs_Start_Suppressed = CreateAudioComps(Cues_OneShot_Suppressed);
-    ACs_Loop_Suppressed  = CreateAudioComps(Cues_Loop_Suppressed);
+    ACs_Start                    = CreateAudioComps(Cues_OneShot);
+    ACs_Loop                     = CreateAudioComps(Cues_Loop);
+    ACs_Stop                     = CreateAudioComps(Cues_Stop);
+    ACs_Tail                     = CreateAudioComps(Cues_Tail);
+
+    ACs_Start_Suppressed         = CreateAudioComps(Cues_OneShot_Suppressed);
+    ACs_Loop_Suppressed          = CreateAudioComps(Cues_Loop_Suppressed);
+    ACs_Stop_Suppressed          = CreateAudioComps(Cues_Stop_Suppressed);
+    ACs_Tail_Suppressed          = CreateAudioComps(Cues_Tail_Suppressed);
+
+    ACs_SwitchFireMode           = CreateAudioComps(Cues_SwitchFireMode);
+    ACs_EquipUnequipSuppressor   = CreateAudioComps(Cues_EquipUnequipSuppressor);
+    ACs_DryFire                  = CreateAudioComps(Cues_DryFire);
+    ACs_ReloadRifle              = CreateAudioComps(Cues_ReloadRifle);
+    ACs_ReloadPistol             = CreateAudioComps(Cues_ReloadPistol);
+    ACs_ReloadBulletDrop         = CreateAudioComps(Cues_ReloadBulletDrop);
 }
 
 UAudioComponent* UWeaponAudioComponent::CreateAudioComp(USoundCue* SoundCue)
 {
-    if (!SoundCue || !GetOwner()) return nullptr;
+    if (!SoundCue || !GetOwner() || !GetOwner()->GetRootComponent()) return nullptr;
 
     UAudioComponent* AC = NewObject<UAudioComponent>(GetOwner());
+    if (!AC) return nullptr;
+
     AC->SetSound(SoundCue);
     AC->bAutoActivate = false;
     AC->bAutoDestroy  = false;
-
-    // Attach to the weapon mesh root so positional audio follows the weapon
     AC->RegisterComponent();
-    AC->AttachToComponent(GetOwner()->GetRootComponent(),
-        FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+    AC->AttachToComponent(
+        GetOwner()->GetRootComponent(),
+        FAttachmentTransformRules::SnapToTargetNotIncludingScale
+    );
 
     return AC;
 }
 
-TArray<UAudioComponent*> UWeaponAudioComponent::CreateAudioComps(
-    const TArray<USoundCue*>& SoundCues)
+TArray<UAudioComponent*> UWeaponAudioComponent::CreateAudioComps(const TArray<USoundCue*>& SoundCues)
 {
     TArray<UAudioComponent*> Result;
     for (USoundCue* Cue : SoundCues)
     {
-        UAudioComponent* AC = CreateAudioComp(Cue);
-        if (AC) Result.Add(AC);
+        if (UAudioComponent* AC = CreateAudioComp(Cue))
+        {
+            Result.Add(AC);
+        }
     }
     return Result;
 }
 
-// -----------------------------------------------------------------------
-// Suppressor query
-// -----------------------------------------------------------------------
-
 bool UWeaponAudioComponent::IsSuppressed() const
 {
-    if (AWeapon* Weapon = Cast<AWeapon>(GetOwner()))
+    if (const AWeapon* Weapon = Cast<AWeapon>(GetOwner()))
     {
         return Weapon->HasSuppressor();
     }
     return false;
 }
 
-// -----------------------------------------------------------------------
-// Internal play functions — run on every machine via NetMulticast
-// -----------------------------------------------------------------------
+void UWeaponAudioComponent::PlayAudioComponentArray(TArray<UAudioComponent*>& AudioComps, float StartTime)
+{
+    for (UAudioComponent* AC : AudioComps)
+    {
+        if (!AC) continue;
+        AC->Stop();
+        AC->Play(StartTime);
+    }
+}
+
+void UWeaponAudioComponent::FadeOutAudioComponentArray(TArray<UAudioComponent*>& AudioComps, float InFadeOutDuration)
+{
+    for (UAudioComponent* AC : AudioComps)
+    {
+        if (!AC) continue;
+        UShooterSoundFunctionLibrary::FadeOut(AC, InFadeOutDuration, 0.f);
+    }
+}
+
+void UWeaponAudioComponent::PlayCueArrayAtOwnerLocation(const TArray<USoundCue*>& Cues)
+{
+    if (!GetOwner()) return;
+
+    for (USoundCue* Cue : Cues)
+    {
+        if (!Cue) continue;
+        UShooterSoundFunctionLibrary::PlaySoundAtLocation(
+            this,
+            Cue,
+            GetOwner()->GetActorLocation()
+        );
+    }
+}
 
 void UWeaponAudioComponent::Internal_PlayOneShot(bool bSuppressed)
 {
     TArray<UAudioComponent*>& StartACs = bSuppressed ? ACs_Start_Suppressed : ACs_Start;
-
-    for (UAudioComponent* AC : StartACs)
-    {
-        if (AC)
-        {
-            AC->Stop();
-            AC->Play(OffsetOneShotTime);
-        }
-    }
+    PlayAudioComponentArray(StartACs, OffsetOneShotTime);
 }
 
-void UWeaponAudioComponent::Internal_PlayOneShotLoop(bool bSuppressed, float CrossfadeTime)
+void UWeaponAudioComponent::Internal_PlayOneShotLoop(bool bSuppressed, float InCrossfadeTime)
 {
-    // Play the one-shot layer immediately
+    // Guard — if loop is already running, play only the one-shot transient layer
+    // and leave the loop untouched. This prevents restart stutter on every fire tick.
+    if (bIsLoopPlaying)
+    {
+        Internal_PlayOneShot(bSuppressed);
+        return;
+    }
+
+    // First call — play the one-shot transient then start the loop
     Internal_PlayOneShot(bSuppressed);
 
-    // Start the loop layer after the crossfade offset
     TArray<UAudioComponent*>& LoopACs = bSuppressed ? ACs_Loop_Suppressed : ACs_Loop;
 
     for (int32 i = 0; i < LoopACs.Num(); ++i)
@@ -112,7 +143,7 @@ void UWeaponAudioComponent::Internal_PlayOneShotLoop(bool bSuppressed, float Cro
         UAudioComponent* AC = LoopACs[i];
         if (!AC) continue;
 
-        float LoopOffset = CrossfadeTime;
+        float LoopOffset = InCrossfadeTime;
         if (OffsetLoopTimes.IsValidIndex(i))
         {
             LoopOffset += OffsetLoopTimes[i];
@@ -125,94 +156,169 @@ void UWeaponAudioComponent::Internal_PlayOneShotLoop(bool bSuppressed, float Cro
     bIsLoopPlaying = true;
 }
 
-void UWeaponAudioComponent::Internal_StopLoop(bool bSuppressed, float FadeOutDuration)
+void UWeaponAudioComponent::Internal_StopLoop(bool bSuppressed, float InFadeOutDuration)
 {
     if (!bIsLoopPlaying) return;
 
-    // Fade out the loop layer
     TArray<UAudioComponent*>& LoopACs = bSuppressed ? ACs_Loop_Suppressed : ACs_Loop;
-    for (UAudioComponent* AC : LoopACs)
-    {
-        if (AC) AC->FadeOut(FadeOutDuration, 0.f);
-    }
+    FadeOutAudioComponentArray(LoopACs, InFadeOutDuration);
 
-    // Play stop cue
-    const TArray<USoundCue*>& StopCues = bSuppressed ? Cues_Stop_Suppressed : Cues_Stop;
-    for (USoundCue* Cue : StopCues)
+    if (bSuppressed)
     {
-        if (Cue)
-        {
-            UGameplayStatics::PlaySoundAtLocation(this, Cue,
-                GetOwner()->GetActorLocation());
-        }
+        PlayAudioComponentArray(ACs_Stop_Suppressed);
+        PlayCueArrayAtOwnerLocation(Cues_Tail_Suppressed);
     }
-
-    // Play tail cue (unsuppressed only — suppressed weapons have no tail)
-    if (!bSuppressed)
+    else
     {
-        for (USoundCue* Cue : Cues_Tail)
-        {
-            if (Cue)
-            {
-                UGameplayStatics::PlaySoundAtLocation(this, Cue,
-                    GetOwner()->GetActorLocation());
-            }
-        }
+        PlayAudioComponentArray(ACs_Stop);
+        PlayCueArrayAtOwnerLocation(Cues_Tail);
     }
 
     bIsLoopPlaying = false;
 }
 
+void UWeaponAudioComponent::Internal_PlayDryFire()
+{
+    PlayAudioComponentArray(ACs_DryFire);
+}
+
+void UWeaponAudioComponent::Internal_PlayReload(bool bIsPistolClass)
+{
+    if (bIsPistolClass)
+    {
+        PlayAudioComponentArray(ACs_ReloadPistol);
+    }
+    else
+    {
+        PlayAudioComponentArray(ACs_ReloadRifle);
+    }
+}
+
+void UWeaponAudioComponent::Internal_PlayReloadBulletDrop()
+{
+    PlayAudioComponentArray(ACs_ReloadBulletDrop);
+}
+
+void UWeaponAudioComponent::Internal_PlaySwitchFireMode()
+{
+    PlayAudioComponentArray(ACs_SwitchFireMode);
+}
+
+void UWeaponAudioComponent::Internal_PlayEquipUnequipSuppressor()
+{
+    PlayAudioComponentArray(ACs_EquipUnequipSuppressor);
+}
+
 // -----------------------------------------------------------------------
-// Public API — entry points called from AWeapon::Fire()
+// Public API
 // -----------------------------------------------------------------------
 
 void UWeaponAudioComponent::PlayGunshot_ForMultiplayer()
 {
     const bool bSuppressed = IsSuppressed();
 
-    // Owning client calls Server RPC — server then multicasts to all
     if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
         Server_PlayGunshot(bSuppressed);
     }
     else if (GetOwner() && GetOwner()->HasAuthority())
     {
-        // Called directly on server (e.g., AI-controlled weapon)
         Multi_PlayGunshot(bSuppressed);
     }
 }
 
-void UWeaponAudioComponent::PlayGunshotLoop_ForMultiplayer(float CrossfadeTime)
+void UWeaponAudioComponent::PlayGunshotLoop_ForMultiplayer(float InCrossfadeTime)
 {
     const bool bSuppressed = IsSuppressed();
+    const float FinalCrossfadeTime = (InCrossfadeTime >= 0.f) ? InCrossfadeTime : CrossfadeOneShotLoopTime;
 
     if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
-        Server_PlayGunshotLoop(bSuppressed, CrossfadeTime);
+        Server_PlayGunshotLoop(bSuppressed, FinalCrossfadeTime);
     }
     else if (GetOwner() && GetOwner()->HasAuthority())
     {
-        Multi_PlayGunshotLoop(bSuppressed, CrossfadeTime);
+        Multi_PlayGunshotLoop(bSuppressed, FinalCrossfadeTime);
     }
 }
 
-void UWeaponAudioComponent::StopLoop_ForMultiplayer(float FadeOutDuration)
+void UWeaponAudioComponent::StopLoop_ForMultiplayer(float InFadeOutDuration)
 {
     const bool bSuppressed = IsSuppressed();
+    const float FinalFadeOutDuration = (InFadeOutDuration >= 0.f) ? InFadeOutDuration : FadeOutDuration;
 
     if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
-        Server_StopLoop(bSuppressed, FadeOutDuration);
+        Server_StopLoop(bSuppressed, FinalFadeOutDuration);
     }
     else if (GetOwner() && GetOwner()->HasAuthority())
     {
-        Multi_StopLoop(bSuppressed, FadeOutDuration);
+        Multi_StopLoop(bSuppressed, FinalFadeOutDuration);
+    }
+}
+
+void UWeaponAudioComponent::PlayDryFire_ForMultiplayer()
+{
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
+    {
+        Server_PlayDryFire();
+    }
+    else if (GetOwner() && GetOwner()->HasAuthority())
+    {
+        Multi_PlayDryFire();
+    }
+}
+
+void UWeaponAudioComponent::PlayReload_ForMultiplayer(bool bIsPistolClass)
+{
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
+    {
+        Server_PlayReload(bIsPistolClass);
+    }
+    else if (GetOwner() && GetOwner()->HasAuthority())
+    {
+        Multi_PlayReload(bIsPistolClass);
+    }
+}
+
+void UWeaponAudioComponent::PlayReloadBulletDrop_ForMultiplayer()
+{
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
+    {
+        Server_PlayReloadBulletDrop();
+    }
+    else if (GetOwner() && GetOwner()->HasAuthority())
+    {
+        Multi_PlayReloadBulletDrop();
+    }
+}
+
+void UWeaponAudioComponent::PlaySwitchFireMode_ForMultiplayer()
+{
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
+    {
+        Server_PlaySwitchFireMode();
+    }
+    else if (GetOwner() && GetOwner()->HasAuthority())
+    {
+        Multi_PlaySwitchFireMode();
+    }
+}
+
+void UWeaponAudioComponent::PlayEquipUnequipSuppressor_ForMultiplayer()
+{
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
+    {
+        Server_PlayEquipUnequipSuppressor();
+    }
+    else if (GetOwner() && GetOwner()->HasAuthority())
+    {
+        Multi_PlayEquipUnequipSuppressor();
     }
 }
 
 // -----------------------------------------------------------------------
-// Server RPCs — validate then forward to Multicast
+// Server RPCs
 // -----------------------------------------------------------------------
 
 void UWeaponAudioComponent::Server_PlayGunshot_Implementation(bool bSuppressed)
@@ -224,30 +330,71 @@ bool UWeaponAudioComponent::Server_PlayGunshot_Validate(bool bSuppressed)
     return true;
 }
 
-void UWeaponAudioComponent::Server_PlayGunshotLoop_Implementation(bool bSuppressed,
-    float CrossfadeTime)
+void UWeaponAudioComponent::Server_PlayGunshotLoop_Implementation(bool bSuppressed, float InCrossfadeTime)
 {
-    Multi_PlayGunshotLoop(bSuppressed, CrossfadeTime);
+    Multi_PlayGunshotLoop(bSuppressed, InCrossfadeTime);
 }
-bool UWeaponAudioComponent::Server_PlayGunshotLoop_Validate(bool bSuppressed,
-    float CrossfadeTime)
+bool UWeaponAudioComponent::Server_PlayGunshotLoop_Validate(bool bSuppressed, float InCrossfadeTime)
 {
     return true;
 }
 
-void UWeaponAudioComponent::Server_StopLoop_Implementation(bool bSuppressed,
-    float FadeOutDuration)
+void UWeaponAudioComponent::Server_StopLoop_Implementation(bool bSuppressed, float InFadeOutDuration)
 {
-    Multi_StopLoop(bSuppressed, FadeOutDuration);
+    Multi_StopLoop(bSuppressed, InFadeOutDuration);
 }
-bool UWeaponAudioComponent::Server_StopLoop_Validate(bool bSuppressed,
-    float FadeOutDuration)
+bool UWeaponAudioComponent::Server_StopLoop_Validate(bool bSuppressed, float InFadeOutDuration)
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Server_PlayDryFire_Implementation()
+{
+    Multi_PlayDryFire();
+}
+bool UWeaponAudioComponent::Server_PlayDryFire_Validate()
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Server_PlayReload_Implementation(bool bIsPistolClass)
+{
+    Multi_PlayReload(bIsPistolClass);
+}
+bool UWeaponAudioComponent::Server_PlayReload_Validate(bool bIsPistolClass)
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Server_PlayReloadBulletDrop_Implementation()
+{
+    Multi_PlayReloadBulletDrop();
+}
+bool UWeaponAudioComponent::Server_PlayReloadBulletDrop_Validate()
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Server_PlaySwitchFireMode_Implementation()
+{
+    Multi_PlaySwitchFireMode();
+}
+bool UWeaponAudioComponent::Server_PlaySwitchFireMode_Validate()
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Server_PlayEquipUnequipSuppressor_Implementation()
+{
+    Multi_PlayEquipUnequipSuppressor();
+}
+bool UWeaponAudioComponent::Server_PlayEquipUnequipSuppressor_Validate()
 {
     return true;
 }
 
 // -----------------------------------------------------------------------
-// NetMulticast RPCs — run on every connected machine
+// Multicast RPCs
 // -----------------------------------------------------------------------
 
 void UWeaponAudioComponent::Multi_PlayGunshot_Implementation(bool bSuppressed)
@@ -259,24 +406,65 @@ bool UWeaponAudioComponent::Multi_PlayGunshot_Validate(bool bSuppressed)
     return true;
 }
 
-void UWeaponAudioComponent::Multi_PlayGunshotLoop_Implementation(bool bSuppressed,
-    float CrossfadeTime)
+void UWeaponAudioComponent::Multi_PlayGunshotLoop_Implementation(bool bSuppressed, float InCrossfadeTime)
 {
-    Internal_PlayOneShotLoop(bSuppressed, CrossfadeTime);
+    Internal_PlayOneShotLoop(bSuppressed, InCrossfadeTime);
 }
-bool UWeaponAudioComponent::Multi_PlayGunshotLoop_Validate(bool bSuppressed,
-    float CrossfadeTime)
+bool UWeaponAudioComponent::Multi_PlayGunshotLoop_Validate(bool bSuppressed, float InCrossfadeTime)
 {
     return true;
 }
 
-void UWeaponAudioComponent::Multi_StopLoop_Implementation(bool bSuppressed,
-    float FadeOutDuration)
+void UWeaponAudioComponent::Multi_StopLoop_Implementation(bool bSuppressed, float InFadeOutDuration)
 {
-    Internal_StopLoop(bSuppressed, FadeOutDuration);
+    Internal_StopLoop(bSuppressed, InFadeOutDuration);
 }
-bool UWeaponAudioComponent::Multi_StopLoop_Validate(bool bSuppressed,
-    float FadeOutDuration)
+bool UWeaponAudioComponent::Multi_StopLoop_Validate(bool bSuppressed, float InFadeOutDuration)
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Multi_PlayDryFire_Implementation()
+{
+    Internal_PlayDryFire();
+}
+bool UWeaponAudioComponent::Multi_PlayDryFire_Validate()
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Multi_PlayReload_Implementation(bool bIsPistolClass)
+{
+    Internal_PlayReload(bIsPistolClass);
+}
+bool UWeaponAudioComponent::Multi_PlayReload_Validate(bool bIsPistolClass)
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Multi_PlayReloadBulletDrop_Implementation()
+{
+    Internal_PlayReloadBulletDrop();
+}
+bool UWeaponAudioComponent::Multi_PlayReloadBulletDrop_Validate()
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Multi_PlaySwitchFireMode_Implementation()
+{
+    Internal_PlaySwitchFireMode();
+}
+bool UWeaponAudioComponent::Multi_PlaySwitchFireMode_Validate()
+{
+    return true;
+}
+
+void UWeaponAudioComponent::Multi_PlayEquipUnequipSuppressor_Implementation()
+{
+    Internal_PlayEquipUnequipSuppressor();
+}
+bool UWeaponAudioComponent::Multi_PlayEquipUnequipSuppressor_Validate()
 {
     return true;
 }

@@ -4,6 +4,7 @@
 #include "CaseEject.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 #include "EngineUtils.h"
 
 
@@ -23,10 +24,7 @@ ACaseEject::ACaseEject()
 	// Casings are purely cosmetic, no need to replicate
 	SetReplicates(false);
 	
-	
-	AudioPerceptionComp = CreateDefaultSubobject<UAudioPerceptionComponent>(TEXT("AudioPerceptionComp"));
-	AudioPerceptionComp->DefaultEmitRadius = 300.f;  // Casings are quiet — very short range
-	AudioPerceptionComp->Loudness = 0.2f;
+	ShellAudioComp = CreateDefaultSubobject<UShellAudioComponent>(TEXT("ShellAudioComp"));
 }
 
 
@@ -82,16 +80,18 @@ void ACaseEject::Tick(float DeltaTime)
 void ACaseEject::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	// Only play sound on first impact to prevent bounce spam
-	if (ShellSound && !bHasPlayedSound)
+	if (!bHasPlayedSound)
 	{
 		bHasPlayedSound = true;
-		UGameplayStatics::PlaySoundAtLocation(this, ShellSound, GetActorLocation());
-	}
-	
-	// After the shell sound plays:
-	if (AudioPerceptionComp)
-	{
-		AudioPerceptionComp->EmitSoundEvent();
+
+		// Derive surface type from physical material at impact point
+		const EPhysicalSurface SurfaceType =
+			UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+
+		if (ShellAudioComp)
+		{
+			ShellAudioComp->PlayImpactSound(GetActorLocation(), SurfaceType);
+		}
 	}
 }
 

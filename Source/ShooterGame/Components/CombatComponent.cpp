@@ -158,16 +158,31 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 void UCombatComponent::FireButtonReleased()
 {
 	FireButtonPressed(false);
+
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->StopFire();
+	}
 }
 
 void UCombatComponent::HandleFire()
 {
 	if (!EquippedWeapon) return;
 
-	// Ammo gate — hard stop if nothing to fire
+	// Ammo gate — play dry fire click and bail, never reach Fire()
 	if (!EquippedWeapon->CanFire())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("UCombatComponent::HandleFire — Weapon empty, cannot fire"));
+		UE_LOG(LogTemp, Warning,
+			TEXT("UCombatComponent::HandleFire — CanFire false, playing dry fire"));
+
+		// Stop any running loop if mag just ran out mid-burst
+		if (EquippedWeapon->WeaponAudioComp)
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("UCombatComponent::HandleFire — stopping loop on empty mag"));
+			EquippedWeapon->WeaponAudioComp->StopLoop_ForMultiplayer();
+			EquippedWeapon->WeaponAudioComp->PlayDryFire_ForMultiplayer();
+		}
 		return;
 	}
 
@@ -286,7 +301,14 @@ void UCombatComponent::MulticastFire_Implementation()
 void UCombatComponent::CycleFireMode()
 {
 	if (!EquippedWeapon) return;
+
 	EquippedWeapon->CycleFireMode();
+
+	if (EquippedWeapon->WeaponAudioComp)
+	{
+		EquippedWeapon->WeaponAudioComp->PlaySwitchFireMode_ForMultiplayer();
+	}
+
 	// TODO: ServerCycleFireMode RPC for proper replication
 }
 
@@ -318,6 +340,14 @@ void UCombatComponent::ReloadEquippedWeapon()
 	if (!CanReload()) return;
 
 	bIsReloading = true;
+
+	if (EquippedWeapon && EquippedWeapon->WeaponAudioComp)
+	{
+		EquippedWeapon->WeaponAudioComp->PlayReload_ForMultiplayer(
+			EquippedWeapon->IsPistolClass()
+		);
+	}
+
 	ServerReload();
 
 	GetWorld()->GetTimerManager().SetTimer(
@@ -531,4 +561,36 @@ void UCombatComponent::SetAimAccuracyBonus(float InMultiplier)
 	UE_LOG(LogTemp, Log,
 		TEXT("UCombatComponent::SetAimAccuracyBonus — Multiplier set to %.2f"),
 		AimAccuracyBonusMultiplier);
+}
+
+
+void UCombatComponent::EquipSuppressor()
+{
+	if (!EquippedWeapon) return;
+	if (EquippedWeapon->HasSuppressor()) return;
+
+	EquippedWeapon->SetSuppressor(true);
+
+	if (EquippedWeapon->WeaponAudioComp)
+	{
+		EquippedWeapon->WeaponAudioComp->PlayEquipUnequipSuppressor_ForMultiplayer();
+	}
+}
+
+void UCombatComponent::RemoveSuppressor()
+{
+	if (!EquippedWeapon) return;
+	if (!EquippedWeapon->HasSuppressor()) return;
+
+	EquippedWeapon->SetSuppressor(false);
+
+	if (EquippedWeapon->WeaponAudioComp)
+	{
+		EquippedWeapon->WeaponAudioComp->PlayEquipUnequipSuppressor_ForMultiplayer();
+	}
+}
+
+bool UCombatComponent::CurrentWeaponHasSuppressor() const
+{
+	return EquippedWeapon ? EquippedWeapon->HasSuppressor() : false;
 }

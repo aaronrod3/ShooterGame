@@ -93,8 +93,12 @@ public:
 
 	void ShowPickupWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
+	void StopFire();
 	void SetWeaponState(EWeaponState State);
 	void ApplySpreadMultiplier(float Multiplier);
+	
+	UFUNCTION(BlueprintPure, Category = "Weapon|Audio")
+	bool IsPistolClass() const { return bIsPistolClass; }
 	
 	UPROPERTY(BlueprintAssignable, Category = "Weapon|Attachments")
 	FOnSuppressorChanged OnSuppressorChanged;
@@ -305,6 +309,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	float WeaponRange = 1500.f;
+	
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Audio")
+	bool bIsPistolClass = false;
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties|Reticle")
 	FReticleConfig ReticleConfig;

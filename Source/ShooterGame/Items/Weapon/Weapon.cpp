@@ -151,8 +151,10 @@ void AWeapon::OnRep_WeaponState()
 
 void AWeapon::Fire(const FVector& HitTarget)
 {
-	// Hard stop — no ammo, no fire
-	if (!CanFire()) return;
+	if (!CanFire())
+	{
+		return;
+	}
 
 	// Play fire animation
 	if (FireAnimation)
@@ -179,22 +181,78 @@ void AWeapon::Fire(const FVector& HitTarget)
 	}
 
 	AddSpreadOnFire();
+
+	// -------------------------------------------------------------------
+	// Audio — route based on fire mode
+	// Semi/Burst: one-shot cue
+	// Full-Auto:  one-shot + loop cue start
+	// -------------------------------------------------------------------
+	/*if (WeaponAudioComp)
+	{
+		if (CurrentFireMode == EFireMode::EFM_FullAuto)
+		{
+			WeaponAudioComp->PlayGunshotLoop_ForMultiplayer();
+		}
+		else
+		{
+			WeaponAudioComp->PlayGunshot_ForMultiplayer();
+		}
+	}*/
 	
+	
+	//TEMP
 	if (WeaponAudioComp)
 	{
-		WeaponAudioComp->PlayGunshot_ForMultiplayer();
+		if (CurrentFireMode == EFireMode::EFM_FullAuto)
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("AWeapon::Fire — FullAuto tick, calling PlayGunshotLoop_ForMultiplayer"));
+			WeaponAudioComp->PlayGunshotLoop_ForMultiplayer();
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("AWeapon::Fire — Semi tick, calling PlayGunshot_ForMultiplayer"));
+			WeaponAudioComp->PlayGunshot_ForMultiplayer();
+		}
 	}
 	
-	// Notify nearby zombies — suppressed shots use 30% of the normal radius
+	
+	
+	// -------------------------------------------------------------------
+	// AI hearing — only on real shots. Suppressed = shorter radius + lower loudness.
+	// This is the ONLY place ReportNoiseEvent should fire for weapons.
+	// -------------------------------------------------------------------
 	if (AudioPerceptionComp)
 	{
 		const float PerceptionRadius = bHasSuppressor
-			? AudioPerceptionComp->DefaultEmitRadius * 0.3f
+			? AudioPerceptionComp->SuppressedNoiseRadius
 			: -1.f; // -1 = use DefaultEmitRadius as-is
 
-		const float PerceptionLoudness = bHasSuppressor ? 0.3f : -1.f;
+		const float PerceptionLoudness = bHasSuppressor
+			? AudioPerceptionComp->SuppressedLoudness
+			: -1.f; // -1 = use Loudness as-is
 
 		AudioPerceptionComp->EmitSoundEvent(PerceptionRadius, PerceptionLoudness);
+	}
+}
+
+void AWeapon::StopFire()
+{
+	if (!WeaponAudioComp) return;
+
+	/*
+	if (CurrentFireMode == EFireMode::EFM_FullAuto)
+	{
+		WeaponAudioComp->StopLoop_ForMultiplayer();
+	}
+	*/
+	
+	//TEMP
+	if (CurrentFireMode == EFireMode::EFM_FullAuto)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AWeapon::StopFire — calling StopLoop_ForMultiplayer"));
+		WeaponAudioComp->StopLoop_ForMultiplayer();
 	}
 }
 

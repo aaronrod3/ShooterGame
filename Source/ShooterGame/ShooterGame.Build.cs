@@ -22,7 +22,8 @@ public class ShooterGame : ModuleRules
 			"Niagara",
 			"NavigationSystem",   
 			"GameplayTasks",
-			"AudioMixer"
+			"AudioMixer",
+			"PhysicsCore"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AnimGraphRuntime", "OnlineServicesInterface" });
