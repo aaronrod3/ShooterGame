@@ -26,12 +26,10 @@ void UWeaponAudioComponent::InitialiseAllSounds()
 {
     ACs_Start                    = CreateAudioComps(Cues_OneShot);
     ACs_Loop                     = CreateAudioComps(Cues_Loop);
-    ACs_Stop                     = CreateAudioComps(Cues_Stop);
     ACs_Tail                     = CreateAudioComps(Cues_Tail);
 
     ACs_Start_Suppressed         = CreateAudioComps(Cues_OneShot_Suppressed);
     ACs_Loop_Suppressed          = CreateAudioComps(Cues_Loop_Suppressed);
-    ACs_Stop_Suppressed          = CreateAudioComps(Cues_Stop_Suppressed);
     ACs_Tail_Suppressed          = CreateAudioComps(Cues_Tail_Suppressed);
 
     ACs_SwitchFireMode           = CreateAudioComps(Cues_SwitchFireMode);
@@ -121,6 +119,14 @@ void UWeaponAudioComponent::Internal_PlayOneShot(bool bSuppressed)
 {
     TArray<UAudioComponent*>& StartACs = bSuppressed ? ACs_Start_Suppressed : ACs_Start;
     PlayAudioComponentArray(StartACs, OffsetOneShotTime);
+
+    // Stop cue — mechanical action/tail of the shot, fire-and-forget at world location.
+    const TArray<USoundCue*>& StopCues = bSuppressed ? Cues_Stop_Suppressed : Cues_Stop;
+    PlayCueArrayAtOwnerLocation(StopCues);
+
+    // Tail cue — distant echo/reverb layer, fire-and-forget at world location.
+    const TArray<USoundCue*>& TailCues = bSuppressed ? Cues_Tail_Suppressed : Cues_Tail;
+    PlayCueArrayAtOwnerLocation(TailCues);
 }
 
 void UWeaponAudioComponent::Internal_PlayOneShotLoop(bool bSuppressed, float InCrossfadeTime)
@@ -163,14 +169,16 @@ void UWeaponAudioComponent::Internal_StopLoop(bool bSuppressed, float InFadeOutD
     TArray<UAudioComponent*>& LoopACs = bSuppressed ? ACs_Loop_Suppressed : ACs_Loop;
     FadeOutAudioComponentArray(LoopACs, InFadeOutDuration);
 
+    // Stop and tail cues are fire-and-forget transient sounds —
+    // spawn at world location so they outlive the loop AudioComponent lifecycle.
     if (bSuppressed)
     {
-        PlayAudioComponentArray(ACs_Stop_Suppressed);
+        PlayCueArrayAtOwnerLocation(Cues_Stop_Suppressed);
         PlayCueArrayAtOwnerLocation(Cues_Tail_Suppressed);
     }
     else
     {
-        PlayAudioComponentArray(ACs_Stop);
+        PlayCueArrayAtOwnerLocation(Cues_Stop);
         PlayCueArrayAtOwnerLocation(Cues_Tail);
     }
 
@@ -215,28 +223,37 @@ void UWeaponAudioComponent::Internal_PlayEquipUnequipSuppressor()
 
 void UWeaponAudioComponent::PlayGunshot_ForMultiplayer()
 {
+    if (!GetOwner()) return;
     const bool bSuppressed = IsSuppressed();
 
-    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
+    if (GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
+        // Play locally immediately — zero latency for the owning client.
+        Internal_PlayOneShot(bSuppressed);
+        // Send to server so it can multicast to all other clients.
         Server_PlayGunshot(bSuppressed);
     }
-    else if (GetOwner() && GetOwner()->HasAuthority())
+    else if (GetOwner()->HasAuthority())
     {
+        // Listen server host — multicast directly.
         Multi_PlayGunshot(bSuppressed);
     }
 }
 
 void UWeaponAudioComponent::PlayGunshotLoop_ForMultiplayer(float InCrossfadeTime)
 {
+    if (!GetOwner()) return;
     const bool bSuppressed = IsSuppressed();
     const float FinalCrossfadeTime = (InCrossfadeTime >= 0.f) ? InCrossfadeTime : CrossfadeOneShotLoopTime;
 
-    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
+    if (GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
+        // Play locally immediately — zero latency for the owning client.
+        Internal_PlayOneShotLoop(bSuppressed, FinalCrossfadeTime);
+        // Send to server to multicast to all other clients.
         Server_PlayGunshotLoop(bSuppressed, FinalCrossfadeTime);
     }
-    else if (GetOwner() && GetOwner()->HasAuthority())
+    else if (GetOwner()->HasAuthority())
     {
         Multi_PlayGunshotLoop(bSuppressed, FinalCrossfadeTime);
     }
@@ -244,14 +261,18 @@ void UWeaponAudioComponent::PlayGunshotLoop_ForMultiplayer(float InCrossfadeTime
 
 void UWeaponAudioComponent::StopLoop_ForMultiplayer(float InFadeOutDuration)
 {
+    if (!GetOwner()) return;
     const bool bSuppressed = IsSuppressed();
     const float FinalFadeOutDuration = (InFadeOutDuration >= 0.f) ? InFadeOutDuration : FadeOutDuration;
 
-    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
+    if (GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
+        // Stop locally immediately — owner hears burst end without RTT delay.
+        Internal_StopLoop(bSuppressed, FinalFadeOutDuration);
+        // Tell server to stop on all other clients.
         Server_StopLoop(bSuppressed, FinalFadeOutDuration);
     }
-    else if (GetOwner() && GetOwner()->HasAuthority())
+    else if (GetOwner()->HasAuthority())
     {
         Multi_StopLoop(bSuppressed, FinalFadeOutDuration);
     }
@@ -399,6 +420,8 @@ bool UWeaponAudioComponent::Server_PlayEquipUnequipSuppressor_Validate()
 
 void UWeaponAudioComponent::Multi_PlayGunshot_Implementation(bool bSuppressed)
 {
+    // Skip owning client — they already played locally in ForMultiplayer.
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy) return;
     Internal_PlayOneShot(bSuppressed);
 }
 bool UWeaponAudioComponent::Multi_PlayGunshot_Validate(bool bSuppressed)
@@ -408,6 +431,7 @@ bool UWeaponAudioComponent::Multi_PlayGunshot_Validate(bool bSuppressed)
 
 void UWeaponAudioComponent::Multi_PlayGunshotLoop_Implementation(bool bSuppressed, float InCrossfadeTime)
 {
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy) return;
     Internal_PlayOneShotLoop(bSuppressed, InCrossfadeTime);
 }
 bool UWeaponAudioComponent::Multi_PlayGunshotLoop_Validate(bool bSuppressed, float InCrossfadeTime)
@@ -417,6 +441,7 @@ bool UWeaponAudioComponent::Multi_PlayGunshotLoop_Validate(bool bSuppressed, flo
 
 void UWeaponAudioComponent::Multi_StopLoop_Implementation(bool bSuppressed, float InFadeOutDuration)
 {
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy) return;
     Internal_StopLoop(bSuppressed, InFadeOutDuration);
 }
 bool UWeaponAudioComponent::Multi_StopLoop_Validate(bool bSuppressed, float InFadeOutDuration)

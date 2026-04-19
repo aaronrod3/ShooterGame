@@ -175,6 +175,7 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &AShooterGameCharacter::FireButtonReleased);
 		EnhancedInputComponent->BindAction(CycleFireModeAction, ETriggerEvent::Started, this, &AShooterGameCharacter::CycleFireModeButtonPressed);
 		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AShooterGameCharacter::ReloadButtonPressed);
+		EnhancedInputComponent->BindAction(ToggleSuppressorAction,ETriggerEvent::Started,this,&AShooterGameCharacter::ToggleSuppressor_Input);
 		EnhancedInputComponent->BindAction(ReviveAction, ETriggerEvent::Started,this, &AShooterGameCharacter::RevivePressed);
 		EnhancedInputComponent->BindAction(ReviveAction, ETriggerEvent::Completed,this, &AShooterGameCharacter::ReviveReleased);
 		EnhancedInputComponent->BindAction(ReviveAction, ETriggerEvent::Canceled,this, &AShooterGameCharacter::ReviveReleased);
@@ -518,6 +519,37 @@ void AShooterGameCharacter::ReloadButtonPressed()
 {
 	if (!Combat) return;
 	Combat->ReloadEquippedWeapon();
+}
+
+void AShooterGameCharacter::ToggleSuppressor_Input(const FInputActionValue& Value)
+{
+	if (!Combat) return;
+
+	// Play the suppressor montage on this character if one is assigned.
+	// Leave SuppressorMontage = nullptr in BP until you have the animation.
+	if (SuppressorMontage)
+	{
+		PlayAnimMontage(SuppressorMontage);
+	}
+
+	// Delay the actual suppressor toggle to sync with the animation midpoint.
+	// Using 0.0f for now (instant) — tune this once you have a real montage.
+	const float ToggleDelay = SuppressorMontage ? 0.5f : 0.0f;
+
+	if (ToggleDelay > 0.f)
+	{
+		FTimerHandle SuppressorToggleTimer;
+		GetWorldTimerManager().SetTimer(
+			SuppressorToggleTimer,
+			[this]() { if (Combat) Combat->ToggleSuppressor(); },
+			ToggleDelay,
+			false
+		);
+	}
+	else
+	{
+		Combat->ToggleSuppressor();
+	}
 }
 
 

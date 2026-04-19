@@ -159,9 +159,6 @@ private:
     TArray<UAudioComponent*> ACs_Loop;
 
     UPROPERTY()
-    TArray<UAudioComponent*> ACs_Stop;
-
-    UPROPERTY()
     TArray<UAudioComponent*> ACs_Tail;
 
     UPROPERTY()
@@ -169,9 +166,6 @@ private:
 
     UPROPERTY()
     TArray<UAudioComponent*> ACs_Loop_Suppressed;
-
-    UPROPERTY()
-    TArray<UAudioComponent*> ACs_Stop_Suppressed;
 
     UPROPERTY()
     TArray<UAudioComponent*> ACs_Tail_Suppressed;

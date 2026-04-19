@@ -50,6 +50,7 @@ public:
 	void EquipSuppressor();
 	void RemoveSuppressor();
 	bool CurrentWeaponHasSuppressor() const;
+	void ToggleSuppressor();
 	
 	/**
 	 * Called by the progression/perk system to apply an accuracy bonus.

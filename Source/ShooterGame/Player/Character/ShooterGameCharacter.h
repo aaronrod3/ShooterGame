@@ -119,6 +119,7 @@ public:
 	void FireButtonReleased();
 	void CycleFireModeButtonPressed();
 	void ReloadButtonPressed();
+	void ToggleSuppressor_Input(const FInputActionValue& Value);
 	void RevivePressed();
 	void ReviveReleased();
 	
@@ -187,6 +188,8 @@ private:
 	TObjectPtr<UInputAction> CycleFireModeAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> ReloadAction;
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> ToggleSuppressorAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* ReviveAction;
 	
@@ -194,7 +197,10 @@ private:
 	class UAnimMontage* FireWeaponMontage;
 	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
 	class UAnimMontage* HitReactMontage;
-	
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* ReloadMontage;
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* SuppressorMontage;
 	
 	// Current health — replicated so HUD stays in sync on all clients
 	UPROPERTY(ReplicatedUsing = OnRep_Health, VisibleAnywhere, Category = "Player Stats")

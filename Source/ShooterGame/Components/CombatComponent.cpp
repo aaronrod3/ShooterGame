@@ -594,3 +594,18 @@ bool UCombatComponent::CurrentWeaponHasSuppressor() const
 {
 	return EquippedWeapon ? EquippedWeapon->HasSuppressor() : false;
 }
+
+void UCombatComponent::ToggleSuppressor()
+{
+	// Guard: must have an equipped weapon
+	if (!EquippedWeapon) return;
+
+	if (EquippedWeapon->HasSuppressor())
+	{
+		RemoveSuppressor();
+	}
+	else
+	{
+		EquipSuppressor();
+	}
+}
