@@ -48,6 +48,8 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		UpdateReticleWorldPosition();
 		UpdateReticleState();
 	}
+
+	UpdatePendingHipFireShot(DeltaTime);
 }
 
 // -----------------------------------------------------------------------
@@ -68,10 +70,9 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 		FName("RightHandSocket")
 	);
 
-	if (Character->GetCharacterMovement())
-	{
-		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
-	}
+	// TPS orientation is managed by SetOrientationForAiming on the character.
+	// Equipping a weapon should not force orientation state — leave it to the aim system.
+	Character->SetOrientationForAiming(false);
 	
 	// Notify the HUD to bind to the new weapon's ammo delegate
 	if (Character && Character->IsLocallyControlled())
@@ -97,6 +98,21 @@ void UCombatComponent::OnRep_EquippedWeapon()
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 			FName("RightHandSocket")
 		);
+
+		// Bind the HUD on the owning client — EquipWeapon() doesn't run here,
+		// only OnRep fires, so we must bind the ammo delegate from this path too
+		if (Character->IsLocallyControlled())
+		{
+			AShooterHUD* HUD = nullptr;
+			if (APlayerController* PC = Cast<APlayerController>(Character->GetController()))
+			{
+				HUD = Cast<AShooterHUD>(PC->GetHUD());
+			}
+			if (HUD)
+			{
+				HUD->BindToWeapon(EquippedWeapon);
+			}
+		}
 	}
 }
 
@@ -120,12 +136,27 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	}
 }
 
+void UCombatComponent::OnRep_Aiming()
+{
+	// Fires on simulated proxies when bAiming replicates from the server.
+	// Apply orientation so Client 2 sees the correct body facing mode.
+	if (Character)
+	{
+		Character->SetOrientationForAiming(bAiming);
+	}
+}
+
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 {
 	bAiming = bIsAiming;
 	if (Character && Character->GetCharacterMovement())
 	{
 		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
+	}
+	
+	if (Character)
+	{
+		Character->SetOrientationForAiming(bIsAiming);
 	}
 }
 
@@ -167,75 +198,105 @@ void UCombatComponent::FireButtonReleased()
 
 void UCombatComponent::HandleFire()
 {
-	if (!EquippedWeapon) return;
+    if (!EquippedWeapon) return;
 
-	// Ammo gate — play dry fire click and bail, never reach Fire()
-	if (!EquippedWeapon->CanFire())
-	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("UCombatComponent::HandleFire — CanFire false, playing dry fire"));
+    // Ammo gate — play dry fire click and bail, never reach Fire()
+    if (!EquippedWeapon->CanFire())
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("UCombatComponent::HandleFire — CanFire false, playing dry fire"));
 
-		// Stop any running loop if mag just ran out mid-burst
-		if (EquippedWeapon->WeaponAudioComp)
-		{
-			UE_LOG(LogTemp, Warning,
-				TEXT("UCombatComponent::HandleFire — stopping loop on empty mag"));
-			EquippedWeapon->WeaponAudioComp->StopLoop_ForMultiplayer();
-			EquippedWeapon->WeaponAudioComp->PlayDryFire_ForMultiplayer();
-		}
-		return;
-	}
+        // Stop any running loop if mag just ran out mid-burst
+        if (EquippedWeapon->WeaponAudioComp)
+        {
+            UE_LOG(LogTemp, Warning,
+                TEXT("UCombatComponent::HandleFire — stopping loop on empty mag"));
+            EquippedWeapon->WeaponAudioComp->StopLoop_ForMultiplayer();
+            EquippedWeapon->WeaponAudioComp->PlayDryFire_ForMultiplayer();
+        }
+        return;
+    }
 
-	// Fire rate gate
-	const float Now = GetWorld()->GetTimeSeconds();
-	const float RequiredRate = GetActiveFireRate();
-	if (Now - LastFireTime < RequiredRate) return;
-	LastFireTime = Now;
+    if (bPendingHipFireShot) return;
 
-	// Fire mode dispatch
-	switch (EquippedWeapon->GetCurrentFireMode())
-	{
-	case EFireMode::EFM_Safe:
-		return;
+    // Fire rate gate
+    const float Now = GetWorld()->GetTimeSeconds();
+    const float RequiredRate = GetActiveFireRate();
+    if (Now - LastFireTime < RequiredRate) return;
+    LastFireTime = Now;
 
-	case EFireMode::EFM_SemiAuto:
-		if (bFiredThisPress) return;
-		bFiredThisPress = true;
+    // Fire mode dispatch
+    switch (EquippedWeapon->GetCurrentFireMode())
+    {
+    case EFireMode::EFM_Safe:
+        return;
 
-		ApplyDownedDebuffsPreFire();
-		EquippedWeapon->Fire(HitTarget);
-		EquippedWeapon->ConsumeRound();
-		ServerFire(HitTarget);
-		break;
+    case EFireMode::EFM_SemiAuto:
+    {
+        if (bFiredThisPress) return;
+        bFiredThisPress = true;
 
-	case EFireMode::EFM_Burst:
-		if (bBurstInProgress || bFiredThisPress) return;
+        ApplyDownedDebuffsPreFire();
 
-		bFiredThisPress = true;
-		bBurstInProgress = true;
-		BurstShotsRemaining = EquippedWeapon->GetBurstCount();
-		HandleBurstFire();
-		break;
+        if (ShouldDelayHipFireShot())
+        {
+            StartPendingHipFireShot(ComputeFinalHitTarget());
+        }
+        else
+        {
+            const FVector FinalHitTarget = ComputeFinalHitTarget();
+            EquippedWeapon->Fire(FinalHitTarget);
+            EquippedWeapon->ConsumeRound();
+            ServerFire(FinalHitTarget);
+        }
+        break;
+    }
 
-	case EFireMode::EFM_FullAuto:
-		if (!bFullAutoFiring)
-		{
-			bFullAutoFiring = true;
-		}
-		ApplyDownedDebuffsPreFire();
-		EquippedWeapon->Fire(HitTarget);
-		EquippedWeapon->ConsumeRound();
-		ServerFire(HitTarget);
+    case EFireMode::EFM_Burst:
+    {
+        if (bBurstInProgress || bFiredThisPress) return;
 
-		GetWorld()->GetTimerManager().SetTimer(
-			BurstFireTimerHandle,
-			this,
-			&UCombatComponent::HandleFire,
-			EquippedWeapon->GetFullAutoFireRate(),
-			false
-		);
-		break;
-	}
+        bFiredThisPress = true;
+        bBurstInProgress = true;
+        BurstShotsRemaining = EquippedWeapon->GetBurstCount();
+        HandleBurstFire();
+        break;
+    }
+
+    case EFireMode::EFM_FullAuto:
+    {
+        if (!bFullAutoFiring)
+        {
+            bFullAutoFiring = true;
+        }
+
+        ApplyDownedDebuffsPreFire();
+
+        if (ShouldDelayHipFireShot())
+        {
+            StartPendingHipFireShot(ComputeFinalHitTarget());
+        }
+        else
+        {
+            const FVector FinalHitTarget = ComputeFinalHitTarget();
+            EquippedWeapon->Fire(FinalHitTarget);
+            EquippedWeapon->ConsumeRound();
+            ServerFire(FinalHitTarget);
+        }
+
+        GetWorld()->GetTimerManager().SetTimer(
+            BurstFireTimerHandle,
+            this,
+            &UCombatComponent::HandleFire,
+            EquippedWeapon->GetFullAutoFireRate(),
+            false
+        );
+        break;
+    }
+
+    default:
+        break;
+    }
 }
 
 void UCombatComponent::HandleBurstFire()
@@ -256,10 +317,38 @@ void UCombatComponent::HandleBurstFire()
 		return;
 	}
 
+	if (bPendingHipFireShot) return;
+
 	ApplyDownedDebuffsPreFire();
-	EquippedWeapon->Fire(HitTarget);
+
+	if (ShouldDelayHipFireShot())
+	{
+		StartPendingHipFireShot(ComputeFinalHitTarget());
+		--BurstShotsRemaining;
+
+		if (BurstShotsRemaining > 0)
+		{
+			GetWorld()->GetTimerManager().SetTimer(
+				BurstFireTimerHandle,
+				this,
+				&UCombatComponent::HandleBurstFire,
+				EquippedWeapon->GetBurstFireRate(),
+				false
+			);
+		}
+		else
+		{
+			bBurstInProgress = false;
+		}
+
+		return;
+	}
+
+	const FVector FinalHitTarget = ComputeFinalHitTarget();
+
+	EquippedWeapon->Fire(FinalHitTarget);
 	EquippedWeapon->ConsumeRound();
-	ServerFire(HitTarget);
+	ServerFire(FinalHitTarget);
 	--BurstShotsRemaining;
 
 	if (BurstShotsRemaining > 0)
@@ -318,38 +407,45 @@ void UCombatComponent::CycleFireMode()
 
 bool UCombatComponent::CanReload() const
 {
-	if (!EquippedWeapon) return false;
-	if (EquippedWeapon->GetFeedType() == EWeaponFeedType::EFT_SingleShot) return false;
-	if (bIsReloading) return false;
-	if (!Character) return false;
+	if (!EquippedWeapon)                                              { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: No weapon"));           return false; }
+	if (EquippedWeapon->GetFeedType() == EWeaponFeedType::EFT_SingleShot) { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: SingleShot"));            return false; }
+	if (bIsReloading)                                                 { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: bIsReloading true"));   return false; }
+	if (!Character)                                                   { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: No character"));        return false; }
 
 	UInventoryComponent* Inventory = Character->GetInventory();
-	if (!Inventory) return false;
+	if (!Inventory)                                                   { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: No inventory"));        return false; }
 
-	return Inventory->HasMagazineFor(EquippedWeapon->GetSupportedAmmoType());
+	const bool bHasMag = Inventory->HasMagazineFor(EquippedWeapon->GetSupportedAmmoType());
+	UE_LOG(LogTemp, Warning,
+		TEXT("CanReload — HasMag: %s | Slots: %d | %s"),
+		bHasMag ? TEXT("TRUE") : TEXT("FALSE"),
+		Inventory->GetUsedMagazineSlots(),
+		Character->HasAuthority() ? TEXT("Server") : TEXT("Client"));
+
+	return bHasMag;
 }
 
 void UCombatComponent::ReloadEquippedWeapon()
 {
-	if (!EquippedWeapon) return;
-	if (!Character) return;
+	if (!EquippedWeapon || !Character) return;
+	if (bLocalReloadPending) return;  // ← client-local gate only, never touches bIsReloading
+	if (EquippedWeapon->GetFeedType() == EWeaponFeedType::EFT_SingleShot) return;
 
+	// Quick local inventory pre-check for responsiveness — server re-validates authoritatively
 	UInventoryComponent* Inventory = Character->GetInventory();
-	if (!Inventory) return;
+	if (!Inventory || !Inventory->HasMagazineFor(EquippedWeapon->GetSupportedAmmoType())) return;
 
-	if (!CanReload()) return;
+	bLocalReloadPending = true;
 
-	bIsReloading = true;
-
-	if (EquippedWeapon && EquippedWeapon->WeaponAudioComp)
+	// Play audio locally for immediate feedback
+	if (EquippedWeapon->WeaponAudioComp)
 	{
 		EquippedWeapon->WeaponAudioComp->PlayReload_ForMultiplayer(
 			EquippedWeapon->IsPistolClass()
 		);
 	}
 
-	ServerReload();
-
+	// Client cosmetic timer — clears bLocalReloadPending after animation duration
 	GetWorld()->GetTimerManager().SetTimer(
 		ReloadTimerHandle,
 		this,
@@ -357,53 +453,124 @@ void UCombatComponent::ReloadEquippedWeapon()
 		ReloadDuration,
 		false
 	);
+
+	// Send to server — server is the ONLY place bIsReloading is set
+	ServerReload();
 }
 
 void UCombatComponent::ServerReload_Implementation()
 {
+	UE_LOG(LogTemp, Warning, TEXT("ServerReload_Implementation — ENTERED"));
+
 	if (!EquippedWeapon || !Character) return;
 
-	UInventoryComponent* Inventory = Character->GetInventory();
-	if (!Inventory) return;
-
-	EAmmoType AmmoType = EquippedWeapon->GetSupportedAmmoType();
-
-	// Eject current magazine — return partial mag to inventory
-	FMagazine EjectedMag = EquippedWeapon->EjectMagazine();
-	Inventory->ReturnMagazine(EjectedMag);
-
-	// Find best available magazine
-	FMagazine* BestMag = Inventory->GetBestMagazine(AmmoType);
-	if (!BestMag)
+	// Server-authoritative validation — bIsReloading is only ever set here
+	if (!CanReload())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ServerReload — No magazine found in inventory after eject"));
-		bIsReloading = false;
+		UE_LOG(LogTemp, Warning, TEXT("ServerReload_Implementation — ABORTED: CanReload false"));
 		return;
 	}
 
-	EquippedWeapon->InsertMagazine(*BestMag);
-	Inventory->RemoveMagazine(*BestMag);
-	EquippedWeapon->ChamberRound();
-
-	UE_LOG(LogTemp, Log, TEXT("ServerReload — Loaded %d rounds | Chambered: %s"),
-		EquippedWeapon->GetLoadedRounds(),
-		EquippedWeapon->HasChamberedRound() ? TEXT("true") : TEXT("false"));
+	// Set bIsReloading on the server — this is the only place it is written
+	bIsReloading = true;
 
 	MulticastReload();
+
+	// Server timer calls the authoritative mag swap after ReloadDuration
+	GetWorld()->GetTimerManager().SetTimer(
+		ServerReloadTimerHandle,
+		this,
+		&UCombatComponent::FinishReload_Server,
+		ReloadDuration,
+		false
+	);
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("ServerReload_Implementation — SUCCESS: bIsReloading=true, timer set for %.2fs"),
+		ReloadDuration);
 }
+
 
 void UCombatComponent::MulticastReload_Implementation()
 {
-	// TODO: Play reload montage on character mesh here
-	// if (Character && ReloadMontage)
-	// {
-	//     Character->GetMesh()->GetAnimInstance()->Montage_Play(ReloadMontage);
-	// }
+	// Play reload cosmetics on non-owning clients
+	// Owning client already handles audio in ReloadEquippedWeapon()
+	if (Character && !Character->IsLocallyControlled())
+	{
+		bLocalReloadPending = true;
+
+		GetWorld()->GetTimerManager().SetTimer(
+			ReloadTimerHandle,
+			this,
+			&UCombatComponent::FinishReload,
+			ReloadDuration,
+			false
+		);
+
+		// TODO: Play reload montage here when ready
+	}
 }
 
 void UCombatComponent::FinishReload()
 {
+	// Client cosmetic only — clears the local pending flag for UI/input gating
+	// Never touches bIsReloading — that belongs to the server exclusively
+	bLocalReloadPending = false;
+
+	UE_LOG(LogTemp, Warning, TEXT("FinishReload — Client cosmetic: cleared bLocalReloadPending"));
+}
+
+void UCombatComponent::FinishReload_Server()
+{
+	// Server-only — performs the authoritative mag swap after ReloadDuration
+	UE_LOG(LogTemp, Warning, TEXT("FinishReload_Server — Executing mag swap"));
+
+	if (!EquippedWeapon || !Character)
+	{
+		bIsReloading = false;
+		return;
+	}
+
+	UInventoryComponent* Inventory = Character->GetInventory();
+	if (!Inventory)
+	{
+		bIsReloading = false;
+		return;
+	}
+
+	const EAmmoType AmmoType = EquippedWeapon->GetSupportedAmmoType();
+
+	FMagazine EjectedMag = EquippedWeapon->EjectMagazine();
+	UE_LOG(LogTemp, Warning,
+		TEXT("FinishReload_Server — Ejected: %d rounds"), EjectedMag.CurrentRounds);
+
+	Inventory->ReturnMagazine(EjectedMag);
+
+	FMagazine* BestMag = Inventory->GetBestMagazine(AmmoType);
+	if (!BestMag)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("FinishReload_Server — FAILED: No magazine found. Slots: %d"),
+			Inventory->GetUsedMagazineSlots());
+		bIsReloading = false;
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("FinishReload_Server — Inserting: %d rounds"), BestMag->CurrentRounds);
+
+	EquippedWeapon->InsertMagazine(*BestMag);
+	Inventory->RemoveMagazine(*BestMag);
+	EquippedWeapon->ChamberRound();
+	EquippedWeapon->ForceNetUpdate();
+
+	// Server-side bIsReloading cleared here — allows next reload cycle
 	bIsReloading = false;
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("FinishReload_Server — COMPLETE: %d rounds | Chambered: %s"),
+		EquippedWeapon->GetLoadedRounds(),
+		EquippedWeapon->HasChamberedRound() ? TEXT("true") : TEXT("false"));
 }
 
 // -----------------------------------------------------------------------
@@ -490,45 +657,153 @@ void UCombatComponent::UpdateReticleWorldPosition()
 	APlayerController* PC = Cast<APlayerController>(Character->GetController());
 	if (!PC) return;
 
-	// For top-down: project mouse cursor onto a horizontal plane at character height
-	// This gives the world position the player is aiming at, not a screen-center trace
-	FVector PlaneOrigin = Character->GetActorLocation();
-	FVector PlaneNormal = FVector(0.f, 0.f, 1.f); // horizontal plane
+	// Get camera position and forward direction
+	FVector CameraLocation;
+	FRotator CameraRotation;
+	PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
 
-	FHitResult CursorHit;
-	PC->GetHitResultUnderCursorByChannel(
-		UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_Visibility),
-		true,
-		CursorHit
-	);
+	const FVector ShotDirection = CameraRotation.Vector();
+	const float TraceDistance = 50000.f; // 50m — tune as needed
 
-	if (CursorHit.bBlockingHit)
+	const FVector TraceStart = CameraLocation;
+	const FVector TraceEnd   = TraceStart + ShotDirection * TraceDistance;
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(WeaponLineTrace), /*bTraceComplex*/ true, Character);
+	QueryParams.bReturnPhysicalMaterial = false;
+
+	FHitResult Hit;
+	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
 	{
-		// Use the cursor hit point but clamp Z to muzzle/torso height
-		ReticleWorldPosition = CursorHit.ImpactPoint;
-		ReticleWorldPosition.Z = EquippedWeapon->GetWeaponMesh()->GetSocketLocation(FName("MuzzleFlash")).Z;
-
+		// Hit something along the reticle line
+		ReticleWorldPosition = Hit.ImpactPoint;
 		ReticleState.bCursorValid = true;
 	}
 	else
 	{
-		// Fallback — deproject cursor to world and intersect with horizontal plane
-		FVector WorldLocation, WorldDirection;
-		if (PC->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
-		{
-			// Ray-plane intersection: t = (PlaneOrigin - WorldLocation) · PlaneNormal / (WorldDirection · PlaneNormal)
-			float Denom = FVector::DotProduct(WorldDirection, PlaneNormal);
-			if (!FMath::IsNearlyZero(Denom))
-			{
-				float T = FVector::DotProduct(PlaneOrigin - WorldLocation, PlaneNormal) / Denom;
-				ReticleWorldPosition = WorldLocation + WorldDirection * T;
-				ReticleWorldPosition.Z = Character->GetActorLocation().Z + ProjectileFireHeightOffset;
-			}
-			ReticleState.bCursorValid = false;
-		}
+		// No hit — use a point straight ahead at TraceDistance
+		ReticleWorldPosition = TraceEnd;
+		ReticleState.bCursorValid = false;
 	}
 
+	// Use this as the logical HitTarget for firing; muzzle check will refine it
 	HitTarget = ReticleWorldPosition;
+}
+
+FVector UCombatComponent::ComputeFinalHitTarget() const
+{
+	if (!Character || !EquippedWeapon) return HitTarget;
+
+	const USkeletalMeshComponent* WeaponMesh = EquippedWeapon->GetWeaponMesh();
+	if (!WeaponMesh) return HitTarget;
+
+	const FName MuzzleSocketName("MuzzleFlash");
+	const FVector MuzzleLocation = WeaponMesh->GetSocketLocation(MuzzleSocketName);
+
+	// Direction from muzzle toward the current HitTarget
+	const FVector ToTarget = (HitTarget - MuzzleLocation);
+	const FVector ShootDir = ToTarget.GetSafeNormal();
+
+	const float DistanceToTarget = ToTarget.Size();
+	const FVector MuzzleTraceEnd = MuzzleLocation + ShootDir * DistanceToTarget;
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(MuzzleLineTrace), true, Character);
+	QueryParams.bReturnPhysicalMaterial = false;
+	QueryParams.AddIgnoredActor(EquippedWeapon);
+
+	FHitResult Hit;
+	if (GetWorld()->LineTraceSingleByChannel(Hit, MuzzleLocation, MuzzleTraceEnd, ECC_Visibility, QueryParams))
+	{
+		// Something between muzzle and reticle target — shoot that instead
+		return Hit.ImpactPoint;
+	}
+
+	// Path is clear — shoot at the reticle target
+	return HitTarget;
+}
+
+
+bool UCombatComponent::ShouldDelayHipFireShot() const
+{
+	return Character && EquippedWeapon && !bAiming;
+}
+
+float UCombatComponent::GetHipFireYawDeltaToControl() const
+{
+	if (!Character) return 0.f;
+
+	const float ActorYaw = Character->GetActorRotation().Yaw;
+	const float ControlYaw = Character->GetControlRotation().Yaw;
+
+	return FMath::Abs(FMath::FindDeltaAngleDegrees(ActorYaw, ControlYaw));
+}
+
+void UCombatComponent::StartPendingHipFireShot(const FVector& InTarget)
+{
+	if (!Character) return;
+
+	bPendingHipFireShot = true;
+	PendingHipFireTarget = InTarget;
+
+	// Temporarily enter aim-facing orientation so the body turns toward control yaw
+	Character->SetOrientationForAiming(true);
+}
+
+void UCombatComponent::UpdatePendingHipFireShot(float DeltaTime)
+{
+	if (!bPendingHipFireShot || !Character) return;
+
+	const FRotator CurrentRotation = Character->GetActorRotation();
+	const FRotator ControlRotation = Character->GetControlRotation();
+
+	const FRotator DesiredRotation(
+		CurrentRotation.Pitch,
+		ControlRotation.Yaw,
+		CurrentRotation.Roll
+	);
+
+	const FRotator NewRotation = FMath::RInterpTo(
+		CurrentRotation,
+		DesiredRotation,
+		DeltaTime,
+		HipFireTurnInterpSpeed
+	);
+
+	Character->SetActorRotation(NewRotation);
+
+	const float YawDelta = GetHipFireYawDeltaToControl();
+	if (YawDelta <= HipFireTurnYawThreshold)
+	{
+		ExecutePendingHipFireShot();
+	}
+}
+
+void UCombatComponent::ExecutePendingHipFireShot()
+{
+	if (!bPendingHipFireShot || !EquippedWeapon) return;
+
+	const FVector FinalHitTarget = ComputeFinalHitTarget();
+
+	EquippedWeapon->Fire(FinalHitTarget);
+	EquippedWeapon->ConsumeRound();
+	ServerFire(FinalHitTarget);
+
+	// Force-replicate the snapped yaw immediately so simulated proxies on
+	// Client 2 see the correct facing direction after the hip-fire turn.
+	// Tick's throttled ServerSetFacingYaw may not fire in time for this snap.
+	if (Character && !Character->HasAuthority())
+	{
+		const float SnappedYaw = Character->GetActorRotation().Yaw;
+		Character->ServerSetFacingYaw(SnappedYaw);
+	}
+
+	bPendingHipFireShot = false;
+	PendingHipFireTarget = FVector::ZeroVector;
+
+	// Return to normal locomotion-facing if player is not ADS
+	if (Character && !bAiming)
+	{
+		Character->SetOrientationForAiming(false);
+	}
 }
 
 void UCombatComponent::ApplyDownedDebuffsPreFire()

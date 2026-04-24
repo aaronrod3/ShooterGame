@@ -41,25 +41,24 @@ void AShooterGamePlayerController::Tick(float DeltaTime)
 void AShooterGamePlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	// Start with cursor visible — unequipped default
-	bShowMouseCursor = true;
-	FInputModeGameAndUI InputMode;
-	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	InputMode.SetHideCursorDuringCapture(false);
-	SetInputMode(InputMode);
-	//bAutoManageActiveCameraTarget = false;
+
+	// TPS default — capture mouse to viewport for camera look
+	bShowMouseCursor = false;
+	SetInputMode(FInputModeGameOnly());
 
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
 		for (UInputMappingContext* CurrentContext : DefaultIMCs)
 		{
-			Subsystem->AddMappingContext(CurrentContext, 0);
+			if (CurrentContext)  // skip null entries
+			{
+				Subsystem->AddMappingContext(CurrentContext, 0);
+			}
 		}
 	}
-	
+
 	InventoryComponent = FindComponentByClass<UInventoryComponent>();
-	
+
 	CreateHUDWidget();
 }
 
@@ -85,23 +84,7 @@ void AShooterGamePlayerController::CreateHUDWidget()
 
 void AShooterGamePlayerController::UpdateCursorVisibility()
 {
-	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(GetPawn());
-	if (!ShooterCharacter) return;
-
-	const bool bIsEquipped = ShooterCharacter->IsWeaponEquipped();
-	if (bIsEquipped == bWasEquipped) return;
-	bWasEquipped = bIsEquipped;
-
-	// Keep the same input mode in both cases so the viewport never enters
-	// mouse-capture camera-look behavior.
-	FInputModeGameAndUI InputMode;
-	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	InputMode.SetHideCursorDuringCapture(false);
-	SetInputMode(InputMode);
-
-	// Your project may still want the OS cursor hidden while equipped,
-	// but do not switch to GameOnly.
-	bShowMouseCursor = !bIsEquipped ? true : false;
+	
 }
 
 void AShooterGamePlayerController::TraceForItem()

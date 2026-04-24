@@ -33,13 +33,14 @@ AShooterGameCharacter::AShooterGameCharacter()
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 		
-	// Don't rotate when the controller rotates. Let that just affect the camera.
+	// Character body does not rotate with the controller — the spring arm handles camera rotation.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
-	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = false;
+	// TPS orientation — body follows movement direction by default
+	// bUseControllerRotationYaw is toggled dynamically when aiming
+	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 
 	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
@@ -54,22 +55,24 @@ AShooterGameCharacter::AShooterGameCharacter()
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 2000.0f;								// close third-person distance
-	CameraBoom->SetRelativeRotation(FRotator(-70.f, 0.f, 0.f));	
-	//CameraBoom->SocketOffset = FVector(0.f, 75.f, 75.f);	// slight right shoulder offset
-	CameraBoom->bUsePawnControlRotation = false;							// arm follows controller pitch + yaw
-	CameraBoom->bInheritPitch = false;									// allow pitch
-	CameraBoom->bInheritRoll = false;									 // no roll
-	CameraBoom->bInheritYaw = false;
-	CameraBoom->bDoCollisionTest = false;								// camera pulls in on walls
-	
-	CurrentArmLength = 2000.f;
-	TargetArmLength  = 2000.f;
+	CameraBoom->TargetArmLength = HipFireArmLength;
+	CameraBoom->SetRelativeRotation(FRotator(-15.f, 0.f, 0.f));
+	CameraBoom->SocketOffset = HipFireSocketOffset;
+	CameraBoom->bUsePawnControlRotation = true;
+	CameraBoom->bInheritPitch = true;
+	CameraBoom->bInheritRoll = false;
+	CameraBoom->bInheritYaw = true;
+	CameraBoom->bDoCollisionTest = true;
+
+	CurrentArmLength = HipFireArmLength;
+	TargetArmLength  = HipFireArmLength;
+	CurrentCameraFOV = HipFireFOV;
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
+	FollowCamera->FieldOfView = HipFireFOV;
 
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	Combat->SetIsReplicated(true);
@@ -97,6 +100,18 @@ void AShooterGameCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	// Temporary debug
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->SetIgnoreLookInput(false);
+		PC->SetIgnoreMoveInput(false);
+		UE_LOG(LogShooterGameCharacter, Warning, TEXT("Controller found: %s"), *PC->GetName());
+	}
+	else
+	{
+		UE_LOG(LogShooterGameCharacter, Warning, TEXT("NO PLAYER CONTROLLER on BeginPlay"));
+	}
+	
 	UAIPerceptionStimuliSourceComponent* StimuliComp =
 	FindComponentByClass<UAIPerceptionStimuliSourceComponent>();
 
@@ -113,45 +128,102 @@ void AShooterGameCharacter::BeginPlay()
 	UE_LOG(LogTemp, Warning, TEXT("[STIMULI] %s registered for UAISense_Hearing"),
 		*GetName());
 	
-	// ── initialize camera arm to top-down position for all clients ──
-	if (CameraBoom)
-	{
-		float CurrentPitch = CameraBoom->GetRelativeRotation().Pitch;
-		CameraBoom->SetRelativeRotation(FRotator(CurrentPitch, DesiredYaw, 0.f));
-	}
+	// TPS — CameraBoom uses bUsePawnControlRotation.
+	// No manual rotation setup needed at BeginPlay.
+	
+	// Set initial TPS orientation — not aiming by default
+	SetOrientationForAiming(false);
 }
 
 void AShooterGameCharacter::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
-	
-	FaceTowardCursor(DeltaTime);
-	
-	// ── Drive spring arm yaw from DesiredYaw, preserve relative pitch, never touch controller ──
-	if (CameraBoom)
-	{
-		float CurrentPitch = CameraBoom->GetRelativeRotation().Pitch;
+    Super::Tick(DeltaTime);
 
-		DesiredYaw = FMath::FInterpTo(DesiredYaw, TargetYaw, DeltaTime, RotationSpeed);
+    if (!CameraBoom || !FollowCamera) return;
 
-		// Snap to exact target when close — prevents interp never arriving
-		if (FMath::Abs((float)FMath::FindDeltaAngleDegrees(DesiredYaw, TargetYaw)) < 0.5f)
-		{
-			DesiredYaw = TargetYaw;	
-		}
+    const bool bShouldADS = (Combat && Combat->bAiming);
 
-		CameraBoom->SetRelativeRotation(FRotator(CurrentPitch, DesiredYaw, 0.f));
+    // Keep target shoulder offset Y in sync with aim state changes
+    if (bShouldADS)
+    {
+        TargetShoulderOffsetY = bRightShoulder ? ADSRightShoulderOffsetY : ADSLeftShoulderOffsetY;
+    }
+    else
+    {
+        TargetShoulderOffsetY = bRightShoulder ? RightShoulderOffsetY : LeftShoulderOffsetY;
+    }
 
-		// ── Interpolate zoom (arm length) toward TargetArmLength ──
-		CurrentArmLength = FMath::FInterpTo(
-			CurrentArmLength,
-			TargetArmLength,
-			DeltaTime,
-			ZoomInterpSpeed
-		);
-		CameraBoom->TargetArmLength = CurrentArmLength;
-		// ──────────────────────────────────────────────────────────
-	}
+    // Choose arm length from aim/prone state
+    float DesiredArmLength;
+    if (bIsProne)
+    {
+        DesiredArmLength = ProneArmLength;
+    }
+    else
+    {
+        DesiredArmLength = bShouldADS ? ADSArmLength : HipFireArmLength;
+    }
+
+    // Choose base socket offset X and Z from aim/prone state
+    FVector BaseSocketOffset = bShouldADS ? ADSSocketOffset : HipFireSocketOffset;
+    if (bIsProne)
+    {
+        BaseSocketOffset.Z = ProneSocketOffsetZ;
+    }
+
+    // Smooth arm-length transition
+    CurrentArmLength = FMath::FInterpTo(
+        CurrentArmLength,
+        DesiredArmLength,
+        DeltaTime,
+        CameraInterpSpeed
+    );
+    CameraBoom->TargetArmLength = CurrentArmLength;
+
+    // Smooth shoulder Y offset
+    const float NewSocketOffsetY = FMath::FInterpTo(
+        CameraBoom->SocketOffset.Y,
+        TargetShoulderOffsetY,
+        DeltaTime,
+        ShoulderSwapInterpSpeed
+    );
+
+    // Smooth socket Z offset
+    const float NewSocketOffsetZ = FMath::FInterpTo(
+        CameraBoom->SocketOffset.Z,
+        BaseSocketOffset.Z,
+        DeltaTime,
+        CameraInterpSpeed
+    );
+
+    // Apply final socket offset
+    CameraBoom->SocketOffset = FVector(
+        BaseSocketOffset.X,
+        NewSocketOffsetY,
+        NewSocketOffsetZ
+    );
+
+    // Smooth FOV transition
+    const float DesiredFOV = bShouldADS ? ADSFOV : HipFireFOV;
+    CurrentCameraFOV = FMath::FInterpTo(
+        CurrentCameraFOV,
+        DesiredFOV,
+        DeltaTime,
+        CameraInterpSpeed
+    );
+    FollowCamera->SetFieldOfView(CurrentCameraFOV);
+
+    // Replicate actor yaw to server so simulated proxies see correct facing direction.
+    // Only runs on the locally controlled client — not on server or proxies.
+    if (IsLocallyControlled() && !HasAuthority())
+    {
+        const float CurrentYaw = GetActorRotation().Yaw;
+        if (!FMath::IsNearlyEqual(CurrentYaw, LastReplicatedYaw, 0.5f))
+        {
+            ServerSetFacingYaw(CurrentYaw);
+            LastReplicatedYaw = CurrentYaw;
+        }
+    }
 }
 
 void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -160,25 +232,29 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
 
 		// Camera
-		EnhancedInputComponent->BindAction(RotateCamera_Action, ETriggerEvent::Started, this, &AShooterGameCharacter::RotateCamera);
-		EnhancedInputComponent->BindAction(ZoomCamera_Action, ETriggerEvent::Triggered, this, &AShooterGameCharacter::ZoomCamera);
+		EnhancedInputComponent->BindAction(LookAction,				ETriggerEvent::Triggered,	this,	&AShooterGameCharacter::Look);
 		// Moving
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveAction,				ETriggerEvent::Triggered,	this,	&AShooterGameCharacter::Move);
 		// Crouch
-		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::CrouchButtonPressed);
+		EnhancedInputComponent->BindAction(CrouchAction,				ETriggerEvent::Triggered,	this,	&AShooterGameCharacter::CrouchButtonPressed);
+		if (ProneAction)
+		{
+			EnhancedInputComponent->BindAction(ProneAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::GoProneButtonPressed);
+		}
 		
 		
 		//EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::PrimaryInteract);
-		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Started, this, &AShooterGameCharacter::EquipButtonPressed);
-		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &AShooterGameCharacter::ToggleAim);
-		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started,   this, &AShooterGameCharacter::FireButtonPressed);
-		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &AShooterGameCharacter::FireButtonReleased);
-		EnhancedInputComponent->BindAction(CycleFireModeAction, ETriggerEvent::Started, this, &AShooterGameCharacter::CycleFireModeButtonPressed);
-		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AShooterGameCharacter::ReloadButtonPressed);
-		EnhancedInputComponent->BindAction(ToggleSuppressorAction,ETriggerEvent::Started,this,&AShooterGameCharacter::ToggleSuppressor_Input);
-		EnhancedInputComponent->BindAction(ReviveAction, ETriggerEvent::Started,this, &AShooterGameCharacter::RevivePressed);
-		EnhancedInputComponent->BindAction(ReviveAction, ETriggerEvent::Completed,this, &AShooterGameCharacter::ReviveReleased);
-		EnhancedInputComponent->BindAction(ReviveAction, ETriggerEvent::Canceled,this, &AShooterGameCharacter::ReviveReleased);
+		EnhancedInputComponent->BindAction(EquipAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::EquipButtonPressed);
+		EnhancedInputComponent->BindAction(AimAction,				ETriggerEvent::Triggered,	this,	&AShooterGameCharacter::ToggleAim);
+		EnhancedInputComponent->BindAction(ShoulderSwapAction,			ETriggerEvent::Started,		this,	&AShooterGameCharacter::SwapShoulder);
+		EnhancedInputComponent->BindAction(FireAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::FireButtonPressed);
+		EnhancedInputComponent->BindAction(FireAction,				ETriggerEvent::Completed,	this,	&AShooterGameCharacter::FireButtonReleased);
+		EnhancedInputComponent->BindAction(CycleFireModeAction,		ETriggerEvent::Started,		this,	&AShooterGameCharacter::CycleFireModeButtonPressed);
+		EnhancedInputComponent->BindAction(ReloadAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::ReloadButtonPressed);
+		EnhancedInputComponent->BindAction(ToggleSuppressorAction,	ETriggerEvent::Started,		this,	&AShooterGameCharacter::ToggleSuppressor_Input);
+		EnhancedInputComponent->BindAction(ReviveAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::RevivePressed);
+		EnhancedInputComponent->BindAction(ReviveAction,				ETriggerEvent::Completed,	this,	&AShooterGameCharacter::ReviveReleased);
+		EnhancedInputComponent->BindAction(ReviveAction,				ETriggerEvent::Canceled,	this,	&AShooterGameCharacter::ReviveReleased);
 	}
 	else
 	{
@@ -199,10 +275,11 @@ void AShooterGameCharacter::PostInitializeComponents()
 void AShooterGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	
+    
 	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingWeapon, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AShooterGameCharacter, OverlappingAmmoPickup, COND_OwnerOnly);
 	DOREPLIFETIME(AShooterGameCharacter, Health);
+	DOREPLIFETIME(AShooterGameCharacter, bIsProne);
 }
 
 
@@ -220,10 +297,11 @@ void AShooterGameCharacter::DoMove(float Right, float Forward)
 {
 	if (GetController() != nullptr)
 	{
-		const FRotator ArmRotation = FRotator(0.f, DesiredYaw, 0.f);
+		// Use control rotation yaw so movement is always relative to camera facing
+		const FRotator YawRotation(0.f, GetControlRotation().Yaw, 0.f);
 
-		const FVector ForwardDirection = FRotationMatrix(ArmRotation).GetUnitAxis(EAxis::X);
-		const FVector RightDirection   = FRotationMatrix(ArmRotation).GetUnitAxis(EAxis::Y);
+		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		const FVector RightDirection   = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
 		AddMovementInput(ForwardDirection, Forward);
 		AddMovementInput(RightDirection, Right);
@@ -231,94 +309,26 @@ void AShooterGameCharacter::DoMove(float Right, float Forward)
 }
 
 
-void AShooterGameCharacter::RotateCamera(const FInputActionValue& Value)
+void AShooterGameCharacter::Look(const FInputActionValue& Value)
 {
-	const float Axis = Value.Get<float>();
-	if (FMath::IsNearlyZero(Axis)) return;
+	const FVector2D LookAxisVector = Value.Get<FVector2D>();
 
-	// Ignore new input until current rotation has nearly landed
-	if (FMath::Abs((float)FMath::FindDeltaAngleDegrees(DesiredYaw, TargetYaw)) > 45.f) return;
-
-	const float Direction = FMath::Sign(Axis);
-	TargetYaw += 90.f * Direction;
-}
-
-void AShooterGameCharacter::ZoomCamera(const FInputActionValue& Value)
-{
-	const float Axis = Value.Get<float>();
-	if (FMath::IsNearlyZero(Axis)) return;
-
-	// Positive axis (scroll up) = zoom in (shorter arm length)
-	// Negative axis (scroll down) = zoom out (longer arm length)
-	TargetArmLength = FMath::Clamp(
-		TargetArmLength - (Axis * ZoomStep),
-		MinZoomDistance,
-		MaxZoomDistance
-	);
-}
-
-
-void AShooterGameCharacter::SetZoomRange(float NewMin, float NewMax)
-{
-	MinZoomDistance = NewMin;
-	MaxZoomDistance = NewMax;
-
-	// Immediately clamp current target into the new range
-	// so the camera doesn't sit outside the new bounds until the player scrolls
-	TargetArmLength = FMath::Clamp(TargetArmLength, MinZoomDistance, MaxZoomDistance);
-}
-
-void AShooterGameCharacter::FaceTowardCursor(float DeltaTime)
-{
-	if (!IsLocallyControlled()) return;
-	
-	APlayerController* PlayerController = Cast<APlayerController>(GetController());
-	if (!PlayerController) return;
-	
-	FHitResult Hit;
-	if (PlayerController->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
+	if (GetController() != nullptr)
 	{
-		FVector LookAtCursor = (Hit.ImpactPoint - GetActorLocation()).GetSafeNormal2D();
-		if (LookAtCursor.IsNearlyZero()) return;
-
-		FRotator TargetRotation  = LookAtCursor.Rotation();
-		FRotator CurrentRotation = GetActorRotation();
-
-		// Compute aim offset BEFORE interp
-		if (Combat && Combat->EquippedWeapon)
-		{
-			FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, CurrentRotation);
-			AimOffset_Yaw = Delta.Yaw;
-		}
-		else
-		{
-			AimOffset_Yaw = 0.f;
-		}
-
-		float AbsDelta = FMath::Abs(AimOffset_Yaw);
-		if (AbsDelta < 5.f)
-		{
-			TurningInPlace = ETurningInPlace::ETIP_NotTurning;
-		}
-		else
-		{
-			TurnInPlace(DeltaTime);
-		}
-
-		// Interp body toward cursor — pitch always zeroed (level aiming)
-		FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, FaceCursorInterpSpeed);
-		SetActorRotation(FRotator(0.f, NewRotation.Yaw, 0.f));				// ← Z=0 enforces no pitch
-
-		if (!HasAuthority())
-		{
-			ServerSetFacingYaw(NewRotation.Yaw);
-		}
+		AddControllerYawInput(LookAxisVector.X);
+		AddControllerPitchInput(LookAxisVector.Y);
 	}
 }
 
+
 void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
 {
-	SetActorRotation(FRotator(0, Yaw, 0));
+	// Only apply manual facing yaw when not in ADS orientation mode.
+	// During ADS, bUseControllerRotationYaw handles body rotation on the server.
+	if (Combat && !Combat->bAiming)
+	{
+		SetActorRotation(FRotator(0.f, Yaw, 0.f));
+	}
 }
 
 
@@ -336,13 +346,9 @@ void AShooterGameCharacter::TurnInPlace(float DeltaTime)
 
 void AShooterGameCharacter::OnRep_DesiredYaw()
 {
-	// Fires on simulated proxies when the server replicates DesiredYaw.
-	// Applies the spring arm yaw so remote players see the correct camera angle.
-	if (CameraBoom)
-	{
-		const float CurrentPitch = CameraBoom->GetRelativeRotation().Pitch;
-		CameraBoom->SetRelativeRotation(FRotator(CurrentPitch, DesiredYaw, 0.f));
-	}
+	// DesiredYaw was used in top-down camera system.
+	// TPS uses bUsePawnControlRotation on CameraBoom — no action needed here.
+	// Keeping the replicated property for now to avoid breaking existing saves/packages.
 }
 
 
@@ -469,8 +475,22 @@ void AShooterGameCharacter::ServerCollectAmmo_Implementation()
 	UCombatComponent* CombatComp = GetCombat();
 	if (!CombatComp) return;
 
-	CombatComp->PickupMagazine(OverlappingAmmoPickup->GetGrantedMagazine());
+	const FMagazine GrantedMag = OverlappingAmmoPickup->GetGrantedMagazine();
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("ServerCollectAmmo — Granting mag: %d rounds, AmmoType: %d"),
+		GrantedMag.CurrentRounds, (int32)GrantedMag.AmmoType);
+
+	CombatComp->PickupMagazine(GrantedMag);
 	OverlappingAmmoPickup->Destroy();
+
+	// Verify inventory state after pickup
+	if (UInventoryComponent* Inv = GetInventory())
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("ServerCollectAmmo — Inventory now has %d slots used"),
+			Inv->GetUsedMagazineSlots());
+	}
 }
 
 bool AShooterGameCharacter::IsWeaponEquipped()
@@ -493,9 +513,113 @@ void AShooterGameCharacter::ToggleAim()
 {
 	if (Combat)
 	{
-		Combat->SetAiming(!Combat->bAiming);
+		const bool bNewAiming = !Combat->bAiming;
+		Combat->SetAiming(bNewAiming);
+		SetOrientationForAiming(bNewAiming);
 	}
 }
+
+void AShooterGameCharacter::SetOrientationForAiming(bool bAiming)
+{
+	if (bAiming)
+	{
+		// Body locks to camera yaw — weapon aligns with reticle
+		bUseControllerRotationYaw = true;
+		GetCharacterMovement()->bOrientRotationToMovement = false;
+	}
+	else
+	{
+		// Body freely turns toward movement direction
+		bUseControllerRotationYaw = false;
+		GetCharacterMovement()->bOrientRotationToMovement = true;
+	}
+}
+
+void AShooterGameCharacter::SwapShoulder()
+{
+	bRightShoulder = !bRightShoulder;
+
+	// Choose the correct target Y offset based on shoulder and aim state
+	const bool bCurrentlyAiming = (Combat && Combat->bAiming);
+
+	if (bRightShoulder)
+	{
+		TargetShoulderOffsetY = bCurrentlyAiming ? ADSRightShoulderOffsetY : RightShoulderOffsetY;
+	}
+	else
+	{
+		TargetShoulderOffsetY = bCurrentlyAiming ? ADSLeftShoulderOffsetY : LeftShoulderOffsetY;
+	}
+}
+
+
+void AShooterGameCharacter::GoProneButtonPressed()
+{
+	// Cannot go prone while downed
+	if (DownedComp && !DownedComp->IsAlive()) return;
+
+	const bool bNewProne = !bIsProne;
+
+	if (HasAuthority())
+	{
+		ServerSetProne_Implementation(bNewProne);
+	}
+	else
+	{
+		// Apply locally for immediate client feedback
+		bIsProne = bNewProne;
+		ApplyProneState(bNewProne);
+		ServerSetProne(bNewProne);
+	}
+}
+
+void AShooterGameCharacter::ServerSetProne_Implementation(bool bNewProne)
+{
+	bIsProne = bNewProne;
+	ApplyProneState(bNewProne);
+}
+
+void AShooterGameCharacter::OnRep_IsProne()
+{
+	// Fires on simulated proxies when bIsProne replicates
+	ApplyProneState(bIsProne);
+}
+
+void AShooterGameCharacter::ApplyProneState(bool bProne)
+{
+	if (!GetCharacterMovement()) return;
+
+	if (bProne)
+	{
+		// Slow movement significantly
+		GetCharacterMovement()->MaxWalkSpeed = ProneWalkSpeed;
+
+		// Shrink capsule to near-ground height
+		GetCapsuleComponent()->SetCapsuleHalfHeight(ProneCapsuleHalfHeight);
+
+		// If crouched, stand before going prone
+		if (bIsCrouched)
+		{
+			UnCrouch();
+		}
+
+		UE_LOG(LogShooterGameCharacter, Warning,
+			TEXT("AShooterGameCharacter::ApplyProneState — PRONE"));
+	}
+	else
+	{
+		// Restore speed — use combat component's base speed if available
+		const float RestoreSpeed = Combat ? Combat->GetBaseWalkSpeed() : 500.f;
+		GetCharacterMovement()->MaxWalkSpeed = RestoreSpeed;
+
+		// Restore capsule height
+		GetCapsuleComponent()->SetCapsuleHalfHeight(StandingCapsuleHalfHeight);
+
+		UE_LOG(LogShooterGameCharacter, Warning,
+			TEXT("AShooterGameCharacter::ApplyProneState — STANDING"));
+	}
+}
+
 
 void AShooterGameCharacter::FireButtonPressed()
 {

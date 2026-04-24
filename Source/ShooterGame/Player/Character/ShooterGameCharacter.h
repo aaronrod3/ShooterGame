@@ -72,30 +72,62 @@ public:
 	void SetHealth(float NewHealth);
 	
 	
-	/* Camera Settings */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-	float RotationSpeed = 120.f;
+	/* TPS Camera Settings */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | TPS")
+	float HipFireArmLength = 325.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-	float FaceCursorInterpSpeed = 15.f;	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | TPS")
+	float ADSArmLength = 180.f;
 
-	// ── Zoom Settings ──
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Zoom")
-	float MinZoomDistance = 800.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | TPS")
+	FVector HipFireSocketOffset = FVector(0.f, 60.f, 20.f);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Zoom")
-	float MaxZoomDistance = 3000.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | TPS")
+	FVector ADSSocketOffset = FVector(0.f, 75.f, 10.f);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Zoom")
-	float ZoomStep = 150.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | TPS")
+	float HipFireFOV = 90.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Zoom")
-	float ZoomInterpSpeed = 8.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | TPS")
+	float ADSFOV = 70.f;
 
-	/** Call from Blueprint to constrain zoom range at runtime (e.g. indoors vs open world) */
-	UFUNCTION(BlueprintCallable, Category = "Camera | Zoom")
-	void SetZoomRange(float NewMin, float NewMax);
-	// ───────────────────
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | TPS")
+	float CameraInterpSpeed = 10.f;
+	
+	
+	/* Shoulder Swap Settings */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Shoulder")
+	float RightShoulderOffsetY = 60.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Shoulder")
+	float LeftShoulderOffsetY = -60.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Shoulder")
+	float ADSRightShoulderOffsetY = 75.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Shoulder")
+	float ADSLeftShoulderOffsetY = -75.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Shoulder")
+	float ShoulderSwapInterpSpeed = 12.f;
+	
+	
+	/* Prone Settings */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Prone")
+	float ProneSocketOffsetZ = -60.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Prone")
+	float ProneWalkSpeed = 150.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Prone")
+	float ProneArmLength = 200.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Prone")
+	float ProneCapsuleHalfHeight = 40.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | Prone")
+	float StandingCapsuleHalfHeight = 96.f;
+	
 	
 	
 	// -- Team settings
@@ -105,16 +137,18 @@ public:
 	AWeapon* GetEquippedWeapon();
 	
 	/* Inputs */
-	void RotateCamera(const FInputActionValue& Value);
-	void ZoomCamera(const FInputActionValue& Value); 
-	void FaceTowardCursor(float DeltaTime);		
+	void Look(const FInputActionValue& Value);	
 	void Move(const FInputActionValue& Value);
 	void SetRotationMode(bool bLockToCamera);
 	void EquipButtonPressed();
 	void CrouchButtonPressed();
+	void GoProneButtonPressed();
+	void ApplyProneState(bool bProne);
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	void SetOverlappingAmmoPickup(AAmmoPickup* AmmoPickup);
 	void ToggleAim();
+	void SetOrientationForAiming(bool bAiming); // TPS body orientation toggle
+	void SwapShoulder();
 	void FireButtonPressed();
 	void FireButtonReleased();
 	void CycleFireModeButtonPressed();
@@ -136,7 +170,8 @@ public:
 	float GetBaseWalkSpeed() const;
 	
 	
-	
+	UFUNCTION(Server, Unreliable)
+	void ServerSetFacingYaw(float Yaw);	
 
 protected:
 	virtual void BeginPlay() override;
@@ -169,11 +204,11 @@ private:
 	TObjectPtr<UInputAction> MoveAction;
 	/* Look Input Action */
 	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> RotateCamera_Action;
-	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> ZoomCamera_Action;
+	TObjectPtr<UInputAction> LookAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> CrouchAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* ProneAction;
 	/*
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> PrimaryInteractAction;
@@ -188,6 +223,8 @@ private:
 	TObjectPtr<UInputAction> CycleFireModeAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> ReloadAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* ShoulderSwapAction;
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> ToggleSuppressorAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
@@ -216,13 +253,15 @@ private:
 	/* Variables */
 	ETurningInPlace TurningInPlace;
 	
-	// Zoom interpolation state (local only, not replicated — camera is client-side)
-	float CurrentArmLength = 2000.f;
-	float TargetArmLength  = 2000.f;
+	// TPS camera interpolation state (local only, not replicated — camera is client-side)
+	float CurrentArmLength = 325.f;
+	float TargetArmLength  = 325.f;
+	float CurrentCameraFOV = 90.f;
+	bool bRightShoulder = true;
+	float TargetShoulderOffsetY = 60.f;
+	float LastReplicatedYaw = 0.f; // throttle ServerSetFacingYaw RPC calls
 	
 	/*** FUNCTIONS ***/
-	UFUNCTION(Server, Unreliable)
-	void ServerSetFacingYaw(float Yaw);	
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 	UFUNCTION(Server, Reliable)
@@ -232,6 +271,13 @@ private:
 	
 	
 	void TurnInPlace(float DeltaTime);
+	
+	UFUNCTION(Server, Reliable)
+	void ServerSetProne(bool bNewProne);
+	UPROPERTY(ReplicatedUsing = OnRep_IsProne)
+	bool bIsProne = false;
+	UFUNCTION()
+	void OnRep_IsProne();
 	
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);

@@ -30,7 +30,6 @@ public:
 
 private:
 	void DrawCrosshairReticle(const FVector2D& Center, const FReticleState& State, const FReticleConfig& Config);
-	void DrawCursorCircle(const FVector2D& Center, const FReticleConfig& Config);
 
 	UPROPERTY(EditAnywhere, Category = "HUD|Reticle")
 	FReticleConfig UnequippedReticle;

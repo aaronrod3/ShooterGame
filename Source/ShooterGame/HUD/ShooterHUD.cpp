@@ -98,19 +98,10 @@ void AShooterHUD::DrawHUD()
 
 		const FReticleConfig& Config = Weapon->GetReticleConfig();
 
-		// ── CHANGED: draw crosshair at mouse position, not world-projected shot point ──
-		float MouseX, MouseY;
-		if (ShooterGamePlayerController->GetMousePosition(MouseX, MouseY))
-		{
-			DrawCrosshairReticle(FVector2D(MouseX, MouseY), State, Config);
-		}
-		else
-		{
-			// Fallback: viewport center when mouse position unavailable
-			int32 SizeX, SizeY;
-			ShooterGamePlayerController->GetViewportSize(SizeX, SizeY);
-			DrawCrosshairReticle(FVector2D(SizeX * 0.5f, SizeY * 0.5f), State, Config);
-		}
+		// TPS — reticle is always locked to screen center, never follows mouse
+		int32 SizeX, SizeY;
+		ShooterGamePlayerController->GetViewportSize(SizeX, SizeY);
+		DrawCrosshairReticle(FVector2D(SizeX * 0.5f, SizeY * 0.5f), State, Config);
 	}
 }
 
@@ -130,14 +121,5 @@ void AShooterHUD::DrawCrosshairReticle(const FVector2D& Center, const FReticleSt
 	DrawLine(Center.X, Center.Y + GapSize, Center.X, Center.Y + Radius, LineColor, T);
 	DrawLine(Center.X - GapSize, Center.Y, Center.X - Radius, Center.Y, LineColor, T);
 	DrawLine(Center.X + GapSize, Center.Y, Center.X + Radius, Center.Y, LineColor, T);
-
 	
-	const float DotHalfSize = Config.CenterDotRadius;      
-	DrawRect(
-		Config.CenterDotColor,                               
-		Center.X - DotHalfSize,
-		Center.Y - DotHalfSize,
-		DotHalfSize * 2.f,
-		DotHalfSize * 2.f
-	);
 }

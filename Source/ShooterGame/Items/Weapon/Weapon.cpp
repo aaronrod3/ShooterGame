@@ -187,32 +187,14 @@ void AWeapon::Fire(const FVector& HitTarget)
 	// Semi/Burst: one-shot cue
 	// Full-Auto:  one-shot + loop cue start
 	// -------------------------------------------------------------------
-	/*if (WeaponAudioComp)
-	{
-		if (CurrentFireMode == EFireMode::EFM_FullAuto)
-		{
-			WeaponAudioComp->PlayGunshotLoop_ForMultiplayer();
-		}
-		else
-		{
-			WeaponAudioComp->PlayGunshot_ForMultiplayer();
-		}
-	}*/
-	
-	
-	//TEMP
 	if (WeaponAudioComp)
 	{
 		if (CurrentFireMode == EFireMode::EFM_FullAuto)
 		{
-			UE_LOG(LogTemp, Warning,
-				TEXT("AWeapon::Fire — FullAuto tick, calling PlayGunshotLoop_ForMultiplayer"));
 			WeaponAudioComp->PlayGunshotLoop_ForMultiplayer();
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning,
-				TEXT("AWeapon::Fire — Semi tick, calling PlayGunshot_ForMultiplayer"));
 			WeaponAudioComp->PlayGunshot_ForMultiplayer();
 		}
 	}
@@ -287,6 +269,7 @@ bool AWeapon::ConsumeRound()
 		}
 
 		SyncReplicatedLoadState();
+		OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
 		return true;
 	}
 
@@ -294,6 +277,7 @@ bool AWeapon::ConsumeRound()
 	if (InsertedMagazine.IsSet() && InsertedMagazine.GetValue().ConsumeRound())
 	{
 		SyncReplicatedLoadState();
+		OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
 		return true;
 	}
 
@@ -313,6 +297,9 @@ void AWeapon::InsertMagazine(const FMagazine& NewMag)
 
 	InsertedMagazine = NewMag;
 	SyncReplicatedLoadState();
+	
+	// At the end of InsertMagazine(), after InsertedMagazine is set:
+	OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
 }
 
 FMagazine AWeapon::EjectMagazine()
@@ -377,12 +364,9 @@ void AWeapon::OnRep_LoadState()
 		InsertedMagazine.Reset();
 	}
 	
-	// Only broadcast on non-authority clients
-	// Server already broadcasts via SyncReplicatedLoadState
-	if (!HasAuthority())
-	{
-		OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
-	}
+	// Notify HUD delegate — fires on all clients when mag state replicates
+	// This is what actually updates the ammo counter widget after reload
+	OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
 }
 
 // -----------------------------------------------------------------------

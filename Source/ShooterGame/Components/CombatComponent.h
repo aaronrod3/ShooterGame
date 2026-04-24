@@ -105,8 +105,10 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
 	AWeapon* EquippedWeapon;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_Aiming)
 	bool bAiming;
+	UFUNCTION()
+	void OnRep_Aiming();
 
 	bool bFireButtonPressed;
 	FVector HitTarget;
@@ -126,6 +128,9 @@ private:
 	// -----------------------------------------------------------------------
 	bool bIsReloading = false;
 	FTimerHandle ReloadTimerHandle;
+	FTimerHandle ServerReloadTimerHandle;
+	void FinishReload_Server();
+	bool bLocalReloadPending = false;
 
 	// Duration of the reload — should match your reload montage length.
 	// Set this in BP defaults or tune here.
@@ -152,6 +157,7 @@ private:
 
 	void UpdateReticleState();
 	void UpdateReticleWorldPosition();
+	FVector ComputeFinalHitTarget() const;
 	float GetActiveFireRate() const;
 
 	UPROPERTY(EditAnywhere, Category = "Reticle")
@@ -171,4 +177,27 @@ private:
 	float AimAccuracyBonusMultiplier = 1.0f;
 	
 	void ApplyDownedDebuffsPreFire();
+	
+	//
+	// Aiming
+	//
+	
+	// Delayed hip-fire turn-and-shoot state
+	bool bPendingHipFireShot = false;
+
+	UPROPERTY()
+	FVector PendingHipFireTarget = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|HipFire Turn")
+	float HipFireTurnYawThreshold = 8.f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat|HipFire Turn")
+	float HipFireTurnInterpSpeed = 20.f;
+	
+	void StartPendingHipFireShot(const FVector& InTarget);
+	void UpdatePendingHipFireShot(float DeltaTime);
+	void ExecutePendingHipFireShot();
+
+	bool ShouldDelayHipFireShot() const;
+	float GetHipFireYawDeltaToControl() const;
 };

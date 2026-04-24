@@ -27,36 +27,38 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 	Super::Fire(HitTarget);
 
 	if (!HasAuthority()) return;
-	
+
 	APawn* InstigatorPawn = Cast<APawn>(GetOwner());
+	if (!InstigatorPawn) return;
+
 	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
-	if (MuzzleFlashSocket)
+	if (!MuzzleFlashSocket) return;
+
+	const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
+	const FVector MuzzleFlashLocation = SocketTransform.GetLocation();
+
+	const FVector ToTarget = HitTarget - MuzzleFlashLocation;
+	const FVector ShootDirection = ToTarget.GetSafeNormal();
+	const FRotator TargetRotation = ShootDirection.Rotation();
+
+	if (ProjectileClass)
 	{
-		FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
-		FVector MuzzleFlashLocation = SocketTransform.GetLocation();
-		
-		FVector ToTarget = HitTarget - MuzzleFlashLocation;
-		FRotator TargetRotation = ToTarget.Rotation();
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = GetOwner();
+		SpawnParams.Instigator = InstigatorPawn;
 
-		if (ProjectileClass && InstigatorPawn)
+		if (UWorld* World = GetWorld())
 		{
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.Owner = GetOwner();
-			SpawnParams.Instigator = InstigatorPawn;
-			UWorld* World = GetWorld();
-			if (World)
-			{
-				AProjectile* SpawnedProjectile = World->SpawnActor<AProjectile>(
-					ProjectileClass,
-					MuzzleFlashLocation,
-					TargetRotation,
-					SpawnParams
-				);
+			AProjectile* SpawnedProjectile = World->SpawnActor<AProjectile>(
+				ProjectileClass,
+				MuzzleFlashLocation,
+				TargetRotation,
+				SpawnParams
+			);
 
-				if (SpawnedProjectile)
-				{
-					SpawnedProjectile->InitProjectile(GetAmmoData());
-				}
+			if (SpawnedProjectile)
+			{
+				SpawnedProjectile->InitProjectile(GetAmmoData());
 			}
 		}
 	}
