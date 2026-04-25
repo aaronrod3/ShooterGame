@@ -286,7 +286,6 @@ bool AWeapon::ConsumeRound()
 
 void AWeapon::InsertMagazine(const FMagazine& NewMag)
 {
-	// Reject magazines of the wrong caliber
 	if (NewMag.AmmoType != SupportedAmmoType)
 	{
 		UE_LOG(LogTemp, Warning,
@@ -297,10 +296,8 @@ void AWeapon::InsertMagazine(const FMagazine& NewMag)
 
 	InsertedMagazine = NewMag;
 	SyncReplicatedLoadState();
-	
-	// At the end of InsertMagazine(), after InsertedMagazine is set:
-	OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
 }
+
 
 FMagazine AWeapon::EjectMagazine()
 {
@@ -342,14 +339,8 @@ void AWeapon::SyncReplicatedLoadState()
 	}
 	else
 	{
-		// Zero-state signals "no magazine inserted" to clients
 		ReplicatedMagState = FMagazine();
 		ReplicatedMagState.Capacity = 0;
-	}
-	
-	if (HasAuthority())
-	{
-		OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
 	}
 }
 
@@ -364,8 +355,6 @@ void AWeapon::OnRep_LoadState()
 		InsertedMagazine.Reset();
 	}
 	
-	// Notify HUD delegate — fires on all clients when mag state replicates
-	// This is what actually updates the ammo counter widget after reload
 	OnAmmoChanged.Broadcast(GetLoadedRounds(), GetMagCapacity());
 }
 

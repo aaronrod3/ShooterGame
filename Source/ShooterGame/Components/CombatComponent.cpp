@@ -85,6 +85,11 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 		if (HUD)
 		{
 			HUD->BindToWeapon(EquippedWeapon);
+			
+			EquippedWeapon->OnAmmoChanged.Broadcast(
+				EquippedWeapon->GetLoadedRounds(),
+				EquippedWeapon->GetMagCapacity()
+			);
 		}
 	}
 }
@@ -111,6 +116,11 @@ void UCombatComponent::OnRep_EquippedWeapon()
 			if (HUD)
 			{
 				HUD->BindToWeapon(EquippedWeapon);
+				
+				EquippedWeapon->OnAmmoChanged.Broadcast(
+					EquippedWeapon->GetLoadedRounds(),
+					EquippedWeapon->GetMagCapacity()
+				);
 			}
 		}
 	}
@@ -244,10 +254,9 @@ void UCombatComponent::HandleFire()
         }
         else
         {
-            const FVector FinalHitTarget = ComputeFinalHitTarget();
-            EquippedWeapon->Fire(FinalHitTarget);
-            EquippedWeapon->ConsumeRound();
-            ServerFire(FinalHitTarget);
+        	const FVector FinalHitTarget = ComputeFinalHitTarget();
+        	EquippedWeapon->Fire(FinalHitTarget);
+        	ServerFire(FinalHitTarget);
         }
         break;
     }
@@ -280,7 +289,6 @@ void UCombatComponent::HandleFire()
         {
             const FVector FinalHitTarget = ComputeFinalHitTarget();
             EquippedWeapon->Fire(FinalHitTarget);
-            EquippedWeapon->ConsumeRound();
             ServerFire(FinalHitTarget);
         }
 
@@ -347,7 +355,6 @@ void UCombatComponent::HandleBurstFire()
 	const FVector FinalHitTarget = ComputeFinalHitTarget();
 
 	EquippedWeapon->Fire(FinalHitTarget);
-	EquippedWeapon->ConsumeRound();
 	ServerFire(FinalHitTarget);
 	--BurstShotsRemaining;
 
@@ -370,6 +377,12 @@ void UCombatComponent::HandleBurstFire()
 void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& InHitTarget)
 {
 	HitTarget = InHitTarget;
+
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->ConsumeRound();
+	}
+
 	MulticastFire();
 }
 
@@ -430,6 +443,8 @@ void UCombatComponent::ReloadEquippedWeapon()
 	if (!EquippedWeapon || !Character) return;
 	if (bLocalReloadPending) return;  // ← client-local gate only, never touches bIsReloading
 	if (EquippedWeapon->GetFeedType() == EWeaponFeedType::EFT_SingleShot) return;
+	
+	if (Character->HasAuthority() && bIsReloading) return;
 
 	// Quick local inventory pre-check for responsiveness — server re-validates authoritatively
 	UInventoryComponent* Inventory = Character->GetInventory();
@@ -520,6 +535,13 @@ void UCombatComponent::FinishReload()
 	UE_LOG(LogTemp, Warning, TEXT("FinishReload — Client cosmetic: cleared bLocalReloadPending"));
 }
 
+void UCombatComponent::MulticastFinishReload_Implementation()
+{
+	bLocalReloadPending = false;
+	UE_LOG(LogTemp, Warning, TEXT("MulticastFinishReload — Server-authoritative clear on: %s"),
+		Character->HasAuthority() ? TEXT("Server") : TEXT("Client"));
+}
+
 void UCombatComponent::FinishReload_Server()
 {
 	// Server-only — performs the authoritative mag swap after ReloadDuration
@@ -528,6 +550,7 @@ void UCombatComponent::FinishReload_Server()
 	if (!EquippedWeapon || !Character)
 	{
 		bIsReloading = false;
+		MulticastFinishReload();
 		return;
 	}
 
@@ -535,6 +558,7 @@ void UCombatComponent::FinishReload_Server()
 	if (!Inventory)
 	{
 		bIsReloading = false;
+		MulticastFinishReload();
 		return;
 	}
 
@@ -553,6 +577,7 @@ void UCombatComponent::FinishReload_Server()
 			TEXT("FinishReload_Server — FAILED: No magazine found. Slots: %d"),
 			Inventory->GetUsedMagazineSlots());
 		bIsReloading = false;
+		MulticastFinishReload(); // ← unblock all clients even on failure
 		return;
 	}
 
@@ -564,8 +589,12 @@ void UCombatComponent::FinishReload_Server()
 	EquippedWeapon->ChamberRound();
 	EquippedWeapon->ForceNetUpdate();
 
+	EquippedWeapon->OnAmmoChanged.Broadcast(EquippedWeapon->GetLoadedRounds(), EquippedWeapon->GetMagCapacity());
+	
 	// Server-side bIsReloading cleared here — allows next reload cycle
 	bIsReloading = false;
+	
+	MulticastFinishReload();
 
 	UE_LOG(LogTemp, Warning,
 		TEXT("FinishReload_Server — COMPLETE: %d rounds | Chambered: %s"),
@@ -782,14 +811,10 @@ void UCombatComponent::ExecutePendingHipFireShot()
 	if (!bPendingHipFireShot || !EquippedWeapon) return;
 
 	const FVector FinalHitTarget = ComputeFinalHitTarget();
-
+	
 	EquippedWeapon->Fire(FinalHitTarget);
-	EquippedWeapon->ConsumeRound();
 	ServerFire(FinalHitTarget);
 
-	// Force-replicate the snapped yaw immediately so simulated proxies on
-	// Client 2 see the correct facing direction after the hip-fire turn.
-	// Tick's throttled ServerSetFacingYaw may not fire in time for this snap.
 	if (Character && !Character->HasAuthority())
 	{
 		const float SnappedYaw = Character->GetActorRotation().Yaw;
@@ -799,7 +824,6 @@ void UCombatComponent::ExecutePendingHipFireShot()
 	bPendingHipFireShot = false;
 	PendingHipFireTarget = FVector::ZeroVector;
 
-	// Return to normal locomotion-facing if player is not ADS
 	if (Character && !bAiming)
 	{
 		Character->SetOrientationForAiming(false);

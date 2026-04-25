@@ -97,6 +97,9 @@ protected:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastReload();
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastFinishReload();
 
 private:
 

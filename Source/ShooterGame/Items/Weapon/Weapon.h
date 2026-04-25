@@ -187,14 +187,17 @@ public:
 	// Whether a magazine is currently inserted
 	FORCEINLINE bool					HasInsertedMagazine()		const { return InsertedMagazine.IsSet(); }
 
-	// Rounds remaining in the currently inserted magazine (0 if none)
-	FORCEINLINE int32					GetLoadedRounds()			const { return InsertedMagazine.IsSet() ? InsertedMagazine.GetValue().CurrentRounds : 0; }
+	// Rounds remaining in the currently inserted magazine only (0 if none)
+	FORCEINLINE int32   GetMagRounds()      const { return InsertedMagazine.IsSet() ? InsertedMagazine.GetValue().CurrentRounds : 0; }
 
-	// Capacity of the currently inserted magazine (0 if none)
-	FORCEINLINE int32					GetMagCapacity()			const { return InsertedMagazine.IsSet() ? InsertedMagazine.GetValue().Capacity : 0; }
+	// Total rounds available to fire: magazine + chambered round. A full 30-round mag with a round already chambered correctly shows 31/30.
+	FORCEINLINE int32   GetLoadedRounds()   const { return GetMagRounds() + (bRoundChambered ? 1 : 0); }
 
-	// Total rounds available (magazine + chamber)
-	FORCEINLINE int32					GetTotalRoundsAvailable()	const { return GetLoadedRounds() + (bRoundChambered ? 1 : 0); }
+	// Capacity of the currently inserted magazine (0 if none) — used by HUD for the /30 denominator
+	FORCEINLINE int32   GetMagCapacity()    const { return InsertedMagazine.IsSet() ? InsertedMagazine.GetValue().Capacity : 0; }
+
+	// Total rounds available (magazine + chamber) — alias kept for clarity
+	FORCEINLINE int32   GetTotalRoundsAvailable() const { return GetLoadedRounds(); }
 
 	// Damage from assigned ammo data asset; falls back to safe default
 	FORCEINLINE float					GetDamage()					const { return AmmoData ? AmmoData->BaseDamage : 20.f; }
