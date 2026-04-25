@@ -20,6 +20,11 @@ class SHOOTERGAME_API UZombieAnimInstance : public UAnimInstance
 public:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaTime) override;
+	
+	FORCEINLINE void SetIsAttacking(bool bAttacking) { bIsAttacking = bAttacking; }
+	
+	UFUNCTION()
+	void AnimNotify_AttackEnd();
 
 private:
 	// Cached reference to the owning zombie — set in NativeInitializeAnimation

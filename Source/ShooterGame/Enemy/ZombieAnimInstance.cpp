@@ -50,5 +50,19 @@ void UZombieAnimInstance::UpdateAnimationProperties(float DeltaTime)
 	// Derive convenience bools from state
 	bIsCrawling  = (ZombieState == EZombieState::EZS_Crawling);
 	bIsDead      = (ZombieState == EZombieState::EZS_Dead);
-	bIsAttacking = (ZombieState == EZombieState::EZS_Attacking);
+}
+
+
+// ─────────────────────────────────────────────
+// AnimNotify — Attack Window Close
+// ─────────────────────────────────────────────
+
+void UZombieAnimInstance::AnimNotify_AttackEnd()
+{
+	// Fired locally on each client at the exact frame the notify hits on the timeline.
+	// Closes the attack window — anim BP can now transition back to locomotion.
+	bIsAttacking = false;
+
+	UE_LOG(LogTemp, Warning, TEXT("AnimNotify_AttackEnd fired on: %s"),
+		ZombieOwner ? *ZombieOwner->GetName() : TEXT("NULL Owner"));
 }

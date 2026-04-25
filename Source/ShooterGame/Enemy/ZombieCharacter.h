@@ -45,11 +45,12 @@ public:
 
     // Called by AZombieAIController to sync state (drives anim blueprint)
     void SetZombieState(EZombieState NewState);
-
-    // ── Config ──
-    // Editable per BP subclass — special zombie types override defaults here
+    
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Config")
     FZombieConfig ZombieConfig;
+    
+    UPROPERTY(EditDefaultsOnly, Category = "Zombie|Anim")
+    UAnimMontage* MeleeAttackMontage = nullptr;
 
 protected:
     virtual void BeginPlay() override;
@@ -85,6 +86,10 @@ private:
 
     // ── Melee cooldown ──
     float LastMeleeTime = -999.f;
+    
+    UFUNCTION(NetMulticast, Unreliable)
+    void Multicast_PlayMeleeAttackMontage();
+    void Multicast_PlayMeleeAttackMontage_Implementation();
 
     // ── Internal helpers ──
     void HandleDeath(bool bWasHeadshot);

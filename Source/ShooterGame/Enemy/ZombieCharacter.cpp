@@ -6,6 +6,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/DamageEvents.h"
+#include "ZombieAnimInstance.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 
 AZombieCharacter::AZombieCharacter()
@@ -182,6 +183,8 @@ void AZombieCharacter::PerformMeleeAttack()
     const float Now = GetWorld()->GetTimeSeconds();
     if (Now - LastMeleeTime < ZombieConfig.MeleeAttackRate) return;
     LastMeleeTime = Now;
+    
+    Multicast_PlayMeleeAttackMontage();
 
     // Sphere sweep at zombie's forward position
     const FVector MeleeOrigin = GetActorLocation() + GetActorForwardVector() * 60.f;
@@ -214,6 +217,36 @@ void AZombieCharacter::PerformMeleeAttack()
             this,
             UDamageType::StaticClass()
         );
+    }
+}
+
+
+// ─────────────────────────────────────────────
+// Melee Anim — Multicast
+// ─────────────────────────────────────────────
+
+void AZombieCharacter::Multicast_PlayMeleeAttackMontage_Implementation()
+{
+    
+    UE_LOG(LogTemp, Warning, TEXT("Multicast_PlayMeleeAttackMontage fired on: %s | HasAuthority: %s"),
+    *GetName(),
+    HasAuthority() ? TEXT("Server") : TEXT("Client"));
+    
+    
+    // Runs on every client (and server). Drives the anim flag + plays the montage locally.
+    UZombieAnimInstance* ZombieAnim = Cast<UZombieAnimInstance>(GetMesh()->GetAnimInstance());
+    if (ZombieAnim)
+    {
+        ZombieAnim->SetIsAttacking(true);
+    }
+
+    if (MeleeAttackMontage)
+    {
+        GetMesh()->GetAnimInstance()->Montage_Play(MeleeAttackMontage);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AZombieCharacter::Multicast_PlayMeleeAttackMontage — MeleeAttackMontage is null on %s. Assign it in BP_ZombieCharacter Class Defaults."), *GetName());
     }
 }
 
