@@ -9,6 +9,8 @@
 #include "AIController.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "DrawDebugHelpers.h"
 
 UBTTask_WanderToPoint::UBTTask_WanderToPoint()
 {
@@ -48,6 +50,124 @@ EBTNodeResult::Type UBTTask_WanderToPoint::ExecuteTask(UBehaviorTreeComponent& O
         UE_LOG(LogTemp, Warning, TEXT("[WANDER] GetRandomReachablePointInRadius failed"));
         return EBTNodeResult::Failed;
     }
+    
+    // --- Horde Cohesion ---
+    const FZombieConfig& Config = ZombieOwner->GetZombieConfig();
+    bool bCohesionApplied = false;  // tracked for debug visualization below
+    FVector DebugCentroid = FVector::ZeroVector;
+
+    if (Config.HordeCohesionRadius > 0.f)
+    {
+        TArray<AActor*> OverlappedActors;
+        TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+        ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
+
+        UKismetSystemLibrary::SphereOverlapActors(
+            ZombieOwner->GetWorld(),
+            ZombieOwner->GetActorLocation(),
+            Config.HordeCohesionRadius,
+            ObjectTypes,
+            AZombieCharacter::StaticClass(),
+            { ZombieOwner },
+            OverlappedActors
+        );
+
+        if (OverlappedActors.Num() >= Config.MinCohesionNeighbors)
+        {
+            FVector HordeCentroid = FVector::ZeroVector;
+            for (AActor* Neighbor : OverlappedActors)
+            {
+                HordeCentroid += Neighbor->GetActorLocation();
+            }
+            HordeCentroid /= static_cast<float>(OverlappedActors.Num());
+
+            const float DistFromCentroid = FVector::Dist(RandomLocation.Location, HordeCentroid);
+            if (DistFromCentroid > Config.HordeCohesionRadius)
+            {
+                RandomLocation.Location = FMath::Lerp(
+                    RandomLocation.Location,
+                    HordeCentroid,
+                    Config.CohesionBiasFactor
+                );
+
+                bCohesionApplied = true;
+                DebugCentroid = HordeCentroid;
+
+                UE_LOG(LogTemp, Warning,
+                    TEXT("[WANDER] Cohesion bias applied — %d neighbors | Centroid: %s | Biased dest: %s"),
+                    OverlappedActors.Num(),
+                    *HordeCentroid.ToString(),
+                    *RandomLocation.Location.ToString()
+                );
+            }
+        }
+    }
+    // --- End Horde Cohesion ---
+
+    // --- Debug Visualization (stripped from shipping builds automatically) ---
+        #if ENABLE_DRAW_DEBUG
+            if (Config.HordeCohesionRadius > 0.f)
+            {
+                const float DebugLifetime = 2.5f;
+
+                // Cohesion radius ring:
+                //   Green  = cohesion bias fired this tick
+                //   Yellow = neighbors found but destination was already inside radius
+                //   White  = no qualifying neighbors
+                DrawDebugSphere(
+                    ZombieOwner->GetWorld(),
+                    ZombieOwner->GetActorLocation(),
+                    Config.HordeCohesionRadius,
+                    32,
+                    bCohesionApplied ? FColor::Green : FColor::White,
+                    false,
+                    DebugLifetime
+                );
+
+                // When cohesion fired: draw the centroid and a line from this zombie to it
+                if (bCohesionApplied)
+                {
+                    // Centroid marker
+                    DrawDebugSphere(
+                        ZombieOwner->GetWorld(),
+                        DebugCentroid,
+                        40.f,
+                        12,
+                        FColor::Orange,
+                        false,
+                        DebugLifetime
+                    );
+
+                    // Line from zombie to centroid
+                    DrawDebugLine(
+                        ZombieOwner->GetWorld(),
+                        ZombieOwner->GetActorLocation(),
+                        DebugCentroid,
+                        FColor::Orange,
+                        false,
+                        DebugLifetime,
+                        0,
+                        2.f    // line thickness
+                    );
+
+                    // Line from zombie to biased destination
+                    DrawDebugLine(
+                        ZombieOwner->GetWorld(),
+                        ZombieOwner->GetActorLocation(),
+                        RandomLocation.Location,
+                        FColor::Cyan,
+                        false,
+                        DebugLifetime,
+                        0,
+                        2.f
+                    );
+                }
+            }
+        #endif
+    // --- End Debug Visualization ---
+    
+    
+    
 
     FAIMoveRequest MoveRequest;
     MoveRequest.SetGoalLocation(RandomLocation.Location);

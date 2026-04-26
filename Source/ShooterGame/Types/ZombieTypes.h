@@ -142,6 +142,27 @@ struct FZombieConfig
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Wander")
     float WanderRadius = 800.f;
 
+    // Sphere radius used to find nearby zombies for horde cohesion during wandering.
+    // Zombies within this distance contribute to the horde centroid calculation.
+    // Set to 0 to disable cohesion entirely for this zombie type.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Wander", meta = (ClampMin = "0.0"))
+    float HordeCohesionRadius = 800.f;
+
+    // Minimum number of nearby zombies that must be found within HordeCohesionRadius
+    // before cohesion bias is applied. If fewer are found, this zombie wanders freely.
+    // e.g. 2 = needs at least 2 neighbors (not counting self) to form a horde.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Wander", meta = (ClampMin = "1"))
+    int32 MinCohesionNeighbors = 2;
+
+    // How strongly the wander destination is pulled toward the horde centroid when
+    // the chosen point strays beyond HordeCohesionRadius.
+    // 0.0 = no bias (full random wander), 1.0 = always move directly to centroid.
+    // 0.6 is a good default — noticeable grouping without robotic lock-step movement.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Zombie|Wander", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float CohesionBiasFactor = 0.6f;
+    
+    
+    
     // --- Investigation ---
 
     // Randomized investigation duration — zombie searches for a random time in this range
