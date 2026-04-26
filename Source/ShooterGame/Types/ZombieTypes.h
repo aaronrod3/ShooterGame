@@ -8,6 +8,22 @@
 #include "ZombieTypes.generated.h"
 
 
+
+// -----------------------------------------------------------------------
+// Spawn mode for AZombieSpawnManager
+// -----------------------------------------------------------------------
+UENUM(BlueprintType)
+enum class ESpawnMode : uint8
+{
+    ESM_Single   UMETA(DisplayName = "Single"),   // Spawn exactly one zombie
+    ESM_Group    UMETA(DisplayName = "Group"),    // Spawn exactly MinCount zombies
+    ESM_Random   UMETA(DisplayName = "Random"),   // Spawn random count between MinCount and MaxCount
+
+    ESM_MAX      UMETA(Hidden)
+};
+
+
+
 // -----------------------------------------------------------------------
 // Zombie AI behavioral state — replicated on AZombieCharacter
 // -----------------------------------------------------------------------

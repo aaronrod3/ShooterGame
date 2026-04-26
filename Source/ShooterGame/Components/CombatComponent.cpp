@@ -217,13 +217,18 @@ void UCombatComponent::HandleFire()
             TEXT("UCombatComponent::HandleFire — CanFire false, playing dry fire"));
 
         // Stop any running loop if mag just ran out mid-burst
-        if (EquippedWeapon->WeaponAudioComp)
-        {
-            UE_LOG(LogTemp, Warning,
-                TEXT("UCombatComponent::HandleFire — stopping loop on empty mag"));
-            EquippedWeapon->WeaponAudioComp->StopLoop_ForMultiplayer();
-            EquippedWeapon->WeaponAudioComp->PlayDryFire_ForMultiplayer();
-        }
+    	if (EquippedWeapon->WeaponAudioComp)
+    	{
+    		UE_LOG(LogTemp, Warning,
+				TEXT("UCombatComponent::HandleFire — stopping loop on empty mag"));
+    		EquippedWeapon->WeaponAudioComp->StopLoop_ForMultiplayer();
+    		EquippedWeapon->WeaponAudioComp->PlayDryFire_ForMultiplayer();
+    	}
+    	// Tell server to multicast dry fire to all other clients
+    	if (Character && !Character->HasAuthority())
+    	{
+    		ServerPlayDryFire();
+    	}
         return;
     }
 
@@ -411,7 +416,11 @@ void UCombatComponent::CycleFireMode()
 		EquippedWeapon->WeaponAudioComp->PlaySwitchFireMode_ForMultiplayer();
 	}
 
-	// TODO: ServerCycleFireMode RPC for proper replication
+	// Send to server to multicast audio to all other clients
+	if (Character && !Character->HasAuthority())
+	{
+		ServerCycleFireMode();
+	}
 }
 
 // -----------------------------------------------------------------------
@@ -489,6 +498,13 @@ void UCombatComponent::ServerReload_Implementation()
 	// Set bIsReloading on the server — this is the only place it is written
 	bIsReloading = true;
 
+	if (EquippedWeapon->WeaponAudioComp)
+	{
+		EquippedWeapon->WeaponAudioComp->PlayReload_ForMultiplayer(
+			EquippedWeapon->IsPistolClass()
+		);
+	}
+	
 	MulticastReload();
 
 	// Server timer calls the authoritative mag swap after ReloadDuration
@@ -874,6 +890,11 @@ void UCombatComponent::EquipSuppressor()
 	{
 		EquippedWeapon->WeaponAudioComp->PlayEquipUnequipSuppressor_ForMultiplayer();
 	}
+
+	if (Character && !Character->HasAuthority())
+	{
+		ServerToggleSuppressor(true);
+	}
 }
 
 void UCombatComponent::RemoveSuppressor()
@@ -886,6 +907,11 @@ void UCombatComponent::RemoveSuppressor()
 	if (EquippedWeapon->WeaponAudioComp)
 	{
 		EquippedWeapon->WeaponAudioComp->PlayEquipUnequipSuppressor_ForMultiplayer();
+	}
+
+	if (Character && !Character->HasAuthority())
+	{
+		ServerToggleSuppressor(false);
 	}
 }
 
@@ -908,3 +934,38 @@ void UCombatComponent::ToggleSuppressor()
 		EquipSuppressor();
 	}
 }
+
+
+// -----------------------------------------------------------------------
+// Server RPCs — Audio replication for locally-initiated actions
+// -----------------------------------------------------------------------
+
+void UCombatComponent::ServerPlayDryFire_Implementation()
+{
+	// Server received dry fire from owning client — multicast audio to all other clients
+	if (EquippedWeapon && EquippedWeapon->WeaponAudioComp)
+	{
+		EquippedWeapon->WeaponAudioComp->PlayDryFire_ForMultiplayer();
+	}
+}
+bool UCombatComponent::ServerPlayDryFire_Validate() { return true; }
+
+void UCombatComponent::ServerCycleFireMode_Implementation()
+{
+	// Server received fire mode switch from owning client — multicast audio to all other clients
+	if (EquippedWeapon && EquippedWeapon->WeaponAudioComp)
+	{
+		EquippedWeapon->WeaponAudioComp->PlaySwitchFireMode_ForMultiplayer();
+	}
+}
+bool UCombatComponent::ServerCycleFireMode_Validate() { return true; }
+
+void UCombatComponent::ServerToggleSuppressor_Implementation(bool bEquipping)
+{
+	// Server received suppressor toggle from owning client — multicast audio to all other clients
+	if (EquippedWeapon && EquippedWeapon->WeaponAudioComp)
+	{
+		EquippedWeapon->WeaponAudioComp->PlayEquipUnequipSuppressor_ForMultiplayer();
+	}
+}
+bool UCombatComponent::ServerToggleSuppressor_Validate(bool bEquipping) { return true; }

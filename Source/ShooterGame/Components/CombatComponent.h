@@ -100,6 +100,18 @@ protected:
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastFinishReload();
+	
+	
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerPlayDryFire();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerCycleFireMode();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerToggleSuppressor(bool bEquipping);
+	
+	
 
 private:
 

@@ -282,6 +282,9 @@ void UWeaponAudioComponent::PlayDryFire_ForMultiplayer()
 {
     if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
+        // Play locally immediately — zero latency for the owning client.
+        Internal_PlayDryFire();
+        // Send to server so it can multicast to all other clients.
         Server_PlayDryFire();
     }
     else if (GetOwner() && GetOwner()->HasAuthority())
@@ -294,6 +297,9 @@ void UWeaponAudioComponent::PlayReload_ForMultiplayer(bool bIsPistolClass)
 {
     if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
+        // Play locally immediately — zero latency for the owning client.
+        Internal_PlayReload(bIsPistolClass);
+        // Send to server so it can multicast to all other clients.
         Server_PlayReload(bIsPistolClass);
     }
     else if (GetOwner() && GetOwner()->HasAuthority())
@@ -306,6 +312,9 @@ void UWeaponAudioComponent::PlayReloadBulletDrop_ForMultiplayer()
 {
     if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
+        // Play locally immediately — zero latency for the owning client.
+        Internal_PlayReloadBulletDrop();
+        // Send to server so it can multicast to all other clients.
         Server_PlayReloadBulletDrop();
     }
     else if (GetOwner() && GetOwner()->HasAuthority())
@@ -318,6 +327,9 @@ void UWeaponAudioComponent::PlaySwitchFireMode_ForMultiplayer()
 {
     if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
+        // Play locally immediately — zero latency for the owning client.
+        Internal_PlaySwitchFireMode();
+        // Send to server so it can multicast to all other clients.
         Server_PlaySwitchFireMode();
     }
     else if (GetOwner() && GetOwner()->HasAuthority())
@@ -330,6 +342,9 @@ void UWeaponAudioComponent::PlayEquipUnequipSuppressor_ForMultiplayer()
 {
     if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
+        // Play locally immediately — zero latency for the owning client.
+        Internal_PlayEquipUnequipSuppressor();
+        // Send to server so it can multicast to all other clients.
         Server_PlayEquipUnequipSuppressor();
     }
     else if (GetOwner() && GetOwner()->HasAuthority())
@@ -451,6 +466,8 @@ bool UWeaponAudioComponent::Multi_StopLoop_Validate(bool bSuppressed, float InFa
 
 void UWeaponAudioComponent::Multi_PlayDryFire_Implementation()
 {
+    // Skip owning client — they already played locally in ForMultiplayer.
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy) return;
     Internal_PlayDryFire();
 }
 bool UWeaponAudioComponent::Multi_PlayDryFire_Validate()
@@ -460,6 +477,9 @@ bool UWeaponAudioComponent::Multi_PlayDryFire_Validate()
 
 void UWeaponAudioComponent::Multi_PlayReload_Implementation(bool bIsPistolClass)
 {
+    UE_LOG(LogTemp, Warning, TEXT("Multi_PlayReload_Implementation — Role: %d"), (int32)GetOwnerRole());
+    // Skip owning client — they already played locally in ForMultiplayer.
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy) return;
     Internal_PlayReload(bIsPistolClass);
 }
 bool UWeaponAudioComponent::Multi_PlayReload_Validate(bool bIsPistolClass)
@@ -469,6 +489,8 @@ bool UWeaponAudioComponent::Multi_PlayReload_Validate(bool bIsPistolClass)
 
 void UWeaponAudioComponent::Multi_PlayReloadBulletDrop_Implementation()
 {
+    // Skip owning client — they already played locally in ForMultiplayer.
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy) return;
     Internal_PlayReloadBulletDrop();
 }
 bool UWeaponAudioComponent::Multi_PlayReloadBulletDrop_Validate()
@@ -478,6 +500,8 @@ bool UWeaponAudioComponent::Multi_PlayReloadBulletDrop_Validate()
 
 void UWeaponAudioComponent::Multi_PlaySwitchFireMode_Implementation()
 {
+    // Skip owning client — they already played locally in ForMultiplayer.
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy) return;
     Internal_PlaySwitchFireMode();
 }
 bool UWeaponAudioComponent::Multi_PlaySwitchFireMode_Validate()
@@ -487,6 +511,8 @@ bool UWeaponAudioComponent::Multi_PlaySwitchFireMode_Validate()
 
 void UWeaponAudioComponent::Multi_PlayEquipUnequipSuppressor_Implementation()
 {
+    // Skip owning client — they already played locally in ForMultiplayer.
+    if (GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy) return;
     Internal_PlayEquipUnequipSuppressor();
 }
 bool UWeaponAudioComponent::Multi_PlayEquipUnequipSuppressor_Validate()
