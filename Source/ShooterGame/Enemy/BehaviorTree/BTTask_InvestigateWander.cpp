@@ -1,8 +1,8 @@
 ﻿// BTTask_InvestigateWander.cpp
 
 #include "BTTask_InvestigateWander.h"
-#include "ZombieAIController.h"
-#include "ZombieCharacter.h"
+#include "ShooterGame/Enemy/Character/ZombieAIController.h"
+#include "ShooterGame/Enemy/Character/ZombieCharacter.h"
 #include "NavigationSystem.h"
 #include "AITypes.h"
 #include "Navigation/PathFollowingComponent.h"

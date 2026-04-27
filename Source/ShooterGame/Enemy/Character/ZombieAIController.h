@@ -45,6 +45,9 @@ public:
     // Server-only — never called on clients.
     void ReceiveGroupAlert(const FVector& AlerterLocation);
     
+    void SetObjectiveDestination(const FVector& Destination);
+    
+    
     
     static const FName BB_TargetActor;
     static const FName BB_LastKnownLocation;

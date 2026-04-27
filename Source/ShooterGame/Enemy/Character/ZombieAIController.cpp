@@ -723,3 +723,30 @@ void AZombieAIController::ReceiveGroupAlert(const FVector& AlerterLocation)
         *ZombieOwner->GetName(),
         *AlerterLocation.ToString());
 }
+
+
+void AZombieAIController::SetObjectiveDestination(const FVector& Destination)
+{
+    if (!ZombieOwner || !Blackboard) return;
+    if (!ZombieOwner->HasAuthority()) return;
+
+    // Cancel any idle dwell so the zombie moves immediately on spawn
+    GetWorldTimerManager().ClearTimer(IdleDwellHandle);
+    Blackboard->SetValueAsBool(BB_bIsIdling, false);
+
+    // Push the objective location into the same BB key the investigate branch
+    // already reads — BTTask_InvestigateWander and BTTask_WanderToPoint both
+    // use this key, so no BT changes are needed.
+    Blackboard->SetValueAsVector(BB_LastKnownLocation, Destination);
+
+    // Use the same state transition path every other routing call uses.
+    // EZS_Investigating → BT moves zombie to BB_LastKnownLocation →
+    // BTTask calls StartInvestigationTimer() on arrival →
+    // OnInvestigateComplete() fires → EZS_Wandering + full perception restored.
+    SetZombieStateAndBB(EZombieState::EZS_Investigating);
+
+    UE_LOG(LogTemp, Log,
+        TEXT("[OBJECTIVE ROUTE] %s routed to objective dest: %s"),
+        *ZombieOwner->GetName(),
+        *Destination.ToString());
+}

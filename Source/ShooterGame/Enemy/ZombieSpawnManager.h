@@ -12,6 +12,7 @@
 
 // Forward declare to avoid circular includes — full include is in the .cpp
 class AZombieCharacter;
+class AZombieObjectiveArea; 
 
 UCLASS()
 class SHOOTERGAME_API AZombieSpawnManager : public AActor
@@ -29,6 +30,22 @@ public:
     // Server-authoritative — silently returns on clients
     UFUNCTION(BlueprintCallable, Category = "Zombie|Spawn")
     void TriggerSpawn();
+
+    // Fires a one-shot, server-authoritative mission spawn event.
+    // Spawns Count zombies after an optional DelaySeconds.
+    // This step only handles spawning + one-shot gating; objective routing is added in Step 3.
+    UFUNCTION(BlueprintCallable, Category = "Zombie|Spawn")
+    void FireObjectiveSpawnEvent(AZombieObjectiveArea* TargetArea, int32 Count, float DelaySeconds = 0.f);
+
+    // Allows mission/wave systems to reset or inspect the one-shot guard between waves.
+    UFUNCTION(BlueprintCallable, Category = "Zombie|Spawn")
+    void SetObjectiveEventFired(bool bFired);
+
+    UFUNCTION(BlueprintPure, Category = "Zombie|Spawn")
+    bool IsObjectiveEventFired() const { return bObjectiveEventFired; }
+    
+    UFUNCTION(BlueprintCallable, Category = "Zombie|Spawn")
+    void ResetForNextWave(bool bClearTrackedZombies = true);
 
     // Returns current count of alive tracked zombies from this spawner
     // Useful for wave managers / objective systems checking if a wave is cleared
@@ -90,4 +107,23 @@ private:
 
     // Spawns Count zombies by calling SpawnSingleZombie() Count times
     void SpawnGroup(int32 Count);
+    
+    void RouteZombiesToObjective(const TArray<AZombieCharacter*>& NewZombies, AZombieObjectiveArea* TargetArea);
+
+    // Executes the delayed/immediate one-shot objective spawn after authority + guard checks.
+    void ExecuteObjectiveSpawnEvent(int32 Count);
+
+private:
+    // True once the mission/objective spawn event has been consumed.
+    // Resettable via SetObjectiveEventFired() so wave-based modes can reuse the same manager.
+    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Zombie|Spawn|Debug", meta = (AllowPrivateAccess = "true"))
+    bool bObjectiveEventFired = false;
+
+    // Stored only so delayed objective events can validate that a target area was provided.
+    // Routing is added in Step 3.
+    UPROPERTY()
+    TObjectPtr<AZombieObjectiveArea> PendingObjectiveArea = nullptr;
+
+    // Delay handle for one-shot mission/wave spawn events.
+    FTimerHandle ObjectiveSpawnDelayHandle;
 };
