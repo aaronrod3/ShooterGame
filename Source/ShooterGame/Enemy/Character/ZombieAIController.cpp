@@ -402,6 +402,7 @@ void AZombieAIController::HandleHearingStimulus(AActor* SensedActor, const FVect
     }
 
     Blackboard->SetValueAsVector(BB_LastKnownLocation, SoundLocation);
+    Blackboard->SetValueAsVector(BB_AlertSourceLocation, SoundLocation);
     SetZombieStateAndBB(EZombieState::EZS_Investigating);
     
 

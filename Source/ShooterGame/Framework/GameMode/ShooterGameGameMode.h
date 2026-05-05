@@ -18,6 +18,8 @@ class AShooterGameGameMode : public AGameModeBase
 public:
 
 	AShooterGameGameMode();
+	
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 	// -----------------------------------------------------------------------
 	// Lifecycle

@@ -2,6 +2,8 @@
 
 #include "ShooterGameGameMode.h"
 #include "EngineUtils.h"
+#include "ShooterGame/Framework/Subsystems/ShooterSaveGameSubsystem.h"
+#include "ShooterGame/Framework/PlayerState/ShooterPlayerState.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Player/Controller/ShooterGamePlayerController.h"
 
@@ -9,6 +11,25 @@ AShooterGameGameMode::AShooterGameGameMode()
 {
 	// stub
 }
+
+
+void AShooterGameGameMode::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+
+	// Push saved loadout data into the new player's PlayerState.
+	// PostLogin is server-only and fires after PlayerState is fully initialized.
+	if (AShooterPlayerState* PS = NewPlayer->GetPlayerState<AShooterPlayerState>())
+	{
+		if (UShooterSaveGameSubsystem* SaveSys =
+			GetGameInstance()->GetSubsystem<UShooterSaveGameSubsystem>())
+		{
+			SaveSys->PushSaveDataToPlayerState(PS);
+		}
+	}
+}
+
+
 
 // -----------------------------------------------------------------------
 // RestartPlayer — fires after pawn is possessed, safe to read GetPawn()

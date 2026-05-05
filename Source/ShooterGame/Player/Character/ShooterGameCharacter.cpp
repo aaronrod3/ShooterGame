@@ -7,6 +7,7 @@
 #include "ShooterGame/Items/Ammo/AmmoPickup.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
+#include "ShooterGame/Framework/PlayerState/ShooterPlayerState.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -78,6 +79,7 @@ AShooterGameCharacter::AShooterGameCharacter()
 	Combat->SetIsReplicated(true);
 	
 	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+	LoadoutComp = CreateDefaultSubobject<ULoadoutComponent>(TEXT("LoadoutComponent"));
 	DownedComp = CreateDefaultSubobject<UDownedComponent>(TEXT("DownedComponent"));
 	ReviveComp = CreateDefaultSubobject<UReviveComponent>(TEXT("ReviveComponent"));
 	
@@ -269,6 +271,24 @@ void AShooterGameCharacter::PostInitializeComponents()
 	if (Combat)
 	{
 		Combat->Character = this;
+	}
+	
+	// -----------------------------------------------------------------------
+	// Loadout delegate binding
+	// Bind here — after all subobjects are initialized but before BeginPlay.
+	// CombatComponent will subscribe to OnLoadoutChanged in Step 6 to handle
+	// unequipped weapon socket attachment when the loadout changes.
+	// AppearanceChanged will drive mesh/material swaps in a future step.
+	//
+	// Both components are guaranteed non-null here since CreateDefaultSubobject
+	// always succeeds or crashes — no null check needed.
+	// -----------------------------------------------------------------------
+	if (LoadoutComp)
+	{
+		// Step 6 will replace this log with the real CombatComponent binding:
+		// LoadoutComp->OnLoadoutChanged.AddDynamic(Combat, &UCombatComponent::OnLoadoutUpdated);
+		LoadoutComp->OnLoadoutChanged.AddDynamic(this, &AShooterGameCharacter::OnLoadoutChanged_Internal);
+		LoadoutComp->OnAppearanceChanged.AddDynamic(this, &AShooterGameCharacter::OnAppearanceChanged_Internal);
 	}
 }
 
@@ -799,5 +819,47 @@ void AShooterGameCharacter::ReviveReleased()
 	if (ReviveComp)
 	{
 		ReviveComp->ReviveReleased();
+	}
+}
+
+
+
+// -----------------------------------------------------------------------
+// Loadout / Appearance internal handlers
+// Temporary stubs — Step 6 moves loadout response logic to CombatComponent.
+// Appearance logic will be expanded when the cosmetic system is built out.
+// -----------------------------------------------------------------------
+
+void AShooterGameCharacter::OnLoadoutChanged_Internal(const FLoadoutData& NewLoadout)
+{
+	// Step 6 replaces this body with:
+	//   if (Combat) Combat->OnLoadoutUpdated(NewLoadout);
+	UE_LOG(LogShooterGameCharacter, Log,
+		TEXT("[%s] Loadout updated — %d slots configured."),
+		HasAuthority() ? TEXT("Server") : TEXT("Client"),
+		NewLoadout.Slots.Num());
+}
+
+void AShooterGameCharacter::OnAppearanceChanged_Internal(const FCharacterAppearance& NewAppearance)
+{
+	// Future: drive mesh/material swap here or in a dedicated AppearanceComponent
+	UE_LOG(LogShooterGameCharacter, Log,
+		TEXT("[%s] Appearance updated — SkinID: %d, HelmetID: %d, BackpackID: %d"),
+		HasAuthority() ? TEXT("Server") : TEXT("Client"),
+		NewAppearance.MeshSkinID,
+		NewAppearance.HelmetID,
+		NewAppearance.BackpackID);
+}
+
+
+void AShooterGameCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	// Push the PlayerState's saved loadout into this character's LoadoutComponent.
+	// Only runs on server (PossessedBy is server-only in UE5).
+	if (AShooterPlayerState* PS = GetPlayerState<AShooterPlayerState>())
+	{
+		PS->PushLoadoutToCharacter(this);
 	}
 }

@@ -8,6 +8,7 @@
 #include "ShooterGame/Components/DownedComponent.h"
 #include "ShooterGame/Components/ReviveComponent.h"
 #include "ShooterGame/Components/CombatComponent.h"
+#include "ShooterGame/Components/LoadoutComponent.h"
 #include "ShooterGame/Types/TurningInPlace.h"
 #include "Items/Weapon/Weapon.h"
 #include "Logging/LogMacros.h"
@@ -60,15 +61,16 @@ public:
 	
 	FORCEINLINE ETeam GetTeam() const { return Team; }
 	
-	FORCEINLINE float GetAimOffset_Yaw()				const { return AimOffset_Yaw; }
-	FORCEINLINE ETurningInPlace GetTurningInPlace()		const { return TurningInPlace; }
-	FORCEINLINE UInventoryComponent* GetInventory()		const { return Inventory; }
-	FORCEINLINE UDownedComponent* GetDownedComponent()	const { return DownedComp; }
-	FORCEINLINE UReviveComponent* GetReviveComponent()  const { return ReviveComp; }
-	FORCEINLINE UCombatComponent* GetCombat()			const { return Combat; }
+	FORCEINLINE float GetAimOffset_Yaw()					const { return AimOffset_Yaw; }
+	FORCEINLINE ETurningInPlace GetTurningInPlace()			const { return TurningInPlace; }
+	FORCEINLINE UInventoryComponent* GetInventory()			const { return Inventory; }
+	FORCEINLINE UDownedComponent* GetDownedComponent()		const { return DownedComp; }
+	FORCEINLINE UReviveComponent* GetReviveComponent()		const { return ReviveComp; }
+	FORCEINLINE UCombatComponent* GetCombat()				const { return Combat; }
+	FORCEINLINE ULoadoutComponent* GetLoadoutComponent()	const { return LoadoutComp; }
 	
-	FORCEINLINE float GetHealth()						const { return Health; }
-	FORCEINLINE float GetMaxHealth()					const { return MaxHealth; }
+	FORCEINLINE float GetHealth()							const { return Health; }
+	FORCEINLINE float GetMaxHealth()						const { return MaxHealth; }
 	void SetHealth(float NewHealth);
 	
 	
@@ -175,6 +177,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void PossessedBy(AController* NewController) override;
 	
 	
 private:
@@ -187,6 +190,8 @@ private:
 	UReviveComponent* ReviveComp;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UInventoryComponent* Inventory;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	ULoadoutComponent* LoadoutComp;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingAmmoPickup)
@@ -268,6 +273,11 @@ private:
 	void ServerCollectAmmo();
 	UFUNCTION()
 	void OnRep_DesiredYaw();
+	
+	UFUNCTION()
+	void OnLoadoutChanged_Internal(const FLoadoutData& NewLoadout);
+	UFUNCTION()
+	void OnAppearanceChanged_Internal(const FCharacterAppearance& NewAppearance);
 	
 	
 	void TurnInPlace(float DeltaTime);
