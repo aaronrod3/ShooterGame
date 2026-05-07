@@ -3,7 +3,9 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "GameplayTagContainer.h"                    
 #include "ShooterGame/Types/LoadoutTypes.h"
+#include "ShooterGame/Types/ItemTypes.h"             
 #include "ItemDefinition.generated.h"
 
 // ============================================================================
@@ -144,6 +146,103 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Visual")
     FName UnequippedSocketName = NAME_None;
 
+    
+    // -----------------------------------------------------------------------
+    // Slot Compatibility (Phase 1 addition)
+    // -----------------------------------------------------------------------
+
+    // GameplayTags this item is valid for. An item can carry multiple tags
+    // simultaneously, making it valid in multiple container types at once.
+    //
+    // A container/slot exposes one FGameplayTag as its RequiredSlotTag.
+    // This item is accepted if AcceptedSlotTags.HasTag(RequiredSlotTag).
+    //
+    // Standard tags (defined in ShooterGameplayTags.h and Config/DefaultGameplayTags.ini):
+    //   Slot.Backpack   — general storage
+    //   Slot.Rig        — tactical rig / chest rig slots
+    //   Slot.Belt       — belt pouches
+    //   Slot.WeaponMod  — weapon attachment socket
+    //   Slot.Holster    — pistol holster
+    //   Slot.MedPouch   — dedicated medical pouch
+    //
+    // Example: A pistol magazine might have tags {Slot.Backpack, Slot.Rig, Slot.Belt}
+    // so it is valid in any of those three container types.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Slot Compatibility")
+    FGameplayTagContainer AcceptedSlotTags;
+
+    // -----------------------------------------------------------------------
+    // Weight & Stacking (Phase 1 addition)
+    // -----------------------------------------------------------------------
+
+    // Weight of one unit/stack of this item in kilograms.
+    // Does NOT block placement — only affects runtime character movement behavior.
+    // Weight system driven by skill tree in a future phase.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Weight & Stack",
+        meta = (ClampMin = "0.0"))
+    float Weight = 0.1f;
+
+    // Maximum units that can be combined into one FItemInstance stack.
+    // 1 = non-stackable (weapons, armor, unique items).
+    // > 1 = stackable (ammo boxes, bandages, consumables).
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Weight & Stack",
+        meta = (ClampMin = "1"))
+    int32 StackMax = 1;
+
+    // -----------------------------------------------------------------------
+    // Quest Item Flag (Phase 1 addition)
+    // -----------------------------------------------------------------------
+
+    // If true, this item is a quest item:
+    //   - Never at risk on death (cannot be in carried gear that gets lost)
+    //   - Automatically counts toward quest objectives if already in stash
+    //   - Cannot be sold to vendors
+    //   - Highlighted differently in UI
+    // Mirrored onto FItemInstance::bIsQuestItem at instance creation time
+    // for fast server-side checks without dereferencing the Definition.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Quest")
+    bool bIsQuestItem = false;
+
+    // -----------------------------------------------------------------------
+    // Vendor Pricing (Phase 1 addition)
+    // -----------------------------------------------------------------------
+
+    // Price the vendor charges to sell this item to the player (player buys).
+    // 0 = not available for purchase from vendors.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Vendor",
+        meta = (ClampMin = "0"))
+    int32 VendorBuyPrice = 0;
+
+    // Price the vendor pays when the player sells this item (player sells).
+    // 0 = not sellable (quest items, special items).
+    // Typically lower than VendorBuyPrice — vendors profit on the spread.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Vendor",
+        meta = (ClampMin = "0"))
+    int32 VendorSellPrice = 0;
+
+    // -----------------------------------------------------------------------
+    // Durability / Repair (Phase 1 addition)
+    // -----------------------------------------------------------------------
+
+    // What bench action restores this item's Durability.
+    // None = this item does not degrade (intel docs, quest items).
+    // Drives UI label ("Clean", "Sharpen", etc.) and bench animation selection.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Durability")
+    EItemRepairMethod RepairMethod = EItemRepairMethod::None;
+
+    // How much Durability is restored per single repair action at the bench.
+    // Example: 25.0 means one cleaning session restores 25 points toward MaxCondition.
+    // Tune this per item in the editor — high-quality weapons restore more per clean.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Durability",
+        meta = (ClampMin = "0.0", ClampMax = "100.0"))
+    float RepairRestoreAmount = 25.0f;
+
+    // How much MaxCondition degrades per mission completed (long-term wear rate).
+    // Very small values recommended (e.g. 0.5 = loses 0.5 MaxCondition per mission).
+    // 0.0 = this item never permanently degrades (tools, quest items).
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Durability",
+        meta = (ClampMin = "0.0", ClampMax = "100.0"))
+    float LongTermWearRate = 0.5f;
+    
     // -----------------------------------------------------------------------
     // Asset Manager Integration
     // -----------------------------------------------------------------------

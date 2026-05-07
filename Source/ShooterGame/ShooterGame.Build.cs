@@ -22,6 +22,7 @@ public class ShooterGame : ModuleRules
 			"Niagara",
 			"NavigationSystem",   
 			"GameplayTasks",
+			"GameplayTags",
 			"AudioMixer",
 			"PhysicsCore"
 		});

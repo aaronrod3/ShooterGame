@@ -97,12 +97,20 @@ enum class EWeaponCategory : uint8
 UENUM(BlueprintType)
 enum class EItemCategory : uint8
 {
+    // --- DO NOT REORDER EXISTING ENTRIES — serialized in existing assets ---
     Weapon          UMETA(DisplayName = "Weapon"),
     Tool            UMETA(DisplayName = "Tool"),
     Melee           UMETA(DisplayName = "Melee"),
     Consumable      UMETA(DisplayName = "Consumable"),
     Ammo            UMETA(DisplayName = "Ammo"),
-    SpecialItem     UMETA(DisplayName = "Special Item")
+    SpecialItem     UMETA(DisplayName = "Special Item"),
+
+    // --- Phase 1 additions — appended safely below existing entries ---
+    Attachment      UMETA(DisplayName = "Attachment"),      // Weapon mods: scopes, grips, suppressors
+    Armor           UMETA(DisplayName = "Armor"),           // Helmets, vests, plate carriers
+    Medical         UMETA(DisplayName = "Medical"),         // Medkits, bandages, stims
+    Intel           UMETA(DisplayName = "Intel"),           // Documents, keycards, drives
+    QuestItem       UMETA(DisplayName = "Quest Item")       // Non-losable mission objective items
 
     // --- ADD NEW ITEM CATEGORIES HERE ---
 };

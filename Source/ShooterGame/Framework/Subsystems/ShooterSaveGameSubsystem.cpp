@@ -251,6 +251,8 @@ void UShooterSaveGameSubsystem::DebugPrintLoadout()
         UE_LOG(LogTemp, Log, TEXT("  Slot[%d]: %s | Mags: %d | Variant: %s"),
             i,
             Slot.IsOccupied() ? *Slot.ItemClass.ToString() : TEXT("EMPTY"),
+            
+            
             Slot.MagazineCount,
             *Slot.VariantID.ToString());
     }
