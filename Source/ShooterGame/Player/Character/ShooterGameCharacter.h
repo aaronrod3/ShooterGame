@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Inventory/StashComponent.h"
+#include "Inventory/EquippedStateComponent.h"
 #include "Inventory/InventoryComponent.h"
 #include "ShooterGame/Components/DownedComponent.h"
 #include "ShooterGame/Components/ReviveComponent.h"
@@ -68,6 +70,8 @@ public:
 	FORCEINLINE UReviveComponent* GetReviveComponent()		const { return ReviveComp; }
 	FORCEINLINE UCombatComponent* GetCombat()				const { return Combat; }
 	FORCEINLINE ULoadoutComponent* GetLoadoutComponent()	const { return LoadoutComp; }
+	FORCEINLINE UStashComponent* GetStash()                 const { return StashComp; }
+	FORCEINLINE UEquippedStateComponent* GetEquippedState() const { return EquippedStateComp; }
 	
 	FORCEINLINE float GetHealth()							const { return Health; }
 	FORCEINLINE float GetMaxHealth()						const { return MaxHealth; }
@@ -192,6 +196,10 @@ private:
 	UInventoryComponent* Inventory;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	ULoadoutComponent* LoadoutComp;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UStashComponent* StashComp;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UEquippedStateComponent* EquippedStateComp;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingAmmoPickup)

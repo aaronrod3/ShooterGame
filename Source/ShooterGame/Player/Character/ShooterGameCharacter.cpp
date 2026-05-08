@@ -18,7 +18,11 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Framework/ShooterGame.h"
+#include "Framework/Subsystems/ShooterSaveGameSubsystem.h"
 #include "Inventory/InventoryComponent.h"
+#include "Inventory/StashComponent.h"
+#include "Inventory/EquippedStateComponent.h"
+#include "Engine/GameInstance.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -78,10 +82,12 @@ AShooterGameCharacter::AShooterGameCharacter()
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	Combat->SetIsReplicated(true);
 	
-	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
-	LoadoutComp = CreateDefaultSubobject<ULoadoutComponent>(TEXT("LoadoutComponent"));
-	DownedComp = CreateDefaultSubobject<UDownedComponent>(TEXT("DownedComponent"));
-	ReviveComp = CreateDefaultSubobject<UReviveComponent>(TEXT("ReviveComponent"));
+	Inventory			= CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+	LoadoutComp			= CreateDefaultSubobject<ULoadoutComponent>(TEXT("LoadoutComponent"));
+	StashComp			= CreateDefaultSubobject<UStashComponent>(TEXT("StashComp"));
+	EquippedStateComp	= CreateDefaultSubobject<UEquippedStateComponent>(TEXT("EquippedStateComp"));
+	DownedComp			= CreateDefaultSubobject<UDownedComponent>(TEXT("DownedComponent"));
+	ReviveComp			= CreateDefaultSubobject<UReviveComponent>(TEXT("ReviveComponent"));
 	
 	
 	
@@ -861,5 +867,19 @@ void AShooterGameCharacter::PossessedBy(AController* NewController)
 	if (AShooterPlayerState* PS = GetPlayerState<AShooterPlayerState>())
 	{
 		PS->PushLoadoutToCharacter(this);
+	}
+	
+	// Load persistent stash and equipped state from the save subsystem.
+	// Only runs on the server (PossessedBy is server-only in UE multiplayer).
+	if (HasAuthority())
+	{
+		if (UGameInstance* GI = GetGameInstance())
+		{
+			if (UShooterSaveGameSubsystem* SaveSubsystem = GI->GetSubsystem<UShooterSaveGameSubsystem>())
+			{
+				SaveSubsystem->LoadStash(StashComp);
+				SaveSubsystem->LoadEquippedState(EquippedStateComp);
+			}
+		}
 	}
 }

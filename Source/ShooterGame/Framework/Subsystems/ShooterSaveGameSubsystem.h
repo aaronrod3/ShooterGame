@@ -4,8 +4,13 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "ShooterGame/Types/LoadoutTypes.h"
+#include "ShooterGame/Types/ContainerTypes.h"
+#include "ShooterGame/Types/ItemTypes.h"
 #include "ShooterSaveGameSubsystem.generated.h"
 
+class UInventoryComponent;
+class UStashComponent;
+class UEquippedStateComponent;
 class UShooterSaveGame;
 class AShooterPlayerState;
 
@@ -81,8 +86,55 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Save")
     bool DoesSaveExist() const;
 
+    
+    // -----------------------------------------------------------------------
+    // Persistent Inventory State
+    // -----------------------------------------------------------------------
+
+    // Saves the player's persistent stash contents into the save object and writes to disk.
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    bool SaveStash(UStashComponent* StashComponent);
+
+    // Loads the player's persistent stash contents from the save object into the stash component.
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    bool LoadStash(UStashComponent* StashComponent);
+
+    // Saves the player's current carried/equipped snapshot and writes to disk.
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    bool SaveEquippedState(UEquippedStateComponent* EquippedStateComponent);
+
+    // Loads the player's carried/equipped snapshot into the equipment component.
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    bool LoadEquippedState(UEquippedStateComponent* EquippedStateComponent);
+
+    // Saves all loadout presets and writes to disk.
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    bool SaveLoadoutPresets(const TArray<FLoadoutPreset>& Presets);
+
+    // Returns the currently saved loadout presets.
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    TArray<FLoadoutPreset> LoadLoadoutPresets() const;
+
+    // Marks whether the player has changed loadout since the last extraction.
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    bool SetHasUnreviewedExtraction(bool bInHasUnreviewedExtraction);
+
+    // Returns whether the player should be warned before redeploying unchanged gear.
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    bool GetHasUnreviewedExtraction() const;
+
+    // Resolves preset item references against stash contents and flags missing items.
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    FLoadoutPreset ResolvePresetAgainstStash(const FLoadoutPreset& Preset, UStashComponent* StashComponent) const;
+    
+    
 private:
 
+    FEquippedStateSnapshot BuildEquippedStateSnapshot(const UEquippedStateComponent* EquippedStateComponent) const;
+    void ApplyEquippedStateSnapshot(UEquippedStateComponent* EquippedStateComponent, const FEquippedStateSnapshot& Snapshot) const;
+    bool WriteCurrentSaveToDisk();
+    
+    
     // -----------------------------------------------------------------------
     // Internal Operations
     // -----------------------------------------------------------------------

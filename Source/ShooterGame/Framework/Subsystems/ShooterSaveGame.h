@@ -4,6 +4,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "ShooterGame/Types/LoadoutTypes.h"
+#include "ShooterGame/Types/ItemTypes.h"
+#include "ShooterGame/Types/ContainerTypes.h"
 #include "ShooterSaveGame.generated.h"
 
 // ============================================================================
@@ -49,7 +51,7 @@ public:
     // Current expected version. If a loaded file has a different version,
     // the subsystem will discard it and start fresh rather than corrupt data.
     // Bump this integer any time field layout changes in a breaking way.
-    static constexpr int32 CurrentSaveVersion = 1;
+    static constexpr int32 CurrentSaveVersion = 2;
 
     // Version stored in the file. Checked on load against CurrentSaveVersion.
     UPROPERTY(VisibleAnywhere, Category = "Save")
@@ -59,8 +61,8 @@ public:
     // Saved Data
     // -----------------------------------------------------------------------
 
-    // The player's saved loadout preset — restored into PlayerState on login.
-    // One loadout for now. Extend to TArray<FLoadoutData> for multiple presets.
+    // Legacy lobby loadout data already used by the existing loadout pipeline.
+    // Kept intact for backward compatibility with the current character/lobby flow.
     UPROPERTY(VisibleAnywhere, Category = "Save")
     FLoadoutData SavedLoadout;
 
@@ -68,10 +70,40 @@ public:
     UPROPERTY(VisibleAnywhere, Category = "Save")
     FCharacterAppearance SavedAppearance;
 
+    // Persistent personal stash contents. This is the player's safe inventory
+    // layer in the lobby and is never lost on death.
+    UPROPERTY(VisibleAnywhere, Category = "Save")
+    TArray<FItemInstance> SavedStashItems;
+
+    // Persistent carried/equipped state snapshot. This is saved exactly as-is
+    // after extraction and restored until the player manually reorganizes gear.
+    UPROPERTY(VisibleAnywhere, Category = "Save")
+    FEquippedStateSnapshot SavedEquippedState;
+
+    // Three named loadout presets that reference items by InstanceID.
+    // Missing items are flagged during preset resolution, not erased here.
+    UPROPERTY(VisibleAnywhere, Category = "Save")
+    TArray<FLoadoutPreset> SavedLoadoutPresets;
+
+    // True after a successful extraction if the player has not yet manually
+    // changed their loadout. Used by the lobby deploy prompt:
+    // "You have not changed your loadout since your last extraction."
+    UPROPERTY(VisibleAnywhere, Category = "Save")
+    bool bHasUnreviewedExtraction = false;
+    
+    // Ensures the preset array exists and contains exactly three named preset slots.
+    void InitializeDefaultLoadoutPresets();
+
+    // Clears all new Phase 2 persistence fields while keeping legacy loadout
+    // and appearance data intact.
+    void ResetPersistentInventoryState();
+    
+
     // -----------------------------------------------------------------------
     // Save Slot Identity
     // -----------------------------------------------------------------------
-
+    
+    
     // The slot name used by UGameplayStatics::SaveGameToSlot/LoadGameFromSlot.
     // Single slot for now — extend to per-player slots by appending a player
     // ID suffix when implementing multi-profile or platform account linking.

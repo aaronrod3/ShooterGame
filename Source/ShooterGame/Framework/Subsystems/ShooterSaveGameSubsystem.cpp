@@ -3,6 +3,12 @@
 #include "ShooterSaveGame.h"
 #include "ShooterGame/Framework/PlayerState/ShooterPlayerState.h"
 #include "Kismet/GameplayStatics.h"
+#include "Framework/Subsystems/ShooterSaveGameSubsystem.h"
+#include "Framework/Subsystems/ShooterSaveGame.h"
+#include "Inventory/StashComponent.h"
+#include "Inventory/EquippedStateComponent.h"
+#include "Inventory/InventoryComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "HAL/FileManager.h"
 
 void UShooterSaveGameSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -190,6 +196,327 @@ void UShooterSaveGameSubsystem::WriteToDisk()
         UE_LOG(LogTemp, Error,
             TEXT("UShooterSaveGameSubsystem — FAILED to write save to disk."));
     }
+}
+
+bool UShooterSaveGameSubsystem::SaveStash(UStashComponent* StashComponent)
+{
+	if (StashComponent == nullptr)
+	{
+		return false;
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		LoadLoadout();
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		return false;
+	}
+
+	CachedSaveGame->SavedStashItems = StashComponent->GetItems();
+	return WriteCurrentSaveToDisk();
+}
+
+bool UShooterSaveGameSubsystem::LoadStash(UStashComponent* StashComponent)
+{
+	if (StashComponent == nullptr)
+	{
+		return false;
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		LoadLoadout();
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		return false;
+	}
+
+	TArray<FItemInstance> ExistingItems = StashComponent->GetItems();
+	for (const FItemInstance& ExistingItem : ExistingItems)
+	{
+		FItemInstance RemovedItem;
+		StashComponent->Server_RemoveItem(ExistingItem.InstanceID, RemovedItem);
+	}
+
+	FGameplayTag EmptySlotTag;
+	for (FItemInstance SavedItem : CachedSaveGame->SavedStashItems)
+	{
+		StashComponent->Server_AddItem(SavedItem, EmptySlotTag);
+	}
+
+	return true;
+}
+
+bool UShooterSaveGameSubsystem::SaveEquippedState(UEquippedStateComponent* EquippedStateComponent)
+{
+	if (EquippedStateComponent == nullptr)
+	{
+		return false;
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		LoadLoadout();
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		return false;
+	}
+
+	CachedSaveGame->SavedEquippedState = BuildEquippedStateSnapshot(EquippedStateComponent);
+	return WriteCurrentSaveToDisk();
+}
+
+bool UShooterSaveGameSubsystem::LoadEquippedState(UEquippedStateComponent* EquippedStateComponent)
+{
+	if (EquippedStateComponent == nullptr)
+	{
+		return false;
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		LoadLoadout();
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		return false;
+	}
+
+	ApplyEquippedStateSnapshot(EquippedStateComponent, CachedSaveGame->SavedEquippedState);
+	return true;
+}
+
+bool UShooterSaveGameSubsystem::SaveLoadoutPresets(const TArray<FLoadoutPreset>& Presets)
+{
+	if (CachedSaveGame == nullptr)
+	{
+		LoadLoadout();
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		return false;
+	}
+
+	CachedSaveGame->SavedLoadoutPresets = Presets;
+	return WriteCurrentSaveToDisk();
+}
+
+TArray<FLoadoutPreset> UShooterSaveGameSubsystem::LoadLoadoutPresets() const
+{
+	if (CachedSaveGame == nullptr)
+	{
+		return TArray<FLoadoutPreset>();
+	}
+
+	return CachedSaveGame->SavedLoadoutPresets;
+}
+
+bool UShooterSaveGameSubsystem::SetHasUnreviewedExtraction(bool bInHasUnreviewedExtraction)
+{
+	if (CachedSaveGame == nullptr)
+	{
+		LoadLoadout();
+	}
+
+	if (CachedSaveGame == nullptr)
+	{
+		return false;
+	}
+
+	CachedSaveGame->bHasUnreviewedExtraction = bInHasUnreviewedExtraction;
+	return WriteCurrentSaveToDisk();
+}
+
+bool UShooterSaveGameSubsystem::GetHasUnreviewedExtraction() const
+{
+	return CachedSaveGame != nullptr ? CachedSaveGame->bHasUnreviewedExtraction : false;
+}
+
+FLoadoutPreset UShooterSaveGameSubsystem::ResolvePresetAgainstStash(const FLoadoutPreset& Preset, UStashComponent* StashComponent) const
+{
+	FLoadoutPreset ResolvedPreset = Preset;
+
+	if (StashComponent == nullptr)
+	{
+		for (FLoadoutPresetSlot& Slot : ResolvedPreset.EquippedSlots)
+		{
+			Slot.bItemMissingFromStash = Slot.HasAssignedItem();
+		}
+		return ResolvedPreset;
+	}
+
+	const TArray<FItemInstance>& StashItems = StashComponent->GetItems();
+
+	auto IsItemInStash = [&StashItems](const FGuid& ItemID) -> bool
+	{
+		if (!ItemID.IsValid())
+		{
+			return false;
+		}
+
+		for (const FItemInstance& Item : StashItems)
+		{
+			if (Item.InstanceID == ItemID)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	for (FLoadoutPresetSlot& Slot : ResolvedPreset.EquippedSlots)
+	{
+		Slot.bItemMissingFromStash = Slot.HasAssignedItem() && !IsItemInStash(Slot.ItemInstanceID);
+	}
+
+	return ResolvedPreset;
+}
+
+FEquippedStateSnapshot UShooterSaveGameSubsystem::BuildEquippedStateSnapshot(const UEquippedStateComponent* EquippedStateComponent) const
+{
+	FEquippedStateSnapshot Snapshot;
+
+	if (EquippedStateComponent == nullptr)
+	{
+		return Snapshot;
+	}
+
+	const FItemInstance* PrimaryItem = EquippedStateComponent->GetEquippedItem(EEquipmentSlot::Primary);
+	if (PrimaryItem != nullptr)
+	{
+		Snapshot.PrimaryWeapon.EquipmentSlot = EEquipmentSlot::Primary;
+		Snapshot.PrimaryWeapon.ItemInstance = *PrimaryItem;
+	}
+
+	const FItemInstance* SecondaryItem = EquippedStateComponent->GetEquippedItem(EEquipmentSlot::Secondary);
+	if (SecondaryItem != nullptr)
+	{
+		Snapshot.SecondaryWeapon.EquipmentSlot = EEquipmentSlot::Secondary;
+		Snapshot.SecondaryWeapon.ItemInstance = *SecondaryItem;
+	}
+
+	const FItemInstance* SidearmItem = EquippedStateComponent->GetEquippedItem(EEquipmentSlot::Pistol);
+	if (SidearmItem != nullptr)
+	{
+		Snapshot.SidearmWeapon.EquipmentSlot = EEquipmentSlot::Pistol;
+		Snapshot.SidearmWeapon.ItemInstance = *SidearmItem;
+	}
+
+	const FItemInstance* ToolItem = EquippedStateComponent->GetEquippedItem(EEquipmentSlot::Tool);
+	if (ToolItem != nullptr)
+	{
+		Snapshot.ToolItem.EquipmentSlot = EEquipmentSlot::Tool;
+		Snapshot.ToolItem.ItemInstance = *ToolItem;
+	}
+
+	const FItemInstance* KnifeItem = EquippedStateComponent->GetEquippedItem(EEquipmentSlot::Knife);
+	if (KnifeItem != nullptr)
+	{
+		Snapshot.KnifeItem.EquipmentSlot = EEquipmentSlot::Knife;
+		Snapshot.KnifeItem.ItemInstance = *KnifeItem;
+	}
+
+	if (EquippedStateComponent->GetRigInventory() != nullptr)
+	{
+		Snapshot.RigState.Items = EquippedStateComponent->GetRigInventory()->GetItems();
+	}
+
+	if (EquippedStateComponent->GetBeltInventory() != nullptr)
+	{
+		Snapshot.BeltState.Items = EquippedStateComponent->GetBeltInventory()->GetItems();
+	}
+
+	if (EquippedStateComponent->GetBackpackInventory() != nullptr)
+	{
+		Snapshot.BackpackState.Items = EquippedStateComponent->GetBackpackInventory()->GetItems();
+	}
+
+	Snapshot.CurrentCarriedWeight = EquippedStateComponent->GetCurrentCarriedWeight();
+	Snapshot.CurrentBurdenScore = EquippedStateComponent->GetCurrentBurdenScore();
+	Snapshot.DeadPlayerBurdenMultiplier = EquippedStateComponent->GetDeadPlayerBurdenMultiplier();
+
+	return Snapshot;
+}
+
+void UShooterSaveGameSubsystem::ApplyEquippedStateSnapshot(UEquippedStateComponent* EquippedStateComponent, const FEquippedStateSnapshot& Snapshot) const
+{
+	if (EquippedStateComponent == nullptr)
+	{
+		return;
+	}
+
+	if (UInventoryComponent* RigInventory = EquippedStateComponent->GetRigInventory())
+	{
+		TArray<FItemInstance> ExistingRigItems = RigInventory->GetItems();
+		for (const FItemInstance& ExistingItem : ExistingRigItems)
+		{
+			FItemInstance RemovedItem;
+			RigInventory->Server_RemoveItem(ExistingItem.InstanceID, RemovedItem);
+		}
+
+		FGameplayTag EmptySlotTag;
+		for (FItemInstance SavedItem : Snapshot.RigState.Items)
+		{
+			RigInventory->Server_AddItem(SavedItem, EmptySlotTag);
+		}
+	}
+
+	if (UInventoryComponent* BeltInventory = EquippedStateComponent->GetBeltInventory())
+	{
+		TArray<FItemInstance> ExistingBeltItems = BeltInventory->GetItems();
+		for (const FItemInstance& ExistingItem : ExistingBeltItems)
+		{
+			FItemInstance RemovedItem;
+			BeltInventory->Server_RemoveItem(ExistingItem.InstanceID, RemovedItem);
+		}
+
+		FGameplayTag EmptySlotTag;
+		for (FItemInstance SavedItem : Snapshot.BeltState.Items)
+		{
+			BeltInventory->Server_AddItem(SavedItem, EmptySlotTag);
+		}
+	}
+
+	if (UInventoryComponent* BackpackInventory = EquippedStateComponent->GetBackpackInventory())
+	{
+		TArray<FItemInstance> ExistingBackpackItems = BackpackInventory->GetItems();
+		for (const FItemInstance& ExistingItem : ExistingBackpackItems)
+		{
+			FItemInstance RemovedItem;
+			BackpackInventory->Server_RemoveItem(ExistingItem.InstanceID, RemovedItem);
+		}
+
+		FGameplayTag EmptySlotTag;
+		for (FItemInstance SavedItem : Snapshot.BackpackState.Items)
+		{
+			BackpackInventory->Server_AddItem(SavedItem, EmptySlotTag);
+		}
+	}
+
+	// Dedicated equipped slots will be applied in the next character wiring step,
+	// after the equipment component exposes explicit snapshot setters.
+	EquippedStateComponent->RecalculateWeight();
+}
+
+bool UShooterSaveGameSubsystem::WriteCurrentSaveToDisk()
+{
+	if (CachedSaveGame == nullptr)
+	{
+		return false;
+	}
+
+	WriteToDisk();
+	return true;
 }
 
 // ============================================================================

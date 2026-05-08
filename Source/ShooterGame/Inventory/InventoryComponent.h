@@ -161,6 +161,12 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	
+	
+	// Allows derived inventory types (such as stash, rig, or backpack specializations)
+	// to configure default capacity rules in C++ constructors without exposing
+	// writable capacity state to external callers.
+	void SetMaxItems(int32 NewMaxItems) { MaxItems = FMath::Max(0, NewMaxItems); }
 
 private:
 
