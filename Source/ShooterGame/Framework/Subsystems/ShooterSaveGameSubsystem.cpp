@@ -2,6 +2,7 @@
 #include "ShooterSaveGameSubsystem.h"
 #include "ShooterSaveGame.h"
 #include "ShooterGame/Framework/PlayerState/ShooterPlayerState.h"
+#include "ShooterGame/Framework/Subsystems/QuestTrackerSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "Framework/Subsystems/ShooterSaveGameSubsystem.h"
 #include "Framework/Subsystems/ShooterSaveGame.h"
@@ -319,6 +320,47 @@ TArray<FLoadoutPreset> UShooterSaveGameSubsystem::LoadLoadoutPresets() const
 
 	return CachedSaveGame->SavedLoadoutPresets;
 }
+
+
+bool UShooterSaveGameSubsystem::SaveQuestState(UQuestTrackerSubsystem* QuestTracker)
+{
+	if (!CachedSaveGame || !IsValid(QuestTracker))
+	{
+		return false;
+	}
+
+	// Pull current state from the subsystem into the save object.
+	// Matches the same pattern as SaveStash() — subsystem provides data,
+	// save object stores it, WriteCurrentSaveToDisk flushes to disk.
+	QuestTracker->GetSaveData(
+		CachedSaveGame->SavedActiveQuests,
+		CachedSaveGame->SavedAvailableQuests,
+		CachedSaveGame->SavedCompletedQuests,
+		CachedSaveGame->SavedVendorReputations
+	);
+
+	return WriteCurrentSaveToDisk();
+}
+
+bool UShooterSaveGameSubsystem::LoadQuestState(UQuestTrackerSubsystem* QuestTracker)
+{
+	if (!CachedSaveGame || !IsValid(QuestTracker))
+	{
+		return false;
+	}
+
+	// Push saved data into the subsystem.
+	// Subsystem rebuilds ActiveUnlockFlags from completed quests internally.
+	QuestTracker->LoadFromSaveData(
+		CachedSaveGame->SavedActiveQuests,
+		CachedSaveGame->SavedAvailableQuests,
+		CachedSaveGame->SavedCompletedQuests,
+		CachedSaveGame->SavedVendorReputations
+	);
+
+	return true;
+}
+
 
 bool UShooterSaveGameSubsystem::SetHasUnreviewedExtraction(bool bInHasUnreviewedExtraction)
 {

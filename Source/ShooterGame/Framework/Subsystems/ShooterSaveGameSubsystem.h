@@ -6,6 +6,8 @@
 #include "ShooterGame/Types/LoadoutTypes.h"
 #include "ShooterGame/Types/ContainerTypes.h"
 #include "ShooterGame/Types/ItemTypes.h"
+#include "ShooterGame/Types/QuestTypes.h"
+#include "ShooterGame/Types/VendorTypes.h"
 #include "ShooterSaveGameSubsystem.generated.h"
 
 class UInventoryComponent;
@@ -127,6 +129,21 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Save Game")
     FLoadoutPreset ResolvePresetAgainstStash(const FLoadoutPreset& Preset, UStashComponent* StashComponent) const;
     
+    // -----------------------------------------------------------------------
+    // Quest & Reputation State
+    // -----------------------------------------------------------------------
+
+    // Saves active, available, completed quest states and vendor reputations
+    // into the save object and writes to disk.
+    // Call this after CompleteQuest(), ActivateQuest(), or AddReputation().
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    bool SaveQuestState(UQuestTrackerSubsystem* QuestTracker);
+
+    // Loads quest and reputation state from the save object into the subsystem.
+    // Call this from GameMode or PlayerController after login,
+    // immediately after LoadStash().
+    UFUNCTION(BlueprintCallable, Category = "Save Game")
+    bool LoadQuestState(UQuestTrackerSubsystem* QuestTracker);
     
 private:
 

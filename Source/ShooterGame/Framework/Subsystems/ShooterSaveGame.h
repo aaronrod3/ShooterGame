@@ -6,6 +6,8 @@
 #include "ShooterGame/Types/LoadoutTypes.h"
 #include "ShooterGame/Types/ItemTypes.h"
 #include "ShooterGame/Types/ContainerTypes.h"
+#include "ShooterGame/Types/QuestTypes.h"
+#include "ShooterGame/Types/VendorTypes.h"
 #include "ShooterSaveGame.generated.h"
 
 // ============================================================================
@@ -51,7 +53,7 @@ public:
     // Current expected version. If a loaded file has a different version,
     // the subsystem will discard it and start fresh rather than corrupt data.
     // Bump this integer any time field layout changes in a breaking way.
-    static constexpr int32 CurrentSaveVersion = 2;
+    static constexpr int32 CurrentSaveVersion = 3;
 
     // Version stored in the file. Checked on load against CurrentSaveVersion.
     UPROPERTY(VisibleAnywhere, Category = "Save")
@@ -97,6 +99,30 @@ public:
     // Clears all new Phase 2 persistence fields while keeping legacy loadout
     // and appearance data intact.
     void ResetPersistentInventoryState();
+    
+    
+    // -----------------------------------------------------------------------
+    // Quest & Vendor Reputation State  (added Phase 4)
+    // -----------------------------------------------------------------------
+
+    // Active quests in progress at time of last save.
+    // Restored into UQuestTrackerSubsystem::ActiveQuests on login.
+    UPROPERTY(VisibleAnywhere, Category = "Save")
+    TArray<FQuestState> SavedActiveQuests;
+
+    // Quests that have been made available but not yet accepted.
+    UPROPERTY(VisibleAnywhere, Category = "Save")
+    TArray<FQuestState> SavedAvailableQuests;
+
+    // Quests completed in prior sessions. Used for prerequisite chain
+    // evaluation and unlock flag reconstruction on load.
+    UPROPERTY(VisibleAnywhere, Category = "Save")
+    TArray<FQuestState> SavedCompletedQuests;
+
+    // Per-vendor reputation levels. Initialised to 0 by
+    // UQuestTrackerSubsystem if not present in save data.
+    UPROPERTY(VisibleAnywhere, Category = "Save")
+    TArray<FVendorReputationEntry> SavedVendorReputations;
     
 
     // -----------------------------------------------------------------------

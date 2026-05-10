@@ -9,9 +9,13 @@
 #include "HUD/Inventory/QuickSlotBarWidget.h"
 #include "HUD/Inventory/SquadCacheWidget.h"
 #include "HUD/Inventory/StashWindowWidget.h"
+#include "HUD/Inventory/VendorWidget.h"
+#include "Inventory/QuestbookWidget.h"
+#include "ShooterGame/Interaction/VendorNPCActor.h"
 #include "Interaction/LootContainerActor.h"
 #include "Interaction/SquadCacheActor.h"
 #include "Player/Character/ShooterGameCharacter.h"
+#include "EngineUtils.h"   // for TActorIterator
 #include "Player/Controller/ShooterGamePlayerController.h"
 
 void AShooterHUD::BeginPlay()
@@ -49,6 +53,16 @@ void AShooterHUD::BeginPlay()
 			}
 		}
 	}
+	
+	// Bind to all vendor actors already in the world at BeginPlay.
+	// Vendors placed in the lobby level are available immediately.
+	// Dynamically spawned vendors should call OpenVendor() directly
+	// or bind OnVendorInteracted after spawning.
+	for (TActorIterator<AVendorNPCActor> It(GetWorld()); It; ++It)
+	{
+		It->OnVendorInteracted.AddDynamic(this, &AShooterHUD::HandleVendorInteracted);
+	}
+	
 }
 
 // ── Existing weapon/ammo binding ────────────────────────────────────────────
@@ -314,7 +328,7 @@ void AShooterHUD::ClosePostExtractionScreen()
 
 bool AShooterHUD::IsAnyInventoryOpen() const
 {
-	return bMainInventoryOpen || bLootWindowOpen || bSquadCacheWindowOpen || bPostExtractionOpen;
+	return bMainInventoryOpen || bLootWindowOpen || bSquadCacheWindowOpen || bPostExtractionOpen || bVendorOpen || bQuestbookOpen;
 }
 
 // ── Input mode ───────────────────────────────────────────────────────────────
@@ -408,4 +422,104 @@ void AShooterHUD::DrawCrosshairReticle(const FVector2D& Center, const FReticleSt
 	DrawLine(Center.X - GapSize, Center.Y, Center.X - Radius, Center.Y, LineColor, T);
 	DrawLine(Center.X + GapSize, Center.Y, Center.X + Radius, Center.Y, LineColor, T);
 	
+}
+
+
+void AShooterHUD::OpenVendor(AVendorNPCActor* VendorActor)
+{
+    if (!IsValid(VendorActor) || !VendorWidgetClass)
+    {
+        return;
+    }
+
+    // Close any other open inventory window first — matches existing pattern.
+    if (bMainInventoryOpen)   { CloseInventory(); }
+    if (bLootWindowOpen)      { CloseLootContainer(); }
+    if (bSquadCacheWindowOpen){ CloseSquadCache(); }
+    if (bQuestbookOpen)       { CloseQuestbook(); }
+
+    APlayerController* PC = GetOwningPlayerController();
+    if (!PC) { return; }
+
+    if (!VendorWidgetInstance)
+    {
+        VendorWidgetInstance = CreateWidget<UVendorWidget>(PC, VendorWidgetClass);
+    }
+
+    if (VendorWidgetInstance)
+    {
+        VendorWidgetInstance->AddToViewport();
+        VendorWidgetInstance->InitVendor(VendorActor);
+        bVendorOpen = true;
+        ApplyInventoryInputMode();
+    }
+}
+
+void AShooterHUD::CloseVendor()
+{
+    if (VendorWidgetInstance)
+    {
+        VendorWidgetInstance->RemoveFromParent();
+    }
+
+    bVendorOpen = false;
+
+    // Only restore gameplay input if nothing else is open.
+    if (!IsAnyInventoryOpen())
+    {
+        ApplyGameplayInputMode();
+    }
+}
+
+void AShooterHUD::OpenQuestbook()
+{
+    if (!QuestbookWidgetClass) { return; }
+
+    if (bVendorOpen)           { CloseVendor(); }
+    if (bMainInventoryOpen)    { CloseInventory(); }
+    if (bLootWindowOpen)       { CloseLootContainer(); }
+    if (bSquadCacheWindowOpen) { CloseSquadCache(); }
+
+    APlayerController* PC = GetOwningPlayerController();
+    if (!PC) { return; }
+
+    if (!QuestbookWidgetInstance)
+    {
+        QuestbookWidgetInstance = CreateWidget<UQuestbookWidget>(PC, QuestbookWidgetClass);
+    }
+
+    if (QuestbookWidgetInstance)
+    {
+        QuestbookWidgetInstance->AddToViewport();
+        bQuestbookOpen = true;
+        ApplyInventoryInputMode();
+    }
+}
+
+void AShooterHUD::CloseQuestbook()
+{
+    if (QuestbookWidgetInstance)
+    {
+        QuestbookWidgetInstance->RemoveFromParent();
+    }
+
+    bQuestbookOpen = false;
+
+    if (!IsAnyInventoryOpen())
+    {
+        ApplyGameplayInputMode();
+    }
+}
+
+void AShooterHUD::HandleVendorInteracted(APlayerController* InteractingPlayer, AVendorNPCActor* VendorActor)
+{
+    // Only open the vendor UI for the local player — in a listen server session
+    // this delegate fires for all players, so guard against remote controllers.
+    APlayerController* LocalPC = GetOwningPlayerController();
+    if (InteractingPlayer != LocalPC)
+    {
+        return;
+    }
+
+    OpenVendor(VendorActor);
 }
