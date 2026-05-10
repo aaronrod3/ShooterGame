@@ -19,6 +19,7 @@ public class ShooterGame : ModuleRules
 			"GameplayStateTreeModule",
 			"UMG",
 			"Slate",
+			"SlateCore",
 			"Niagara",
 			"NavigationSystem",   
 			"GameplayTasks",

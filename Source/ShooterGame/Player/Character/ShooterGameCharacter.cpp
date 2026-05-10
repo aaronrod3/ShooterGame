@@ -85,6 +85,7 @@ AShooterGameCharacter::AShooterGameCharacter()
 	Inventory			= CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
 	LoadoutComp			= CreateDefaultSubobject<ULoadoutComponent>(TEXT("LoadoutComponent"));
 	StashComp			= CreateDefaultSubobject<UStashComponent>(TEXT("StashComp"));
+	QuickSlotComp 		= CreateDefaultSubobject<UQuickSlotComponent>(TEXT("QuickSlotComp"));
 	EquippedStateComp	= CreateDefaultSubobject<UEquippedStateComponent>(TEXT("EquippedStateComp"));
 	DownedComp			= CreateDefaultSubobject<UDownedComponent>(TEXT("DownedComponent"));
 	ReviveComp			= CreateDefaultSubobject<UReviveComponent>(TEXT("ReviveComponent"));
@@ -97,8 +98,7 @@ AShooterGameCharacter::AShooterGameCharacter()
 	
 	
 	// Allows AI hearing sense to detect noise events reported with this pawn as instigator
-	UAIPerceptionStimuliSourceComponent* StimuliSource = 
-		CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("StimuliSource"));
+	UAIPerceptionStimuliSourceComponent* StimuliSource = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("StimuliSource"));
 	StimuliSource->bAutoRegister = true;
 	StimuliSource->RegisterForSense(TSubclassOf<UAISense>(UAISense_Hearing::StaticClass()));
 	

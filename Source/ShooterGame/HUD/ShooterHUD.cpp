@@ -1,79 +1,365 @@
-﻿#include "ShooterHUD.h"
-#include "ShooterGame/Components/CombatComponent.h"
-#include "Items/Weapon/Weapon.h"
-#include "ShooterGame/Player/Character/ShooterGameCharacter.h"
-#include "ShooterGame/Player/Controller/ShooterGamePlayerController.h"
-#include "Engine/Canvas.h"
+﻿// Source/ShooterGame/HUD/ShooterHUD.cpp
+#include "HUD/ShooterHUD.h"
 
-
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
+#include "HUD/Inventory/EquipmentPanelWidget.h"
+#include "HUD/Inventory/LootContainerWidget.h"
+#include "HUD/Inventory/PostExtractionWidget.h"
+#include "HUD/Inventory/QuickSlotBarWidget.h"
+#include "HUD/Inventory/SquadCacheWidget.h"
+#include "HUD/Inventory/StashWindowWidget.h"
+#include "Interaction/LootContainerActor.h"
+#include "Interaction/SquadCacheActor.h"
+#include "Player/Character/ShooterGameCharacter.h"
+#include "Player/Controller/ShooterGamePlayerController.h"
 
 void AShooterHUD::BeginPlay()
 {
 	Super::BeginPlay();
 
+	APlayerController* PC = GetOwningPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+
+	// Create the persistent HUD widget (ammo, crosshair, etc.)
 	if (HUDWidgetClass)
 	{
-		APlayerController* PC = GetOwningPlayerController();
-		if (PC)
+		HUDWidget = CreateWidget<UHUDWidget>(PC, HUDWidgetClass);
+		if (HUDWidget)
 		{
-			HUDWidget = CreateWidget<UHUDWidget>(PC, HUDWidgetClass);
-			if (HUDWidget)
+			HUDWidget->AddToViewport(0);
+		}
+	}
+
+	// Create the persistent quick slot bar
+	if (QuickSlotBarWidgetClass)
+	{
+		QuickSlotBarWidget = CreateWidget<UQuickSlotBarWidget>(PC, QuickSlotBarWidgetClass);
+		if (QuickSlotBarWidget)
+		{
+			QuickSlotBarWidget->AddToViewport(1);
+
+			// Bind to the character's quick slot component if available
+			if (AShooterGameCharacter* ShooterChar = GetOwningShooterCharacter())
 			{
-				HUDWidget->AddToViewport();
+				QuickSlotBarWidget->InitializeQuickSlotBar(ShooterChar->GetQuickSlotComponent());
 			}
 		}
 	}
-	
-	if (HUDWidget)
-	{
-		HUDWidget->AddToViewport();
-		HUDWidget->UpdateAmmoDisplay(0, 0); // ← ADD — sets initial 0 / 0 display
-	}
 }
+
+// ── Existing weapon/ammo binding ────────────────────────────────────────────
 
 void AShooterHUD::BindToWeapon(AWeapon* NewWeapon)
 {
-	// Unbind from previous weapon — RemoveAll removes every binding on this object
 	if (BoundWeapon)
 	{
-		BoundWeapon->OnAmmoChanged.RemoveAll(this);
+		BoundWeapon->OnAmmoChanged.RemoveDynamic(this, &AShooterHUD::OnAmmoChanged);
 	}
 
 	BoundWeapon = NewWeapon;
 
 	if (BoundWeapon)
 	{
-		// Dynamic delegates use AddDynamic, not AddUObject
 		BoundWeapon->OnAmmoChanged.AddDynamic(this, &AShooterHUD::OnAmmoChanged);
-
-		// Immediately sync counter to new weapon's current state
-		if (HUDWidget)
-		{
-			HUDWidget->UpdateAmmoDisplay(BoundWeapon->GetLoadedRounds(), BoundWeapon->GetMagCapacity());
-		}
-	}
-	else
-	{
-		if (HUDWidget)
-		{
-			HUDWidget->UpdateAmmoDisplay(0, 0);
-		}
 	}
 }
 
-
 void AShooterHUD::OnAmmoChanged(int32 MagRounds, int32 MagCapacity)
 {
-	UE_LOG(LogTemp, Warning,
-		TEXT("AShooterHUD::OnAmmoChanged — Received %d / %d"),
-		MagRounds, MagCapacity);
-	
 	if (HUDWidget)
 	{
 		HUDWidget->UpdateAmmoDisplay(MagRounds, MagCapacity);
 	}
 }
 
+// ── Main Inventory ───────────────────────────────────────────────────────────
+
+void AShooterHUD::ToggleInventory()
+{
+	if (bMainInventoryOpen)
+	{
+		CloseInventory();
+	}
+	else
+	{
+		OpenInventory();
+	}
+}
+
+void AShooterHUD::OpenInventory()
+{
+	if (bMainInventoryOpen)
+	{
+		return;
+	}
+
+	APlayerController* PC = GetOwningPlayerController();
+	AShooterGameCharacter* ShooterChar = GetOwningShooterCharacter();
+	if (!PC || !ShooterChar)
+	{
+		return;
+	}
+
+	// Stash window
+	if (StashWindowWidgetClass && !StashWindowWidget)
+	{
+		StashWindowWidget = CreateWidget<UStashWindowWidget>(PC, StashWindowWidgetClass);
+	}
+
+	if (StashWindowWidget)
+	{
+		StashWindowWidget->InitializeStashWindow(ShooterChar->GetStash());
+		StashWindowWidget->AddToViewport(10);
+	}
+
+	// Equipment panel
+	if (EquipmentPanelWidgetClass && !EquipmentPanelWidget)
+	{
+		EquipmentPanelWidget = CreateWidget<UEquipmentPanelWidget>(PC, EquipmentPanelWidgetClass);
+	}
+
+	if (EquipmentPanelWidget)
+	{
+		EquipmentPanelWidget->InitializeEquipmentPanel(ShooterChar->GetEquippedState());
+		EquipmentPanelWidget->AddToViewport(10);
+	}
+
+	bMainInventoryOpen = true;
+	ApplyInventoryInputMode();
+}
+
+void AShooterHUD::CloseInventory()
+{
+	if (!bMainInventoryOpen)
+	{
+		return;
+	}
+
+	if (StashWindowWidget)
+	{
+		StashWindowWidget->RemoveFromParent();
+	}
+
+	if (EquipmentPanelWidget)
+	{
+		EquipmentPanelWidget->RemoveFromParent();
+	}
+
+	bMainInventoryOpen = false;
+
+	if (!IsAnyInventoryOpen())
+	{
+		ApplyGameplayInputMode();
+	}
+}
+
+// ── Loot Container ───────────────────────────────────────────────────────────
+
+void AShooterHUD::OpenLootContainer(ALootContainerActor* LootActor)
+{
+	if (bLootWindowOpen || !LootActor)
+	{
+		return;
+	}
+
+	APlayerController* PC = GetOwningPlayerController();
+	AShooterGameCharacter* ShooterChar = GetOwningShooterCharacter();
+	if (!PC || !ShooterChar)
+	{
+		return;
+	}
+
+	if (LootContainerWidgetClass && !LootContainerWidget)
+	{
+		LootContainerWidget = CreateWidget<ULootContainerWidget>(PC, LootContainerWidgetClass);
+	}
+
+	if (LootContainerWidget)
+	{
+		LootContainerWidget->InitializeLootWindow(LootActor, ShooterChar);
+		LootContainerWidget->AddToViewport(10);
+	}
+
+	bLootWindowOpen = true;
+	ApplyInventoryInputMode();
+}
+
+void AShooterHUD::CloseLootContainer()
+{
+	if (!bLootWindowOpen)
+	{
+		return;
+	}
+
+	if (LootContainerWidget)
+	{
+		LootContainerWidget->RemoveFromParent();
+	}
+
+	bLootWindowOpen = false;
+
+	if (!IsAnyInventoryOpen())
+	{
+		ApplyGameplayInputMode();
+	}
+}
+
+// ── Squad Cache ──────────────────────────────────────────────────────────────
+
+void AShooterHUD::OpenSquadCache(ASquadCacheActor* CacheActor)
+{
+	if (bSquadCacheWindowOpen || !CacheActor)
+	{
+		return;
+	}
+
+	APlayerController* PC = GetOwningPlayerController();
+	AShooterGameCharacter* ShooterChar = GetOwningShooterCharacter();
+	if (!PC || !ShooterChar)
+	{
+		return;
+	}
+
+	if (SquadCacheWidgetClass && !SquadCacheWidgetInstance)
+	{
+		SquadCacheWidgetInstance = CreateWidget<USquadCacheWidget>(PC, SquadCacheWidgetClass);
+	}
+
+	if (SquadCacheWidgetInstance)
+	{
+		SquadCacheWidgetInstance->InitializeSquadCacheWindow(CacheActor, ShooterChar);
+		SquadCacheWidgetInstance->AddToViewport(10);
+	}
+
+	bSquadCacheWindowOpen = true;
+	ApplyInventoryInputMode();
+}
+
+void AShooterHUD::CloseSquadCache()
+{
+	if (!bSquadCacheWindowOpen)
+	{
+		return;
+	}
+
+	if (SquadCacheWidgetInstance)
+	{
+		SquadCacheWidgetInstance->RemoveFromParent();
+	}
+
+	bSquadCacheWindowOpen = false;
+
+	if (!IsAnyInventoryOpen())
+	{
+		ApplyGameplayInputMode();
+	}
+}
+
+// ── Post Extraction ──────────────────────────────────────────────────────────
+
+void AShooterHUD::OpenPostExtractionScreen()
+{
+	if (bPostExtractionOpen)
+	{
+		return;
+	}
+
+	APlayerController* PC = GetOwningPlayerController();
+	AShooterGameCharacter* ShooterChar = GetOwningShooterCharacter();
+	if (!PC || !ShooterChar)
+	{
+		return;
+	}
+
+	if (PostExtractionWidgetClass && !PostExtractionWidget)
+	{
+		PostExtractionWidget = CreateWidget<UPostExtractionWidget>(PC, PostExtractionWidgetClass);
+	}
+
+	if (PostExtractionWidget)
+	{
+		PostExtractionWidget->InitializePostExtractionScreen(ShooterChar);
+		PostExtractionWidget->AddToViewport(20);
+	}
+
+	bPostExtractionOpen = true;
+	ApplyInventoryInputMode();
+}
+
+void AShooterHUD::ClosePostExtractionScreen()
+{
+	if (!bPostExtractionOpen)
+	{
+		return;
+	}
+
+	if (PostExtractionWidget)
+	{
+		PostExtractionWidget->RemoveFromParent();
+	}
+
+	bPostExtractionOpen = false;
+
+	if (!IsAnyInventoryOpen())
+	{
+		ApplyGameplayInputMode();
+	}
+}
+
+// ── State queries ────────────────────────────────────────────────────────────
+
+bool AShooterHUD::IsAnyInventoryOpen() const
+{
+	return bMainInventoryOpen || bLootWindowOpen || bSquadCacheWindowOpen || bPostExtractionOpen;
+}
+
+// ── Input mode ───────────────────────────────────────────────────────────────
+
+void AShooterHUD::ApplyInventoryInputMode()
+{
+	APlayerController* PC = GetOwningPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+
+	// Game + UI mode: player can still move but mouse is visible for drag/drop
+	FInputModeGameAndUI InputMode;
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	InputMode.SetHideCursorDuringCapture(false);
+	PC->SetInputMode(InputMode);
+	PC->SetShowMouseCursor(true);
+}
+
+void AShooterHUD::ApplyGameplayInputMode()
+{
+	APlayerController* PC = GetOwningPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+
+	// Full game mode: cursor hidden, all input goes to character
+	FInputModeGameOnly InputMode;
+	PC->SetInputMode(InputMode);
+	PC->SetShowMouseCursor(false);
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+AShooterGameCharacter* AShooterHUD::GetOwningShooterCharacter() const
+{
+	if (APlayerController* PC = GetOwningPlayerController())
+	{
+		return Cast<AShooterGameCharacter>(PC->GetPawn());
+	}
+
+	return nullptr;
+}
 
 
 void AShooterHUD::DrawHUD()

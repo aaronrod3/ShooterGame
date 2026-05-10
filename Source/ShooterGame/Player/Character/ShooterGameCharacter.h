@@ -7,6 +7,7 @@
 #include "Inventory/StashComponent.h"
 #include "Inventory/EquippedStateComponent.h"
 #include "Inventory/InventoryComponent.h"
+#include "Inventory/QuickSlotComponent.h"
 #include "ShooterGame/Components/DownedComponent.h"
 #include "ShooterGame/Components/ReviveComponent.h"
 #include "ShooterGame/Components/CombatComponent.h"
@@ -63,15 +64,16 @@ public:
 	
 	FORCEINLINE ETeam GetTeam() const { return Team; }
 	
-	FORCEINLINE float GetAimOffset_Yaw()					const { return AimOffset_Yaw; }
-	FORCEINLINE ETurningInPlace GetTurningInPlace()			const { return TurningInPlace; }
-	FORCEINLINE UInventoryComponent* GetInventory()			const { return Inventory; }
-	FORCEINLINE UDownedComponent* GetDownedComponent()		const { return DownedComp; }
-	FORCEINLINE UReviveComponent* GetReviveComponent()		const { return ReviveComp; }
-	FORCEINLINE UCombatComponent* GetCombat()				const { return Combat; }
-	FORCEINLINE ULoadoutComponent* GetLoadoutComponent()	const { return LoadoutComp; }
-	FORCEINLINE UStashComponent* GetStash()                 const { return StashComp; }
-	FORCEINLINE UEquippedStateComponent* GetEquippedState() const { return EquippedStateComp; }
+	FORCEINLINE float GetAimOffset_Yaw()						const { return AimOffset_Yaw; }
+	FORCEINLINE ETurningInPlace GetTurningInPlace()				const { return TurningInPlace; }
+	FORCEINLINE UInventoryComponent* GetInventory()				const { return Inventory; }
+	FORCEINLINE UDownedComponent* GetDownedComponent()			const { return DownedComp; }
+	FORCEINLINE UReviveComponent* GetReviveComponent()			const { return ReviveComp; }
+	FORCEINLINE UCombatComponent* GetCombat()					const { return Combat; }
+	FORCEINLINE ULoadoutComponent* GetLoadoutComponent()		const { return LoadoutComp; }
+	FORCEINLINE UStashComponent* GetStash()						const { return StashComp; }
+	FORCEINLINE UEquippedStateComponent* GetEquippedState()		const { return EquippedStateComp; }
+	FORCEINLINE UQuickSlotComponent* GetQuickSlotComponent()	const { return QuickSlotComp; }
 	
 	FORCEINLINE float GetHealth()							const { return Health; }
 	FORCEINLINE float GetMaxHealth()						const { return MaxHealth; }
@@ -200,6 +202,8 @@ private:
 	UStashComponent* StashComp;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UEquippedStateComponent* EquippedStateComp;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UQuickSlotComponent* QuickSlotComp;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingAmmoPickup)
