@@ -8,6 +8,12 @@
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
 #include "ShooterGame/Framework/PlayerState/ShooterPlayerState.h"
+#include "ShooterGame/Interaction/VendorNPCActor.h"
+#include "ShooterGame/Types/VendorTypes.h"
+#include "ShooterGame/HUD/Inventory/VendorWidget.h" 
+#include "ShooterGame/Inventory/StashComponent.h"
+#include "ShooterGame/Inventory/ItemDefinition.h"
+#include "ShooterGame/Framework/Subsystems/QuestTrackerSubsystem.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -24,6 +30,8 @@
 #include "Inventory/EquippedStateComponent.h"
 #include "Engine/GameInstance.h"
 #include "Net/UnrealNetwork.h"
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 
 
@@ -880,6 +888,271 @@ void AShooterGameCharacter::PossessedBy(AController* NewController)
 				SaveSubsystem->LoadStash(StashComp);
 				SaveSubsystem->LoadEquippedState(EquippedStateComp);
 			}
+		}
+	}
+}
+
+
+// ============================================================================
+// Vendor Transaction RPCs
+// ============================================================================
+
+void AShooterGameCharacter::ServerPurchaseItem_Implementation(AVendorNPCActor* Vendor, int32 EntryIndex)
+{
+	// --- Authority guard (should always pass since this is a Server RPC) ---
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	// --- Validate vendor pointer ---
+	if (!IsValid(Vendor))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Vendor is not available.")) });
+		return;
+	}
+
+	// --- Interaction range check (must be within InteractionCapsule radius) ---
+	const float DistanceSq = FVector::DistSquared(GetActorLocation(), Vendor->GetActorLocation());
+	constexpr float MaxInteractRangeCm = 300.f; // 3 metres — tune in editor later
+	if (DistanceSq > FMath::Square(MaxInteractRangeCm))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Too far from vendor.")) });
+		return;
+	}
+
+	// --- Validate entry index against vendor stock ---
+	const TArray<FVendorInventoryEntry>& Stock = Vendor->GetVendorStock();
+	if (!Stock.IsValidIndex(EntryIndex))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Invalid item selection.")) });
+		return;
+	}
+
+	const FVendorInventoryEntry& Entry = Stock[EntryIndex];
+
+	// --- Stock availability check ---
+	if (Entry.StockCount == 0)
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("This item is out of stock.")) });
+		return;
+	}
+
+	// --- Resolve item definition (load sync — vendor stock should be hard-referenced) ---
+	UItemDefinition* ItemDef = Entry.ItemDefinition.LoadSynchronous();
+	if (!IsValid(ItemDef))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Item data is missing.")) });
+		return;
+	}
+
+	// --- Reputation check ---
+	if (Entry.MinReputationRequired > 0.f)
+	{
+		UQuestTrackerSubsystem* QuestTracker = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UQuestTrackerSubsystem>()
+			: nullptr;
+
+		const float PlayerRep = IsValid(QuestTracker)
+			? QuestTracker->GetReputationFor(Vendor->GetVendorRole())
+			: 0.f;
+
+		if (PlayerRep < Entry.MinReputationRequired)
+		{
+			ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Insufficient reputation with this vendor.")) });
+			return;
+		}
+	}
+
+	// --- Currency check ---
+	if (!IsValid(StashComp))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Stash is unavailable.")) });
+		return;
+	}
+
+	const int32 Cost = FMath::RoundToInt(Entry.BasePriceCredits);
+	if (StashComp->CountCurrencyInStash() < Cost)
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Not enough currency.")) });
+		return;
+	}
+
+	// --- Spend currency (atomic — returns false without mutation if balance short) ---
+	if (!StashComp->SpendCurrencyFromStash(Cost))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Currency transaction failed.")) });
+		return;
+	}
+
+	// --- Build the new item instance and add to stash ---
+	FItemInstance NewItem;
+	NewItem.Definition   = ItemDef;
+	NewItem.StackCount   = 1;
+	NewItem.bIsQuestItem = ItemDef->bIsQuestItem;
+	NewItem.AssignNewInstanceID();
+
+	const FGameplayTag EmptyTag;
+	if (!StashComp->Server_AddItem(NewItem, EmptyTag))
+	{
+		// Stash rejected the item — refund the currency
+		// We don't have a default currency def here so log and flag for Step 7D hookup
+		UE_LOG(LogTemp, Error,
+			TEXT("ServerPurchaseItem: stash rejected item after currency was spent — manual refund required."));
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Your stash is full.")) });
+		return;
+	}
+
+	// --- Decrement vendor stock if not infinite ---
+	// StockCount == -1 means infinite supply; only decrement finite stocks
+	// NOTE: AVendorNPCActor::VendorStock is not replicated yet — this mutates
+	// the server copy only. A future step will replicate stock state to clients.
+	if (Entry.StockCount > 0)
+	{
+		// Cast away const to mutate — Vendor is server-authoritative here
+		const_cast<FVendorInventoryEntry&>(Entry).StockCount--;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("ServerPurchaseItem: %s purchased '%s' for %d credits."),
+		*GetNameSafe(this), *ItemDef->DisplayName.ToString(), Cost);
+
+	ClientReceiveTransactionResult({ true, FText::GetEmpty() });
+}
+
+// ----------------------------------------------------------------------------
+
+void AShooterGameCharacter::ServerSellItem_Implementation(AVendorNPCActor* Vendor, FGuid InstanceID)
+{
+	// --- Authority guard ---
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	// --- Validate vendor pointer ---
+	if (!IsValid(Vendor))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Vendor is not available.")) });
+		return;
+	}
+
+	// --- Interaction range check ---
+	const float DistanceSq = FVector::DistSquared(GetActorLocation(), Vendor->GetActorLocation());
+	constexpr float MaxInteractRangeCm = 300.f;
+	if (DistanceSq > FMath::Square(MaxInteractRangeCm))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Too far from vendor.")) });
+		return;
+	}
+
+	// --- Validate stash ---
+	if (!IsValid(StashComp))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Stash is unavailable.")) });
+		return;
+	}
+
+	// --- Find the item in stash by InstanceID ---
+	const FItemInstance* FoundItem = StashComp->FindItemByID(InstanceID);
+	if (!FoundItem)
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Item not found in stash.")) });
+		return;
+	}
+
+	// --- Quest item guard — quest items can never be sold ---
+	if (FoundItem->bIsQuestItem)
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Quest items cannot be sold.")) });
+		return;
+	}
+
+	// --- Currency item guard — currency is not sellable to vendors ---
+	if (IsValid(FoundItem->Definition) && FoundItem->Definition->bIsCurrency)
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Currency cannot be sold to vendors.")) });
+		return;
+	}
+
+	// --- Resolve sell price from definition ---
+	const int32 SellPrice = IsValid(FoundItem->Definition) ? FoundItem->Definition->VendorSellPrice : 0;
+	if (SellPrice <= 0)
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("This item cannot be sold.")) });
+		return;
+	}
+
+	// Cache definition before removal (pointer may dangle after remove)
+	UItemDefinition* ItemDef = FoundItem->Definition;
+
+	// --- Remove item from stash ---
+	FItemInstance RemovedItem;
+	if (!StashComp->Server_RemoveItem(InstanceID, RemovedItem))
+	{
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Failed to remove item from stash.")) });
+		return;
+	}
+
+	// --- Award currency to stash ---
+	// AwardCurrencyToStash requires a UItemDefinition for the currency type.
+	// We use the first currency definition found in the vendor's stock as the
+	// payout currency — the vendor determines what currency they pay in.
+	// Future: add an explicit PayoutCurrencyDefinition field to AVendorNPCActor.
+	UItemDefinition* PayoutCurrencyDef = Vendor->GetPayoutCurrencyDefinition();
+
+	if (!IsValid(PayoutCurrencyDef))
+	{
+		// No currency def found in stock — refund the item and bail
+		FItemInstance RefundItem = RemovedItem;
+		const FGameplayTag EmptyTag;
+		StashComp->Server_AddItem(RefundItem, EmptyTag);
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Vendor cannot pay out currency.")) });
+		return;
+	}
+
+	if (!StashComp->AwardCurrencyToStash(SellPrice, PayoutCurrencyDef))
+	{
+		// Award failed (stash full?) — refund the item
+		FItemInstance RefundItem = RemovedItem;
+		const FGameplayTag EmptyTag;
+		StashComp->Server_AddItem(RefundItem, EmptyTag);
+		ClientReceiveTransactionResult({ false, FText::FromString(TEXT("Could not award currency — stash may be full.")) });
+		return;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("ServerSellItem: %s sold '%s' for %d credits."),
+		*GetNameSafe(this), *GetNameSafe(ItemDef), SellPrice);
+
+	ClientReceiveTransactionResult({ true, FText::GetEmpty() });
+}
+
+// ----------------------------------------------------------------------------
+
+void AShooterGameCharacter::ClientReceiveTransactionResult_Implementation(FVendorTransactionResult Result)
+{
+	if (!Result.bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Vendor transaction failed: %s"), *Result.FailureReason.ToString());
+	}
+
+	// Find the open vendor widget and deliver the result.
+	// GetAllWidgetsOfClass searches the local player's viewport for any live
+	// UVendorWidget instance — there can only be one open at a time.
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!IsValid(PC))
+	{
+		return;
+	}
+
+	TArray<UUserWidget*> FoundWidgets;
+	UWidgetBlueprintLibrary::GetAllWidgetsOfClass(GetWorld(), FoundWidgets, UVendorWidget::StaticClass(), false);
+
+	for (UUserWidget* Widget : FoundWidgets)
+	{
+		if (UVendorWidget* VendorWidget = Cast<UVendorWidget>(Widget))
+		{
+			VendorWidget->HandleTransactionResult(Result);
+			break; // Only one vendor widget can be open at a time
 		}
 	}
 }

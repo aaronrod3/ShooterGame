@@ -23,7 +23,9 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
 class AAmmoPickup;
+class AVendorNPCActor;
 struct FInputActionValue;
+struct FVendorTransactionResult;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogShooterGameCharacter, Log, All);
 
@@ -177,6 +179,37 @@ public:
 	
 	float GetBaseWalkSpeed() const;
 	
+	// -----------------------------------------------------------------------
+	// Vendor Transaction RPCs (Phase 4)
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Server RPC — purchase one unit of a vendor stock entry.
+	 * EntryIndex is the index into AVendorNPCActor::VendorStock.
+	 * Validated server-side: authority, vendor pointer, range, rep, and funds.
+	 * Result delivered back to client via ClientReceiveTransactionResult.
+	 */
+	UFUNCTION(Server, Reliable)
+	void ServerPurchaseItem(AVendorNPCActor* Vendor, int32 EntryIndex);
+
+	/**
+	 * Server RPC — sell one FItemInstance from the player's stash to a vendor.
+	 * InstanceID identifies the item by its GUID (never by array index).
+	 * Validated server-side: authority, vendor pointer, range, item ownership,
+	 * and quest item guard (quest items cannot be sold).
+	 * Result delivered back to client via ClientReceiveTransactionResult.
+	 */
+	UFUNCTION(Server, Reliable)
+	void ServerSellItem(AVendorNPCActor* Vendor, FGuid InstanceID);
+
+	/**
+	 * Client RPC — receives the transaction result from the server.
+	 * Delivers FVendorTransactionResult to the owning client so UVendorWidget
+	 * can display success feedback or an error toast without trusting client state.
+	 */
+	UFUNCTION(Client, Reliable)
+	void ClientReceiveTransactionResult(FVendorTransactionResult Result);
+	
 	
 	UFUNCTION(Server, Unreliable)
 	void ServerSetFacingYaw(float Yaw);	
@@ -283,6 +316,9 @@ private:
 	void ServerEquipButtonPressed();
 	UFUNCTION(Server, Reliable)
 	void ServerCollectAmmo();
+	
+	
+
 	UFUNCTION()
 	void OnRep_DesiredYaw();
 	

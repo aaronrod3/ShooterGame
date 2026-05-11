@@ -105,12 +105,15 @@ enum class EItemCategory : uint8
     Ammo            UMETA(DisplayName = "Ammo"),
     SpecialItem     UMETA(DisplayName = "Special Item"),
 
-    // --- Phase 1 additions — appended safely below existing entries ---
+    // 
     Attachment      UMETA(DisplayName = "Attachment"),      // Weapon mods: scopes, grips, suppressors
     Armor           UMETA(DisplayName = "Armor"),           // Helmets, vests, plate carriers
     Medical         UMETA(DisplayName = "Medical"),         // Medkits, bandages, stims
     Intel           UMETA(DisplayName = "Intel"),           // Documents, keycards, drives
-    QuestItem       UMETA(DisplayName = "Quest Item")       // Non-losable mission objective items
+    QuestItem       UMETA(DisplayName = "Quest Item"),       // Non-losable mission objective items
+    
+    // Currency
+    Currency        UMETA(DisplayName = "Currency")         // Physical currency items (Dollars)
 
     // --- ADD NEW ITEM CATEGORIES HERE ---
 };

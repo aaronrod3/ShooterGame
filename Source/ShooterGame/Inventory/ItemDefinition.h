@@ -243,6 +243,38 @@ public:
         meta = (ClampMin = "0.0", ClampMax = "100.0"))
     float LongTermWearRate = 0.5f;
     
+    
+    // -----------------------------------------------------------------------
+    // Currency
+    // -----------------------------------------------------------------------
+
+    // If true, this item is a physical currency (Rubles, Dollars, Gold, etc.).
+    // Currency items:
+    //   - Live exclusively in the stash — never carried into missions via loadout
+    //   - Are consumed by ServerPurchaseItem when the player buys from a vendor
+    //   - Are awarded by ServerSellItem when the player sells to a vendor
+    //   - Stack up to StackMax units per FItemInstance (set StackMax generously, e.g. 1,000,000)
+    //   - Cannot be sold to vendors (they ARE the sell medium)
+    //   - AllowedSlots should be left empty so they cannot be equipped
+    // Default false — all existing items are unaffected.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Currency")
+    bool bIsCurrency = false;
+
+    // The integer value of one unit of this currency.
+    // Used by UStashComponent::CountCurrencyInStash() and SpendCurrencyFromStash()
+    // to compute total spending power across mixed currency stacks:
+    //   Total = Sum(StackCount * CurrencyValue) for all currency FItemInstances in stash
+    //
+    // Examples:
+    //   DA_Currency_Rubles  → CurrencyValue = 1,   StackMax = 1,000,000
+    //   DA_Currency_Dollars → CurrencyValue = 120,  StackMax = 10,000
+    //   DA_Currency_Gold    → CurrencyValue = 5000, StackMax = 1,000
+    //
+    // Only meaningful when bIsCurrency == true. Ignored on all other items.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Currency",
+        meta = (ClampMin = "1", EditCondition = "bIsCurrency"))
+    int32 CurrencyValue = 1;
+    
     // -----------------------------------------------------------------------
     // Asset Manager Integration
     // -----------------------------------------------------------------------

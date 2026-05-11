@@ -16,6 +16,7 @@ class USceneComponent;
 class UStaticMeshComponent;
 class UHighlightableStaticMesh;
 class UQuestDefinition;
+class UItemDefinition;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVendorInteracted, APlayerController*, InteractingPlayer, AVendorNPCActor*, VendorActor);
 
@@ -79,6 +80,19 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vendor")
     TArray<FVendorInventoryEntry> VendorStock;
 
+    // The currency item definition this vendor pays out in when the player
+    // sells items. Set this in the BP_VendorNPC_* child per vendor archetype.
+    //
+    // Example authoring:
+    //   BP_VendorNPC_Quartermaster → DA_Currency_Rubles
+    //   BP_VendorNPC_BlackMarket   → DA_Currency_Dollars
+    //
+    // If left null, ServerSellItem will reject all sell attempts with a
+    // "Vendor cannot pay out currency" error — always set this on every vendor.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vendor",
+        meta = (DisplayThumbnail = "true"))
+    TObjectPtr<UItemDefinition> PayoutCurrencyDefinition;
+
     // Authored quests this vendor can potentially offer.
     // Runtime systems decide which are actually available to each player.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vendor")
@@ -119,6 +133,11 @@ public:
 
     UFUNCTION(BlueprintPure, Category = "Vendor")
     const TArray<FVendorInventoryEntry>& GetVendorStock() const { return VendorStock; }
+
+    // Returns the currency definition this vendor pays out on player sells.
+    // Always check IsValid() on the return value before use.
+    UFUNCTION(BlueprintPure, Category = "Vendor")
+    UItemDefinition* GetPayoutCurrencyDefinition() const { return PayoutCurrencyDefinition; }
 
     // C++-only accessor. Not a UFUNCTION because TObjectPtr arrays are not
     // valid UFUNCTION return types.
