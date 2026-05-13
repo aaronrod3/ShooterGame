@@ -89,7 +89,7 @@ struct SHOOTERGAME_API FAttachedModInstance
     TObjectPtr<class UItemDefinition> Definition = nullptr;
 
     // Unique identity of this specific mod instance — stable across transfers.
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attachment")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
     FGuid InstanceID;
 
     // Current condition of this mod (0.0–100.0).

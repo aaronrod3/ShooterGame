@@ -21,6 +21,13 @@ void UInventoryBase::InitializeInventoryEntry(
 	ContainerType = InContainerType;
 	EquipmentSlot = InEquipmentSlot;
 
+	// Auto-assign a GUID if the incoming instance doesn't have one.
+	// This handles test/editor initialization where InstanceID isn't set.
+	if (!ItemInstance.InstanceID.IsValid())
+	{
+		ItemInstance.AssignNewInstanceID();
+	}
+
 	OnInventoryWidgetItemChanged.Broadcast(ItemInstance);
 	BP_OnInventoryEntryInitialized();
 }
@@ -39,6 +46,13 @@ bool UInventoryBase::HasValidItem() const
 {
 	return ItemInstance.IsValid();
 }
+
+void UInventoryBase::BP_OnInventoryEntryInitialized_Implementation()
+{
+	// Base inventory widget has no default visual behavior.
+	// Child widgets like UInventoryItemRowWidget implement their own setup.
+}
+
 
 void UInventoryBase::OpenItemContextMenu()
 {

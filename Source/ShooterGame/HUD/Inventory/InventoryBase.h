@@ -86,8 +86,9 @@ protected:
 	bool HandleDropOperation(UInventoryDragDropOperation* DragOperation);
 	virtual bool HandleDropOperation_Implementation(UInventoryDragDropOperation* DragOperation);
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Inventory Widget")
+	UFUNCTION(BlueprintNativeEvent, Category = "Inventory Widget")
 	void BP_OnInventoryEntryInitialized();
+	virtual void BP_OnInventoryEntryInitialized_Implementation();
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Inventory Widget")
 	void BP_OnInventoryEntryCleared();
