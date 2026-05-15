@@ -237,3 +237,53 @@ struct SHOOTERGAME_API FLoadoutPreset
 		return EquippedSlots.Num() > 0 || RigItemIDs.Num() > 0 || BeltItemIDs.Num() > 0 || BackpackItemIDs.Num() > 0;
 	}
 };
+
+// ============================================================================
+// FInventorySlotSizeConfig
+//
+// Per-container visual sizing config for UInventorySlotWidget.
+// Set once on the WBP subclass defaults; applied in C++ via ApplySizeConfig().
+// All containers (equipment, backpack, quick slot, stash) share this one struct.
+// ============================================================================
+
+USTRUCT(BlueprintType)
+struct SHOOTERGAME_API FInventorySlotSizeConfig
+{
+    GENERATED_BODY()
+
+    // Uniform width and height of the slot in pixels (slot is always square)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slot Sizing", meta = (ClampMin = "16.0", ClampMax = "256.0"))
+    float SlotSize = 64.0f;
+
+    // Inner padding between the slot border edge and the item icon
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slot Sizing", meta = (ClampMin = "0.0", ClampMax = "32.0"))
+    float IconPadding = 4.0f;
+
+    // Font size for stack count and keybind labels
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slot Sizing", meta = (ClampMin = "6.0", ClampMax = "32.0"))
+    float LabelFontSize = 10.0f;
+
+    // Opacity of the drag-highlight overlay when a valid drag is hovering this slot
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slot Sizing", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float DragHighlightOpacity = 0.35f;
+
+    // Tint applied to SlotBorder on mouse hover
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slot Sizing")
+    FLinearColor HoverTint = FLinearColor(1.0f, 1.0f, 1.0f, 0.15f);
+
+    // Tint applied to DragHighlightOverlay for a valid drop target
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slot Sizing")
+    FLinearColor ValidDropTint = FLinearColor(0.0f, 1.0f, 0.3f, 0.35f);
+
+    // Tint applied to DragHighlightOverlay for an invalid drop target
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slot Sizing")
+    FLinearColor InvalidDropTint = FLinearColor(1.0f, 0.1f, 0.1f, 0.35f);
+};
+
+UENUM(BlueprintType)
+enum class ETooltipDetailLevel : uint8
+{
+	Minimal     UMETA(DisplayName = "Minimal"),
+	Standard    UMETA(DisplayName = "Standard"),
+	Full        UMETA(DisplayName = "Full")
+};

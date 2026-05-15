@@ -114,7 +114,6 @@ protected:
 	void BP_OnContextMenuClosed();
 	
 	
-	
 
 	UPROPERTY(BlueprintReadOnly, Category = "Inventory Widget", meta = (AllowPrivateAccess = "true"))
 	FItemInstance ItemInstance;
