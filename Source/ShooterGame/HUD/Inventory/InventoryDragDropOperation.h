@@ -31,6 +31,12 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Inventory Drag Drop")
 	EEquipmentSlot SourceEquipmentSlot = EEquipmentSlot::MAX;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory Drag Drop")
+	FIntPoint DraggedSlotSize = FIntPoint(1, 1);
+
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory Drag Drop")
+	FGameplayTag ItemTypeTag;
+
 	UFUNCTION(BlueprintCallable, Category = "Inventory Drag Drop")
 	bool HasValidDraggedItem() const
 	{

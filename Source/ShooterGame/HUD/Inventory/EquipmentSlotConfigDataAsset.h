@@ -27,6 +27,9 @@ struct SHOOTERGAME_API FEquipmentSlotUIConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Equipment Slot")
 	FGameplayTag RequiredSlotTag;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Equipment Slot")
+	FGameplayTagContainer AllowedItemTypeTags;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Equipment Slot")
 	int32 SortOrder = 0;

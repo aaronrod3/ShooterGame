@@ -37,15 +37,32 @@ void UEquipmentSlotWidget::ToggleExpanded()
 
 bool UEquipmentSlotWidget::CanAcceptDrop_Implementation(UInventoryDragDropOperation* DragOperation) const
 {
+	// Gate 1: base null/validity guard — always call Super first per contract.
 	if (!Super::CanAcceptDrop_Implementation(DragOperation))
 	{
 		return false;
 	}
 
-	if (!SlotConfig.RequiredSlotTag.IsValid())
+	// Gate 2: slot container compatibility — checks item's AcceptedSlotTags
+	// against this slot's RequiredSlotTag (pre-existing Phase 1 logic).
+	if (SlotConfig.RequiredSlotTag.IsValid())
 	{
-		return true;
+		if (!UInventoryComponent::IsItemValidForSlot(DragOperation->DraggedItem, SlotConfig.RequiredSlotTag))
+		{
+			return false;
+		}
 	}
 
-	return UInventoryComponent::IsItemValidForSlot(DragOperation->DraggedItem, SlotConfig.RequiredSlotTag);
+	// Gate 3 (Phase 3): item type tag gating — checks the dragged item's
+	// canonical type tag against this slot's AllowedItemTypeTags.
+	// Empty AllowedItemTypeTags = permissive (slot accepts any item type).
+	if (!SlotConfig.AllowedItemTypeTags.IsEmpty())
+	{
+		if (!SlotConfig.AllowedItemTypeTags.HasTag(DragOperation->ItemTypeTag))
+		{
+			return false;
+		}
+	}
+
+	return true;
 }

@@ -8,6 +8,7 @@
 #include "Inventory/InventoryComponent.h"
 #include "Inventory/EquippedStateComponent.h"
 #include "Inventory/StashComponent.h"
+#include "Inventory/ItemDefinition.h" 
 #include "Player/Character/ShooterGameCharacter.h"
 
 void UInventoryBase::InitializeInventoryEntry(
@@ -140,6 +141,12 @@ void UInventoryBase::NativeOnDragDetected(
 	DragOperation->SourceInventory = OwningInventoryComponent;
 	DragOperation->SourceContainerType = ContainerType;
 	DragOperation->SourceEquipmentSlot = EquipmentSlot;
+	
+	DragOperation->ItemTypeTag = (ItemInstance.Definition)
+		? ItemInstance.Definition->ItemTypeTag
+		: FGameplayTag();
+	
+	DragOperation->DraggedSlotSize = FIntPoint(1, 1);
 
 	OutOperation = DragOperation;
 	BP_OnDragStarted(DragOperation);
@@ -282,6 +289,21 @@ void UInventoryBase::HandleContextActionSelected_Implementation(EItemContextActi
 
 bool UInventoryBase::CanAcceptDrop_Implementation(UInventoryDragDropOperation* DragOperation) const
 {
+	// BASE CONTRACT — permissive null/validity guard only.
+	//
+	// This is the only check the base class performs. It guarantees:
+	//   1. DragOperation is not null
+	//   2. The dragged item has a valid Definition and InstanceID
+	//
+	// OVERRIDE RULES for all subclasses:
+	//   - Always call Super::CanAcceptDrop_Implementation first
+	//   - If Super returns false, early-out false immediately
+	//   - Add your gating logic AFTER the Super call
+	//
+	// Known overrides:
+	//   UInventorySlotWidget     — inherits base (permissive, no extra gating)
+	//   UEquipmentSlotWidget     — gates by ItemTypeTag (Phase 3, Step 4)
+	//   UBackpackGridSlotWidget  — gates by DraggedSlotSize capacity (Phase 5)
 	return DragOperation != nullptr && DragOperation->HasValidDraggedItem();
 }
 
