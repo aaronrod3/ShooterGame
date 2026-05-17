@@ -6,7 +6,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "Framework/Subsystems/ShooterSaveGameSubsystem.h"
 #include "Framework/Subsystems/ShooterSaveGame.h"
-#include "Inventory/StashComponent.h"
 #include "Inventory/EquippedStateComponent.h"
 #include "Inventory/InventoryComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -199,60 +198,6 @@ void UShooterSaveGameSubsystem::WriteToDisk()
     }
 }
 
-bool UShooterSaveGameSubsystem::SaveStash(UStashComponent* StashComponent)
-{
-	if (StashComponent == nullptr)
-	{
-		return false;
-	}
-
-	if (CachedSaveGame == nullptr)
-	{
-		LoadLoadout();
-	}
-
-	if (CachedSaveGame == nullptr)
-	{
-		return false;
-	}
-
-	CachedSaveGame->SavedStashItems = StashComponent->GetItems();
-	return WriteCurrentSaveToDisk();
-}
-
-bool UShooterSaveGameSubsystem::LoadStash(UStashComponent* StashComponent)
-{
-	if (StashComponent == nullptr)
-	{
-		return false;
-	}
-
-	if (CachedSaveGame == nullptr)
-	{
-		LoadLoadout();
-	}
-
-	if (CachedSaveGame == nullptr)
-	{
-		return false;
-	}
-
-	TArray<FItemInstance> ExistingItems = StashComponent->GetItems();
-	for (const FItemInstance& ExistingItem : ExistingItems)
-	{
-		FItemInstance RemovedItem;
-		StashComponent->Server_RemoveItem(ExistingItem.InstanceID, RemovedItem);
-	}
-
-	FGameplayTag EmptySlotTag;
-	for (FItemInstance SavedItem : CachedSaveGame->SavedStashItems)
-	{
-		StashComponent->Server_AddItem(SavedItem, EmptySlotTag);
-	}
-
-	return true;
-}
-
 bool UShooterSaveGameSubsystem::SaveEquippedState(UEquippedStateComponent* EquippedStateComponent)
 {
 	if (EquippedStateComponent == nullptr)
@@ -383,46 +328,6 @@ bool UShooterSaveGameSubsystem::GetHasUnreviewedExtraction() const
 	return CachedSaveGame != nullptr ? CachedSaveGame->bHasUnreviewedExtraction : false;
 }
 
-FLoadoutPreset UShooterSaveGameSubsystem::ResolvePresetAgainstStash(const FLoadoutPreset& Preset, UStashComponent* StashComponent) const
-{
-	FLoadoutPreset ResolvedPreset = Preset;
-
-	if (StashComponent == nullptr)
-	{
-		for (FLoadoutPresetSlot& Slot : ResolvedPreset.EquippedSlots)
-		{
-			Slot.bItemMissingFromStash = Slot.HasAssignedItem();
-		}
-		return ResolvedPreset;
-	}
-
-	const TArray<FItemInstance>& StashItems = StashComponent->GetItems();
-
-	auto IsItemInStash = [&StashItems](const FGuid& ItemID) -> bool
-	{
-		if (!ItemID.IsValid())
-		{
-			return false;
-		}
-
-		for (const FItemInstance& Item : StashItems)
-		{
-			if (Item.InstanceID == ItemID)
-			{
-				return true;
-			}
-		}
-
-		return false;
-	};
-
-	for (FLoadoutPresetSlot& Slot : ResolvedPreset.EquippedSlots)
-	{
-		Slot.bItemMissingFromStash = Slot.HasAssignedItem() && !IsItemInStash(Slot.ItemInstanceID);
-	}
-
-	return ResolvedPreset;
-}
 
 FEquippedStateSnapshot UShooterSaveGameSubsystem::BuildEquippedStateSnapshot(const UEquippedStateComponent* EquippedStateComponent) const
 {

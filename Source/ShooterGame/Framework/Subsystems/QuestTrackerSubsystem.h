@@ -94,8 +94,8 @@ public:
     // Accepts a quest for active tracking. Initialises objective progress,
     // then runs AutoCountStash to pre-fill counts from existing stash items.
     // Only valid if the quest is currently in Available state.
-    UFUNCTION(BlueprintCallable, Category = "Quest")
-    void ActivateQuest(UQuestDefinition* QuestDefinition, UStashComponent* PlayerStash);
+    //UFUNCTION(BlueprintCallable, Category = "Quest")
+    //void ActivateQuest(UQuestDefinition* QuestDefinition, UStashComponent* PlayerStash);
 
     // Records incremental progress on a Collect or Kill objective.
     // ObjectiveIndex is the index into QuestDefinition::Objectives.
@@ -110,21 +110,7 @@ public:
     // Only valid if the quest is in PendingTurnIn state.
     UFUNCTION(BlueprintCallable, Category = "Quest")
     void CompleteQuest(UQuestDefinition* QuestDefinition);
-
-    // -------------------------------------------------------------------------
-    // Stash auto-count
-    // -------------------------------------------------------------------------
-
-    // Scans the provided stash and pre-fills progress for any Collect objectives
-    // in the given quest that match items already owned.
-    //
-    // Called automatically inside ActivateQuest.
-    // Safe to call manually if stash contents change before a quest is accepted.
-    //
-    // DESIGN RULE ENFORCEMENT:
-    // Quest items already in stash count automatically — never re-farm owned items.
-    UFUNCTION(BlueprintCallable, Category = "Quest")
-    void AutoCountStash(FQuestState& QuestState, UStashComponent* PlayerStash);
+    
 
     // -------------------------------------------------------------------------
     // Reputation

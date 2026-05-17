@@ -93,14 +93,6 @@ public:
     // Persistent Inventory State
     // -----------------------------------------------------------------------
 
-    // Saves the player's persistent stash contents into the save object and writes to disk.
-    UFUNCTION(BlueprintCallable, Category = "Save Game")
-    bool SaveStash(UStashComponent* StashComponent);
-
-    // Loads the player's persistent stash contents from the save object into the stash component.
-    UFUNCTION(BlueprintCallable, Category = "Save Game")
-    bool LoadStash(UStashComponent* StashComponent);
-
     // Saves the player's current carried/equipped snapshot and writes to disk.
     UFUNCTION(BlueprintCallable, Category = "Save Game")
     bool SaveEquippedState(UEquippedStateComponent* EquippedStateComponent);
@@ -125,9 +117,6 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Save Game")
     bool GetHasUnreviewedExtraction() const;
 
-    // Resolves preset item references against stash contents and flags missing items.
-    UFUNCTION(BlueprintCallable, Category = "Save Game")
-    FLoadoutPreset ResolvePresetAgainstStash(const FLoadoutPreset& Preset, UStashComponent* StashComponent) const;
     
     // -----------------------------------------------------------------------
     // Quest & Reputation State

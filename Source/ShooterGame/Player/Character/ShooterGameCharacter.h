@@ -4,10 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "Inventory/StashComponent.h"
 #include "Inventory/EquippedStateComponent.h"
 #include "Inventory/InventoryComponent.h"
-#include "Inventory/QuickSlotComponent.h"
 #include "ShooterGame/Components/DownedComponent.h"
 #include "ShooterGame/Components/ReviveComponent.h"
 #include "ShooterGame/Components/CombatComponent.h"
@@ -73,9 +71,7 @@ public:
 	FORCEINLINE UReviveComponent* GetReviveComponent()			const { return ReviveComp; }
 	FORCEINLINE UCombatComponent* GetCombat()					const { return Combat; }
 	FORCEINLINE ULoadoutComponent* GetLoadoutComponent()		const { return LoadoutComp; }
-	FORCEINLINE UStashComponent* GetStash()						const { return StashComp; }
 	FORCEINLINE UEquippedStateComponent* GetEquippedState()		const { return EquippedStateComp; }
-	FORCEINLINE UQuickSlotComponent* GetQuickSlotComponent()	const { return QuickSlotComp; }
 	
 	FORCEINLINE float GetHealth()							const { return Health; }
 	FORCEINLINE float GetMaxHealth()						const { return MaxHealth; }
@@ -179,37 +175,6 @@ public:
 	
 	float GetBaseWalkSpeed() const;
 	
-	// -----------------------------------------------------------------------
-	// Vendor Transaction RPCs (Phase 4)
-	// -----------------------------------------------------------------------
-
-	/**
-	 * Server RPC — purchase one unit of a vendor stock entry.
-	 * EntryIndex is the index into AVendorNPCActor::VendorStock.
-	 * Validated server-side: authority, vendor pointer, range, rep, and funds.
-	 * Result delivered back to client via ClientReceiveTransactionResult.
-	 */
-	UFUNCTION(Server, Reliable)
-	void ServerPurchaseItem(AVendorNPCActor* Vendor, int32 EntryIndex);
-
-	/**
-	 * Server RPC — sell one FItemInstance from the player's stash to a vendor.
-	 * InstanceID identifies the item by its GUID (never by array index).
-	 * Validated server-side: authority, vendor pointer, range, item ownership,
-	 * and quest item guard (quest items cannot be sold).
-	 * Result delivered back to client via ClientReceiveTransactionResult.
-	 */
-	UFUNCTION(Server, Reliable)
-	void ServerSellItem(AVendorNPCActor* Vendor, FGuid InstanceID);
-
-	/**
-	 * Client RPC — receives the transaction result from the server.
-	 * Delivers FVendorTransactionResult to the owning client so UVendorWidget
-	 * can display success feedback or an error toast without trusting client state.
-	 */
-	UFUNCTION(Client, Reliable)
-	void ClientReceiveTransactionResult(FVendorTransactionResult Result);
-	
 	
 	UFUNCTION(Server, Unreliable)
 	void ServerSetFacingYaw(float Yaw);	
@@ -232,11 +197,7 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	ULoadoutComponent* LoadoutComp;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	UStashComponent* StashComp;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UEquippedStateComponent* EquippedStateComp;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	UQuickSlotComponent* QuickSlotComp;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingAmmoPickup)

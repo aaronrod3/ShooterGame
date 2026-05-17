@@ -2,7 +2,6 @@
 #include "ShooterGame/Framework/Subsystems/QuestTrackerSubsystem.h"
 
 #include "ShooterGame/Quest/QuestDefinition.h"
-#include "ShooterGame/Inventory/StashComponent.h"
 #include "ShooterGame/Inventory/ItemDefinition.h"
 #include "ShooterGame/Types/ItemTypes.h"
 
@@ -50,6 +49,7 @@ void UQuestTrackerSubsystem::MakeQuestAvailable(UQuestDefinition* QuestDefinitio
     OnQuestStatusChanged.Broadcast(NewState);
 }
 
+/*
 void UQuestTrackerSubsystem::ActivateQuest(UQuestDefinition* QuestDefinition, UStashComponent* PlayerStash)
 {
     if (!IsValid(QuestDefinition))
@@ -100,7 +100,7 @@ void UQuestTrackerSubsystem::ActivateQuest(UQuestDefinition* QuestDefinition, US
         CheckAndTransitionIfComplete(*NewActiveEntry);
     }
 }
-
+*/
 void UQuestTrackerSubsystem::RecordObjectiveProgress(UQuestDefinition* QuestDefinition, int32 ObjectiveIndex, int32 Delta)
 {
     if (!IsValid(QuestDefinition) || Delta <= 0)
@@ -175,66 +175,7 @@ void UQuestTrackerSubsystem::CompleteQuest(UQuestDefinition* QuestDefinition)
     // to keep this subsystem decoupled from the economy system.
 }
 
-// ============================================================================
-// Stash auto-count
-// ============================================================================
 
-void UQuestTrackerSubsystem::AutoCountStash(FQuestState& QuestState, UStashComponent* PlayerStash)
-{
-    if (!IsValid(PlayerStash) || QuestState.bStashCountedOnActivation)
-    {
-        return;
-    }
-
-    UQuestDefinition* ResolvedDef = QuestState.Definition.LoadSynchronous();
-    if (!IsValid(ResolvedDef))
-    {
-        return;
-    }
-
-    for (int32 i = 0; i < ResolvedDef->Objectives.Num(); ++i)
-    {
-        const FQuestObjective& Objective = ResolvedDef->Objectives[i];
-
-        // Only Collect objectives can be pre-filled from stash.
-        // Deliver objectives require physical item hand-in, not just ownership.
-        if (Objective.ObjectiveType != EQuestObjectiveType::Collect)
-        {
-            continue;
-        }
-
-        if (Objective.TargetItem.IsNull())
-        {
-            continue;
-        }
-
-        UItemDefinition* TargetDef = Objective.TargetItem.LoadSynchronous();
-        if (TargetDef == nullptr)
-        {
-            continue;
-        }
-
-        // Count matching items by iterating the stash using GetAllStashItems().
-        const TArray<FItemInstance> StashItems = PlayerStash->GetAllStashItems();
-        int32 StashCount = 0;
-        for (const FItemInstance& StashItem : StashItems)
-        {
-            if (StashItem.Definition.Get() != nullptr && StashItem.Definition.Get() == TargetDef)
-            {
-                StashCount += StashItem.StackCount;
-            }
-        }
-        int32 ClampedCount = FMath::Min(StashCount, Objective.RequiredCount);
-
-        if (ClampedCount > QuestState.ObjectiveProgress[i])
-        {
-            QuestState.ObjectiveProgress[i] = ClampedCount;
-            OnQuestProgressUpdated.Broadcast(QuestState, i);
-        }
-    }
-
-    QuestState.bStashCountedOnActivation = true;
-}
 
 // ============================================================================
 // Reputation
