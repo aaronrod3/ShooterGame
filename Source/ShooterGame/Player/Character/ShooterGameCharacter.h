@@ -167,8 +167,6 @@ public:
 	void RevivePressed();
 	void ReviveReleased();
 	
-	void HandleToggleInventory();
-	
 	
 	bool IsWeaponEquipped();
 	bool IsAiming();
@@ -281,9 +279,6 @@ private:
 	TObjectPtr<UInputAction> ToggleSuppressorAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* ReviveAction;
-	
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	TObjectPtr<UInputAction> ToggleInventoryAction;
 	
 	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
 	class UAnimMontage* FireWeaponMontage;

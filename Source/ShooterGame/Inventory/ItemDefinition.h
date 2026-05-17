@@ -167,11 +167,6 @@ public:
     //
     // Example: A pistol magazine might have tags {Slot.Backpack, Slot.Rig, Slot.Belt}
     // so it is valid in any of those three container types.
-    
-    
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Slot Compatibility")
-    FGameplayTag ItemTypeTag;
-    
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item | Slot Compatibility")
     FGameplayTagContainer AcceptedSlotTags;
 

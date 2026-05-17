@@ -28,7 +28,6 @@
 #include "Inventory/InventoryComponent.h"
 #include "Inventory/StashComponent.h"
 #include "Inventory/EquippedStateComponent.h"
-#include "HUD/ShooterHUD.h"
 #include "Engine/GameInstance.h"
 #include "Net/UnrealNetwork.h"
 #include "Blueprint/UserWidget.h"
@@ -257,11 +256,6 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		if (ProneAction)
 		{
 			EnhancedInputComponent->BindAction(ProneAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::GoProneButtonPressed);
-		}
-		
-		if (ToggleInventoryAction)
-		{
-			EnhancedInputComponent->BindAction(ToggleInventoryAction, ETriggerEvent::Started, this, &AShooterGameCharacter::HandleToggleInventory);
 		}
 		
 		
@@ -1160,25 +1154,5 @@ void AShooterGameCharacter::ClientReceiveTransactionResult_Implementation(FVendo
 			VendorWidget->HandleTransactionResult(Result);
 			break; // Only one vendor widget can be open at a time
 		}
-	}
-}
-
-
-// ============================================================================
-// Inventory Toggle
-// ============================================================================
-
-void AShooterGameCharacter::HandleToggleInventory()
-{
-	// Only the locally controlled character should toggle the HUD —
-	// this fires on all clients in a listen server session otherwise
-	if (!IsLocallyControlled()) return;
-
-	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (!PC) return;
-
-	if (AShooterHUD* ShooterHUD = PC->GetHUD<AShooterHUD>())
-	{
-		ShooterHUD->ToggleInventory();
 	}
 }
