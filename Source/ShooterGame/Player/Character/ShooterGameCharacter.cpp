@@ -11,6 +11,8 @@
 #include "ShooterGame/Types/VendorTypes.h"
 #include "ShooterGame/Inventory/ItemDefinition.h"
 #include "ShooterGame/Framework/Subsystems/QuestTrackerSubsystem.h"
+#include "ShooterGame/Interaction/Interactable.h"
+#include "ShooterGame/Interaction/Highlightable.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -29,6 +31,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "DrawDebugHelpers.h"
 
 
 
@@ -143,6 +146,23 @@ void AShooterGameCharacter::BeginPlay()
 	
 	// Set initial TPS orientation — not aiming by default
 	SetOrientationForAiming(false);
+	
+	// Create the interaction prompt widget — local client only
+	// HasAuthority check is not enough here because listen server players
+	// are both authority AND locally controlled. IsLocallyControlled is correct.
+	if (IsLocallyControlled() && InteractPromptWidgetClass)
+	{
+		InteractPromptWidgetInstance = CreateWidget<UInteractPromptWidget>(
+			GetWorld(),
+			InteractPromptWidgetClass
+		);
+
+		if (InteractPromptWidgetInstance)
+		{
+			InteractPromptWidgetInstance->AddToViewport();
+			InteractPromptWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
 }
 
 void AShooterGameCharacter::Tick(float DeltaTime)
@@ -234,6 +254,14 @@ void AShooterGameCharacter::Tick(float DeltaTime)
             LastReplicatedYaw = CurrentYaw;
         }
     }
+	
+	// Interaction focus — local client only, purely cosmetic
+	if (IsLocallyControlled())
+	{
+		UpdateInteractFocus();
+	}
+	
+	
 }
 
 void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -253,7 +281,16 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		}
 		
 		
-		//EnhancedInputComponent->BindAction(PrimaryInteractAction, ETriggerEvent::Started, this, &AShooterGamePlayerController::PrimaryInteract);
+		if (PrimaryInteractAction)
+		{
+			EnhancedInputComponent->BindAction(
+				PrimaryInteractAction,
+				ETriggerEvent::Started,
+				this,
+				&AShooterGameCharacter::PrimaryInteractButtonPressed
+			);
+		}
+		
 		EnhancedInputComponent->BindAction(EquipAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::EquipButtonPressed);
 		EnhancedInputComponent->BindAction(AimAction,				ETriggerEvent::Triggered,	this,	&AShooterGameCharacter::ToggleAim);
 		EnhancedInputComponent->BindAction(ShoulderSwapAction,			ETriggerEvent::Started,		this,	&AShooterGameCharacter::SwapShoulder);
@@ -377,6 +414,139 @@ void AShooterGameCharacter::OnRep_DesiredYaw()
 	// DesiredYaw was used in top-down camera system.
 	// TPS uses bUsePawnControlRotation on CameraBoom — no action needed here.
 	// Keeping the replicated property for now to avoid breaking existing saves/packages.
+}
+
+
+AActor* AShooterGameCharacter::FindBestInteractableInView(FHitResult& OutHit) const
+{
+	if (!FollowCamera) return nullptr;
+
+	const FVector TraceStart = FollowCamera->GetComponentLocation();
+	const FVector TraceEnd   = TraceStart + (FollowCamera->GetForwardVector() * InteractTraceDistance);
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.bReturnPhysicalMaterial = false;
+
+	const bool bHit = GetWorld()->SweepSingleByChannel(
+		OutHit,
+		TraceStart,
+		TraceEnd,
+		FQuat::Identity,
+		ECC_Visibility,
+		FCollisionShape::MakeSphere(InteractTraceRadius),
+		QueryParams
+	);
+
+	if (bDrawInteractTraceDebug)
+	{
+		//DrawDebugLine(GetWorld(), TraceStart, TraceEnd, bHit ? FColor::Green : FColor::Red, false, 0.f, 0, 1.5f);
+		//DrawDebugSphere(GetWorld(), bHit ? OutHit.ImpactPoint : TraceEnd, InteractTraceRadius, 12, bHit ? FColor::Green : FColor::Red, false, 0.f);
+	}
+
+	if (!bHit || !OutHit.GetActor()) return nullptr;
+
+	AActor* HitActor = OutHit.GetActor();
+
+	if (!HitActor->GetClass()->ImplementsInterface(UInteractable::StaticClass())) return nullptr;
+
+	if (!IInteractable::Execute_CanInteract(HitActor, const_cast<AShooterGameCharacter*>(this)))
+		return nullptr;
+
+	return HitActor;
+}
+
+void AShooterGameCharacter::UpdateInteractFocus()
+{
+	// Do not update focus while downed or dead
+	if (DownedComp && !DownedComp->IsAlive()) 
+	{
+		SetCurrentPromptActor(nullptr);
+		return;
+	}
+
+	FHitResult HitResult;
+	AActor* TraceResult = FindBestInteractableInView(HitResult);
+
+	AActor* BestCandidate = TraceResult ? TraceResult : ResolveBestInteractionCandidate();
+	SetCurrentPromptActor(BestCandidate);
+}
+
+
+AActor* AShooterGameCharacter::ResolveBestInteractionCandidate() const
+{
+	// Weapon overlap takes priority over ammo overlap — mirrors existing equip logic
+	if (OverlappingWeapon) return OverlappingWeapon;
+	if (OverlappingAmmoPickup) return OverlappingAmmoPickup;
+	return nullptr;
+}
+
+void AShooterGameCharacter::SetCurrentPromptActor(AActor* NewPromptActor)
+{
+	if (CurrentPromptActor == NewPromptActor) return;
+
+	// --- Unhighlight the previous focus if it was a general interactable ---
+	if (CurrentHighlightedActor &&
+		CurrentHighlightedActor->GetClass()->ImplementsInterface(UHighlightable::StaticClass()))
+	{
+		IHighlightable::Execute_UnHighlight(CurrentHighlightedActor);
+		CurrentHighlightedActor = nullptr;
+	}
+
+	CurrentPromptActor = NewPromptActor;
+
+	if (!CurrentPromptActor)
+	{
+		ClearCurrentPromptWidget();
+		return;
+	}
+
+	// --- Highlight if the new actor supports it ---
+	if (CurrentPromptActor->GetClass()->ImplementsInterface(UHighlightable::StaticClass()))
+	{
+		IHighlightable::Execute_Highlight(CurrentPromptActor);
+		CurrentHighlightedActor = CurrentPromptActor;
+	}
+
+	RefreshCurrentPromptWidget();
+}
+
+void AShooterGameCharacter::RefreshCurrentPromptWidget()
+{
+	if (!CurrentPromptActor) return;
+
+	// Resolve prompt text:
+	// If the actor implements IInteractable, ask it for a custom prompt.
+	// If not (e.g. overlapping weapon/ammo before they implement the interface),
+	// fall back to a generic string so the widget always has something to show.
+	FText PromptText;
+
+	if (CurrentPromptActor->GetClass()->ImplementsInterface(UInteractable::StaticClass()))
+	{
+		PromptText = IInteractable::Execute_GetInteractPromptText(CurrentPromptActor, this);
+	}
+	else if (OverlappingWeapon && CurrentPromptActor == OverlappingWeapon)
+	{
+		PromptText = FText::FromString(TEXT("Pick Up Weapon"));
+	}
+	else if (OverlappingAmmoPickup && CurrentPromptActor == OverlappingAmmoPickup)
+	{
+		PromptText = FText::FromString(TEXT("Collect Ammo"));
+	}
+	else
+	{
+		PromptText = FText::FromString(TEXT("Interact"));
+	}
+
+	InteractPromptWidgetInstance->SetPromptText(PromptText);
+	InteractPromptWidgetInstance->SetVisibility(ESlateVisibility::Visible);
+}
+
+void AShooterGameCharacter::ClearCurrentPromptWidget()
+{
+	if (!InteractPromptWidgetInstance) return;
+
+	InteractPromptWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
 }
 
 
@@ -531,6 +701,70 @@ AWeapon* AShooterGameCharacter::GetEquippedWeapon()
 	if (Combat == nullptr) return nullptr;
 	return Combat->EquippedWeapon;
 }
+
+
+void AShooterGameCharacter::PrimaryInteractButtonPressed()
+{
+	// Guard: downed players cannot interact
+	if (DownedComp && !DownedComp->IsAlive()) return;
+
+	ServerPrimaryInteract();
+}
+
+void AShooterGameCharacter::ServerPrimaryInteract_Implementation()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[ServerPrimaryInteract] Called on server by %s"), *GetName());
+
+	// --- Try focused general interactable first ---
+	FHitResult HitResult;
+	AActor* InteractTarget = FindBestInteractableInView(HitResult);
+
+	if (InteractTarget)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[ServerPrimaryInteract] Trace hit: %s"), *InteractTarget->GetName());
+
+		if (!InteractTarget->GetClass()->ImplementsInterface(UInteractable::StaticClass()))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[ServerPrimaryInteract] Actor does not implement IInteractable"));
+			return;
+		}
+
+		if (!IInteractable::Execute_CanInteract(InteractTarget, this))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[ServerPrimaryInteract] CanInteract returned false"));
+			return;
+		}
+
+		UE_LOG(LogTemp, Warning,
+			TEXT("[ServerPrimaryInteract] Executing Interact on %s"), *InteractTarget->GetName());
+
+		IInteractable::Execute_Interact(InteractTarget, this);
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[ServerPrimaryInteract] No trace target — checking overlaps"));
+
+	// --- Fallback: overlapping weapon ---
+	if (OverlappingWeapon)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ServerPrimaryInteract] Equipping overlapping weapon"));
+		if (Combat)
+		{
+			Combat->EquipWeapon(OverlappingWeapon);
+		}
+		return;
+	}
+
+	// --- Fallback: overlapping ammo ---
+	if (OverlappingAmmoPickup)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ServerPrimaryInteract] Collecting overlapping ammo"));
+		ServerCollectAmmo();
+	}
+}
+
+
 
 bool AShooterGameCharacter::IsAiming()
 {

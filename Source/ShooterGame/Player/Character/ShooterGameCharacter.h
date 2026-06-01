@@ -10,7 +10,10 @@
 #include "ShooterGame/Components/ReviveComponent.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Components/LoadoutComponent.h"
+#include "ShooterGame/Interaction/Interactable.h"
+#include "ShooterGame/Interaction/Highlightable.h"
 #include "ShooterGame/Types/TurningInPlace.h"
+#include "ShooterGame/HUD/InteractPromptWidget.h"
 #include "Items/Weapon/Weapon.h"
 #include "Logging/LogMacros.h"
 #include "GenericTeamAgentInterface.h" 
@@ -162,6 +165,7 @@ public:
 	void ToggleSuppressor_Input(const FInputActionValue& Value);
 	void RevivePressed();
 	void ReviveReleased();
+	void PrimaryInteractButtonPressed();
 	
 	
 	bool IsWeaponEquipped();
@@ -174,6 +178,16 @@ public:
 	float AimOffset_Yaw;
 	
 	float GetBaseWalkSpeed() const;
+	
+	// Interact
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	float InteractTraceDistance = 350.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	float InteractTraceRadius = 32.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	bool bDrawInteractTraceDebug = false;
 	
 	
 	UFUNCTION(Server, Unreliable)
@@ -203,6 +217,16 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingAmmoPickup)
 	class AAmmoPickup* OverlappingAmmoPickup;
 	
+	// --- Interaction Prompt Widget ---
+
+	// Assign WBP_InteractPrompt in the character Blueprint
+	UPROPERTY(EditDefaultsOnly, Category = "Interaction | UI")
+	TSubclassOf<UInteractPromptWidget> InteractPromptWidgetClass;
+
+	// Runtime instance — created in BeginPlay, never replicated
+	UPROPERTY()
+	TObjectPtr<UInteractPromptWidget> InteractPromptWidgetInstance;
+	
 	/** Camera  **/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
@@ -220,10 +244,8 @@ private:
 	TObjectPtr<UInputAction> CrouchAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* ProneAction;
-	/*
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> PrimaryInteractAction;
-	*/
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> EquipAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
@@ -302,6 +324,26 @@ private:
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 	UFUNCTION()
 	void OnRep_OverlappingAmmoPickup(AAmmoPickup* LastAmmoPickup);
+	
+	UPROPERTY()
+	AActor* FocusedInteractableActor = nullptr;
+
+	UPROPERTY()
+	AActor* CurrentPromptActor = nullptr;
+
+	UPROPERTY()
+	AActor* CurrentHighlightedActor = nullptr;
+	
+	
+	void UpdateInteractFocus();
+	AActor* FindBestInteractableInView(FHitResult& OutHit) const;
+	void SetCurrentPromptActor(AActor* NewPromptActor);
+	void RefreshCurrentPromptWidget();
+	void ClearCurrentPromptWidget();
+	AActor* ResolveBestInteractionCandidate() const;
+	
+	UFUNCTION(Server, Reliable)
+	void ServerPrimaryInteract();
 
 	
 
