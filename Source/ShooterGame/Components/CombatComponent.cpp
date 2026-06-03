@@ -4,13 +4,15 @@
 #include "Net/UnrealNetwork.h"
 #include "Engine/World.h"
 #include "Engine/EngineTypes.h"
-#include "GameFramework/CharacterMovementComponent.h"
+#include "Engine/DamageEvents.h"
 #include "HUD/ShooterHUD.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
 #include "ShooterGame/Inventory/InventoryComponent.h"
 #include "ShooterGame/Components/DownedComponent.h"
+#include "ShooterGame/Components/HitZoneComponent.h"
 
 UCombatComponent::UCombatComponent()
 {
@@ -390,6 +392,7 @@ void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& InHi
 
 	MulticastFire();
 }
+
 
 void UCombatComponent::MulticastFire_Implementation()
 {

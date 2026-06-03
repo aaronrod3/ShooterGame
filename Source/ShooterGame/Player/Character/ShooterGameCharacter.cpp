@@ -94,6 +94,7 @@ AShooterGameCharacter::AShooterGameCharacter()
 	EquippedStateComp	= CreateDefaultSubobject<UEquippedStateComponent>(TEXT("EquippedStateComp"));
 	DownedComp			= CreateDefaultSubobject<UDownedComponent>(TEXT("DownedComponent"));
 	ReviveComp			= CreateDefaultSubobject<UReviveComponent>(TEXT("ReviveComponent"));
+	HitZoneComponent	= CreateDefaultSubobject<UHitZoneComponent>(TEXT("HitZoneComponent"));
 	
 	
 	

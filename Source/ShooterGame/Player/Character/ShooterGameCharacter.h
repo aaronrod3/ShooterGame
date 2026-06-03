@@ -10,6 +10,7 @@
 #include "ShooterGame/Components/ReviveComponent.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Components/LoadoutComponent.h"
+#include "ShooterGame/Components/HitZoneComponent.h"
 #include "ShooterGame/Interaction/Interactable.h"
 #include "ShooterGame/Interaction/Highlightable.h"
 #include "ShooterGame/Types/TurningInPlace.h"
@@ -75,10 +76,15 @@ public:
 	FORCEINLINE UCombatComponent* GetCombat()					const { return Combat; }
 	FORCEINLINE ULoadoutComponent* GetLoadoutComponent()		const { return LoadoutComp; }
 	FORCEINLINE UEquippedStateComponent* GetEquippedState()		const { return EquippedStateComp; }
+	FORCEINLINE UHitZoneComponent* GetHitZoneComponent()		const { return HitZoneComponent; }
 	
-	FORCEINLINE float GetHealth()							const { return Health; }
-	FORCEINLINE float GetMaxHealth()						const { return MaxHealth; }
+	FORCEINLINE float GetHealth()								const { return Health; }
+	FORCEINLINE float GetMaxHealth()							const { return MaxHealth; }
 	void SetHealth(float NewHealth);
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HitZone")
+	TObjectPtr<UHitZoneComponent> HitZoneComponent;
+
 	
 	
 	/* TPS Camera Settings */
@@ -281,7 +287,6 @@ private:
 
 	UFUNCTION()
 	void OnRep_Health();
-	
 	
 	/* Variables */
 	ETurningInPlace TurningInPlace;
