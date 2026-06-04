@@ -471,6 +471,11 @@ void UCombatComponent::ReloadEquippedWeapon()
 			EquippedWeapon->IsPistolClass()
 		);
 	}
+	
+	if (Character && Character->IsLocallyControlled())
+	{
+		Character->PlayReloadMontage();
+	}
 
 	// Client cosmetic timer — clears bLocalReloadPending after animation duration
 	GetWorld()->GetTimerManager().SetTimer(
@@ -541,7 +546,12 @@ void UCombatComponent::MulticastReload_Implementation()
 			false
 		);
 
-		// TODO: Play reload montage here when ready
+		if (EquippedWeapon->WeaponAudioComp)
+		{
+			EquippedWeapon->WeaponAudioComp->PlayReload_ForMultiplayer(EquippedWeapon->IsPistolClass());
+		}
+
+		Character->PlayReloadMontage();
 	}
 }
 
@@ -972,3 +982,23 @@ void UCombatComponent::ServerToggleSuppressor_Implementation(bool bEquipping)
 	}
 }
 bool UCombatComponent::ServerToggleSuppressor_Validate(bool bEquipping) { return true; }
+
+bool UCombatComponent::IsReloadAnimationActive() const
+{
+	return bIsReloading || bLocalReloadPending;
+}
+
+EPlayerWeaponStance UCombatComponent::GetPlayerWeaponStance() const
+{
+	if (!EquippedWeapon)
+	{
+		return EPlayerWeaponStance::EPWS_Unarmed;
+	}
+
+	if (EquippedWeapon->IsPistolClass())
+	{
+		return EPlayerWeaponStance::EPWS_Pistol;
+	}
+
+	return EPlayerWeaponStance::EPWS_Rifle;
+}

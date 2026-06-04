@@ -54,6 +54,28 @@ public:
 	void PlayFireMontage(bool bAiming);
 	void PlayHitReactMontage();
 	
+	
+	void PlayReloadMontage();
+	void PlayInteractionMontage();
+	
+	bool IsReloadAnimationPlaying() const;
+	bool IsInteractionAnimationPlaying() const;
+	
+	void StartInteractionAnimation();
+	void StopInteractionAnimation();
+
+	UFUNCTION(Client, Reliable)
+	void ClientPlayInteractionMontage();
+	
+	void SetInteractionAnimationRequested(bool bRequested);
+	
+	
+	FName GetLeftHandIKSocketName() const { return LeftHandIKSocketName; }
+	FName GetRightHandIKBoneName() const { return RightHandIKBoneName; }
+	FVector GetLeftHandIKLocationOffset() const { return LeftHandIKLocationOffset; }
+	FRotator GetLeftHandIKRotationOffset() const { return LeftHandIKRotationOffset; }
+	
+	
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastHit();
 	
@@ -77,6 +99,7 @@ public:
 	FORCEINLINE ULoadoutComponent* GetLoadoutComponent()		const { return LoadoutComp; }
 	FORCEINLINE UEquippedStateComponent* GetEquippedState()		const { return EquippedStateComp; }
 	FORCEINLINE UHitZoneComponent* GetHitZoneComponent()		const { return HitZoneComponent; }
+	FORCEINLINE bool IsInteractionAnimationRequested()			const { return bInteractionAnimationRequested; }
 	
 	FORCEINLINE float GetHealth()								const { return Health; }
 	FORCEINLINE float GetMaxHealth()							const { return MaxHealth; }
@@ -84,8 +107,6 @@ public:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HitZone")
 	TObjectPtr<UHitZoneComponent> HitZoneComponent;
-
-	
 	
 	/* TPS Camera Settings */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera | TPS")
@@ -233,6 +254,9 @@ private:
 	UPROPERTY()
 	TObjectPtr<UInteractPromptWidget> InteractPromptWidgetInstance;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|Interaction", meta = (AllowPrivateAccess = "true"))
+	bool bInteractionAnimationRequested = false;
+	
 	/** Camera  **/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
@@ -269,6 +293,8 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* ReviveAction;
 	
+	
+	/* MONTAGES */
 	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
 	class UAnimMontage* FireWeaponMontage;
 	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
@@ -277,6 +303,8 @@ private:
 	UAnimMontage* ReloadMontage;
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	UAnimMontage* SuppressorMontage;
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* InteractionMontage;
 	
 	// Current health — replicated so HUD stays in sync on all clients
 	UPROPERTY(ReplicatedUsing = OnRep_Health, VisibleAnywhere, Category = "Player Stats")
@@ -350,6 +378,18 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerPrimaryInteract();
 
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation|IK", meta = (AllowPrivateAccess = "true"))
+	FName LeftHandIKSocketName = FName("LeftHandSocket");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation|IK", meta = (AllowPrivateAccess = "true"))
+	FName RightHandIKBoneName = FName("ik_hand_r");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation|IK", meta = (AllowPrivateAccess = "true"))
+	FVector LeftHandIKLocationOffset = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation|IK", meta = (AllowPrivateAccess = "true"))
+	FRotator LeftHandIKRotationOffset = FRotator::ZeroRotator;
 	
 
 };

@@ -45,6 +45,13 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	bIsAiming = ShooterGameCharacter->IsAiming();
 	TurningInPlace = ShooterGameCharacter->GetTurningInPlace();
 	
+	UCombatComponent* CombatComponent = ShooterGameCharacter->GetCombat();
+
+	bIsReloading = CombatComponent ? CombatComponent->IsReloadAnimationActive() : false;
+	bIsInteractionActive = ShooterGameCharacter->IsInteractionAnimationRequested();
+	WeaponStance = CombatComponent ? CombatComponent->GetPlayerWeaponStance() : EPlayerWeaponStance::EPWS_Unarmed;
+	bUseLeftHandIK = false;
+	
 	FRotator ActorFacing = ShooterGameCharacter->GetActorRotation();
 	FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(ShooterGameCharacter->GetVelocity());
 	YawOffset = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, ActorFacing).Yaw;
@@ -61,14 +68,41 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	
 	if (bWeaponEquipped && EquippedWeapon && EquippedWeapon->GetWeaponMesh() && ShooterGameCharacter->GetMesh())
 	{
-		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandSocket"), RTS_World);
-		FVector OutPosition;
-		FRotator OutRotation;
-		ShooterGameCharacter->GetMesh()->TransformToBoneSpace(FName("ik_hand_r"), LeftHandTransform.GetLocation(), FRotator::ZeroRotator, OutPosition, OutRotation);
-		LeftHandTransform.SetLocation(OutPosition);
-		LeftHandTransform.SetRotation(FQuat(OutRotation));
-		
-		FTransform RightHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("ik_hand_r"), RTS_World);
+		const FName LeftHandSocketName = ShooterGameCharacter->GetLeftHandIKSocketName();
+		const FName RightHandBoneName = ShooterGameCharacter->GetRightHandIKBoneName();
+
+		if (EquippedWeapon->GetWeaponMesh()->DoesSocketExist(LeftHandSocketName))
+		{
+			FTransform SocketTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(LeftHandSocketName, RTS_World);
+
+			SocketTransform.AddToTranslation(ShooterGameCharacter->GetLeftHandIKLocationOffset());
+			SocketTransform.ConcatenateRotation(ShooterGameCharacter->GetLeftHandIKRotationOffset().Quaternion());
+
+			FVector OutPosition;
+			FRotator OutRotation;
+			ShooterGameCharacter->GetMesh()->TransformToBoneSpace(
+				RightHandBoneName,
+				SocketTransform.GetLocation(),
+				SocketTransform.Rotator(),
+				OutPosition,
+				OutRotation
+			);
+
+			LeftHandTransform.SetLocation(OutPosition);
+			LeftHandTransform.SetRotation(FQuat(OutRotation));
+			LeftHandTransform.SetScale3D(FVector::OneVector);
+
+			bUseLeftHandIK = true;
+		}
+	}
+}
+
+
+void UPlayerAnimInstance::AnimNotify_InteractionFinished()
+{
+	if (ShooterGameCharacter)
+	{
+		ShooterGameCharacter->StopInteractionAnimation();
 	}
 }
 

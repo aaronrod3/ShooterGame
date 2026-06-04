@@ -737,10 +737,10 @@ void AShooterGameCharacter::ServerPrimaryInteract_Implementation()
 			return;
 		}
 
-		UE_LOG(LogTemp, Warning,
-			TEXT("[ServerPrimaryInteract] Executing Interact on %s"), *InteractTarget->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("[ServerPrimaryInteract] Executing Interact on %s"), *InteractTarget->GetName());
 
 		IInteractable::Execute_Interact(InteractTarget, this);
+		ClientPlayInteractionMontage();
 		return;
 	}
 
@@ -939,6 +939,73 @@ void AShooterGameCharacter::ToggleSuppressor_Input(const FInputActionValue& Valu
 	}
 }
 
+void AShooterGameCharacter::PlayReloadMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance || !ReloadMontage)
+	{
+		return;
+	}
+
+	if (!AnimInstance->Montage_IsPlaying(ReloadMontage))
+	{
+		AnimInstance->Montage_Play(ReloadMontage);
+	}
+}
+
+void AShooterGameCharacter::PlayInteractionMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance || !InteractionMontage)
+	{
+		return;
+	}
+
+	AnimInstance->Montage_Play(InteractionMontage);
+}
+
+void AShooterGameCharacter::StartInteractionAnimation()
+{
+	SetInteractionAnimationRequested(true);
+
+	if (IsLocallyControlled())
+	{
+		PlayInteractionMontage();
+	}
+}
+
+void AShooterGameCharacter::StopInteractionAnimation()
+{
+	SetInteractionAnimationRequested(false);
+}
+
+void AShooterGameCharacter::ClientPlayInteractionMontage_Implementation()
+{
+	StartInteractionAnimation();
+}
+
+void AShooterGameCharacter::SetInteractionAnimationRequested(bool bRequested)
+{
+	bInteractionAnimationRequested = bRequested;
+}
+
+
+bool AShooterGameCharacter::IsReloadAnimationPlaying() const
+{
+	const UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	return AnimInstance && ReloadMontage && AnimInstance->Montage_IsPlaying(ReloadMontage);
+}
+
+bool AShooterGameCharacter::IsInteractionAnimationPlaying() const
+{
+	const UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	return AnimInstance && InteractionMontage && AnimInstance->Montage_IsPlaying(InteractionMontage);
+}
+
+void AShooterGameCharacter::SetInteractionAnimationRequested(bool bRequested)
+{
+	bInteractionAnimationRequested = bRequested;
+}
 
 void AShooterGameCharacter::PlayFireMontage(bool bAiming)
 {

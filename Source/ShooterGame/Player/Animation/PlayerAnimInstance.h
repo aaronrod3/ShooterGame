@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
 #include "ShooterGame/Types/TurningInPlace.h"
+#include "ShooterGame/Types/PlayerWeaponStance.h"
 #include "PlayerAnimInstance.generated.h"
 
 /**
@@ -18,6 +19,9 @@ class SHOOTERGAME_API UPlayerAnimInstance : public UAnimInstance
 public:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaTime) override;
+	
+	UFUNCTION()
+	void AnimNotify_InteractionFinished();
 	
 	
 private:
@@ -56,8 +60,26 @@ private:
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
 	FTransform LeftHandTransform;
+	UPROPERTY(BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+	FTransform RightHandTransform;
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
 	ETurningInPlace TurningInPlace;
+	
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	bool bIsReloading = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	bool bIsInteractionActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	EPlayerWeaponStance WeaponStance = EPlayerWeaponStance::EPWS_Unarmed;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	bool bUseLeftHandIK = false;
+	
+	
+	
 	
 };

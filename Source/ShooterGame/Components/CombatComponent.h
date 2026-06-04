@@ -5,6 +5,7 @@
 #include "Components/ActorComponent.h"
 #include "ShooterGame/Types/FireMode.h"
 #include "ShooterGame/Items/Ammo/WeaponFeedTypes.h"
+#include "ShooterGame/Types/PlayerWeaponStance.h"
 #include "CombatComponent.generated.h"
 
 
@@ -61,9 +62,13 @@ public:
 	 */
 	void SetAimAccuracyBonus(float InMultiplier);
 
-	FORCEINLINE const FReticleState& GetReticleState()			const { return ReticleState; }
-	FORCEINLINE FVector              GetReticleWorldPosition()	const { return ReticleWorldPosition; }
-	FORCEINLINE float				 GetBaseWalkSpeed()			const { return BaseWalkSpeed; }
+	FORCEINLINE const FReticleState&	GetReticleState()			const { return ReticleState; }
+	FORCEINLINE FVector					GetReticleWorldPosition()	const { return ReticleWorldPosition; }
+	FORCEINLINE float					GetBaseWalkSpeed()			const { return BaseWalkSpeed; }
+	FORCEINLINE bool					IsReloading()				const { return bIsReloading; }
+	FORCEINLINE bool					IsReloadPendingLocal()		const { return bLocalReloadPending; }
+	bool								IsReloadAnimationActive()	const;
+	EPlayerWeaponStance					GetPlayerWeaponStance()		const;
 
 protected:
 	virtual void BeginPlay() override;
