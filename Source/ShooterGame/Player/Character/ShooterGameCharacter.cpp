@@ -4,6 +4,7 @@
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
 #include "Perception/AISense_Hearing.h"
 #include "ShooterGame/Player/Animation/PlayerAnimInstance.h"
+#include "ShooterGame/Types/PlayerWeaponStance.h"
 #include "ShooterGame/Items/Ammo/AmmoPickup.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
@@ -706,8 +707,8 @@ AWeapon* AShooterGameCharacter::GetEquippedWeapon()
 
 void AShooterGameCharacter::PrimaryInteractButtonPressed()
 {
-	// Guard: downed players cannot interact
 	if (DownedComp && !DownedComp->IsAlive()) return;
+	if (bInteractionAnimationRequested) return;
 
 	ServerPrimaryInteract();
 }
@@ -763,6 +764,12 @@ void AShooterGameCharacter::ServerPrimaryInteract_Implementation()
 		UE_LOG(LogTemp, Warning, TEXT("[ServerPrimaryInteract] Collecting overlapping ammo"));
 		ServerCollectAmmo();
 	}
+}
+
+
+void AShooterGameCharacter::AnimNotify_InteractionFinished()
+{
+	StopInteractionAnimation();
 }
 
 
@@ -955,17 +962,51 @@ void AShooterGameCharacter::PlayReloadMontage()
 
 void AShooterGameCharacter::PlayInteractionMontage()
 {
-	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	if (!AnimInstance || !InteractionMontage)
+	UAnimMontage* MontageToPlay = GetInteractionMontageForCurrentStance();
+	if (!MontageToPlay)
 	{
 		return;
 	}
 
-	AnimInstance->Montage_Play(InteractionMontage);
+	if (UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		AnimInstance->Montage_Play(MontageToPlay);
+	}
 }
+
+UAnimMontage* AShooterGameCharacter::GetInteractionMontageForCurrentStance() const
+{
+	if (!Combat)
+	{
+		return InteractionMontage_Unarmed;
+	}
+
+	switch (Combat->GetPlayerWeaponStance())
+	{
+	case EPlayerWeaponStance::EPWS_Unarmed:
+		return InteractionMontage_Unarmed;
+
+	case EPlayerWeaponStance::EPWS_Pistol:
+		return InteractionMontage_Pistol ? InteractionMontage_Pistol : InteractionMontage_Unarmed;
+
+	case EPlayerWeaponStance::EPWS_Rifle:
+	case EPlayerWeaponStance::EPWS_Shotgun:
+	case EPlayerWeaponStance::EPWS_Other:
+		return InteractionMontage_Rifle ? InteractionMontage_Rifle : InteractionMontage_Unarmed;
+
+	default:
+		return InteractionMontage_Unarmed;
+	}
+}
+
 
 void AShooterGameCharacter::StartInteractionAnimation()
 {
+	if (bInteractionAnimationRequested)
+	{
+		return;
+	}
+
 	SetInteractionAnimationRequested(true);
 
 	if (IsLocallyControlled())
@@ -981,7 +1022,7 @@ void AShooterGameCharacter::StopInteractionAnimation()
 
 void AShooterGameCharacter::ClientPlayInteractionMontage_Implementation()
 {
-	StartInteractionAnimation();
+	PlayInteractionMontage();
 }
 
 void AShooterGameCharacter::SetInteractionAnimationRequested(bool bRequested)
@@ -999,12 +1040,9 @@ bool AShooterGameCharacter::IsReloadAnimationPlaying() const
 bool AShooterGameCharacter::IsInteractionAnimationPlaying() const
 {
 	const UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	return AnimInstance && InteractionMontage && AnimInstance->Montage_IsPlaying(InteractionMontage);
-}
+	UAnimMontage* MontageToCheck = GetInteractionMontageForCurrentStance();
 
-void AShooterGameCharacter::SetInteractionAnimationRequested(bool bRequested)
-{
-	bInteractionAnimationRequested = bRequested;
+	return AnimInstance && MontageToCheck && AnimInstance->Montage_IsPlaying(MontageToCheck);
 }
 
 void AShooterGameCharacter::PlayFireMontage(bool bAiming)

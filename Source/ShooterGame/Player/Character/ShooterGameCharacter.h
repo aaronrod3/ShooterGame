@@ -224,6 +224,8 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void PossessedBy(AController* NewController) override;
 	
+	UAnimMontage* GetInteractionMontageForCurrentStance() const;
+	
 	
 private:
 	/*** COMPONENTS ***/
@@ -256,6 +258,11 @@ private:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|Interaction", meta = (AllowPrivateAccess = "true"))
 	bool bInteractionAnimationRequested = false;
+	
+	UFUNCTION()
+	void AnimNotify_InteractionFinished();
+	
+	
 	
 	/** Camera  **/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
@@ -295,16 +302,20 @@ private:
 	
 	
 	/* MONTAGES */
-	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
+	UPROPERTY(EditAnywhere, Category = "Animation|Montages")
 	class UAnimMontage* FireWeaponMontage;
-	UPROPERTY(EditAnywhere, Category = "Animation | Combat")
+	UPROPERTY(EditAnywhere, Category = "Animation|Montages")
 	class UAnimMontage* HitReactMontage;
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
 	UAnimMontage* ReloadMontage;
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
 	UAnimMontage* SuppressorMontage;
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
-	UAnimMontage* InteractionMontage;
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
+	UAnimMontage* InteractionMontage_Unarmed = nullptr;
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
+	UAnimMontage* InteractionMontage_Pistol = nullptr;
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
+	UAnimMontage* InteractionMontage_Rifle = nullptr;
 	
 	// Current health — replicated so HUD stays in sync on all clients
 	UPROPERTY(ReplicatedUsing = OnRep_Health, VisibleAnywhere, Category = "Player Stats")
