@@ -10,6 +10,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
+#include "ShooterGame/Items/Weapon/WeaponConfig.h"
 #include "ShooterGame/Inventory/InventoryComponent.h"
 #include "ShooterGame/Components/DownedComponent.h"
 #include "ShooterGame/Components/HitZoneComponent.h"
@@ -32,6 +33,7 @@ void UCombatComponent::BeginPlay()
 	{
 		Character->GetCharacterMovement()->MaxWalkSpeed = BaseWalkSpeed;
 	}
+	
 }
 
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -39,6 +41,7 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
 	DOREPLIFETIME(UCombatComponent, bAiming);
+	DOREPLIFETIME(UCombatComponent, CurrentCombatAction);
 }
 
 void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -60,16 +63,26 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
+	UE_LOG(LogTemp, Warning, TEXT("[Combat] EquipWeapon ENTERED — Weapon: %d, Character: %d"),
+		WeaponToEquip != nullptr, Character != nullptr);
+	
 	if (!Character || !WeaponToEquip) return;
 
 	EquippedWeapon = WeaponToEquip;
 	EquippedWeapon->SetOwner(Character);
 	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 
+	const FName AttachSocket = (EquippedWeapon->GetWeaponConfig() && EquippedWeapon->GetWeaponConfig()->SocketGunAttachment != NAME_None)
+	? EquippedWeapon->GetWeaponConfig()->SocketGunAttachment
+	: FName("RightHandSocket"); // fallback for weapons without a config
+	
+	UE_LOG(LogTemp, Warning, TEXT("[Combat] EquipWeapon — socket exists: %d"),
+		Character->GetMesh()->GetSocketByName(FName("RightHandSocket")) != nullptr);
+
 	EquippedWeapon->GetWeaponMesh()->AttachToComponent(
 		Character->GetMesh(),
 		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-		FName("RightHandSocket")
+		AttachSocket
 	);
 
 	// TPS orientation is managed by SetOrientationForAiming on the character.
@@ -100,10 +113,14 @@ void UCombatComponent::OnRep_EquippedWeapon()
 {
 	if (EquippedWeapon && Character)
 	{
+		const FName AttachSocket = (EquippedWeapon->GetWeaponConfig() && EquippedWeapon->GetWeaponConfig()->SocketGunAttachment != NAME_None)
+		? EquippedWeapon->GetWeaponConfig()->SocketGunAttachment
+		: FName("RightHandSocket");
+
 		EquippedWeapon->GetWeaponMesh()->AttachToComponent(
 			Character->GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			FName("RightHandSocket")
+			AttachSocket
 		);
 
 		// Bind the HUD on the owning client — EquipWeapon() doesn't run here,
@@ -126,6 +143,67 @@ void UCombatComponent::OnRep_EquippedWeapon()
 			}
 		}
 	}
+}
+
+
+void UCombatComponent::SpawnDefaultWeapon()
+{
+    // Server-only guard — clients receive the weapon via OnRep_EquippedWeapon
+    if (!Character || !Character->HasAuthority()) return;
+
+    // Skip if a weapon is already equipped (respawn safety)
+    if (EquippedWeapon) return;
+
+    if (!DefaultWeaponClass)
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("UCombatComponent::SpawnDefaultWeapon — DefaultWeaponClass is null on %s. "
+                 "Assign it in the character Blueprint defaults under Combat|Starter Weapon."),
+            *GetNameSafe(Character));
+        return;
+    }
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner      = Character;
+    SpawnParams.Instigator = Character;
+    // Spawn deferred so we can call InitFromConfig before BeginPlay fires
+    SpawnParams.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    AWeapon* NewWeapon = GetWorld()->SpawnActorDeferred<AWeapon>(
+        DefaultWeaponClass,
+        FTransform::Identity,
+        Character,
+        Character,
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn
+    );
+
+    if (!NewWeapon)
+    {
+        UE_LOG(LogTemp, Error,
+            TEXT("UCombatComponent::SpawnDefaultWeapon — SpawnActorDeferred failed for class %s"),
+            *DefaultWeaponClass->GetName());
+        return;
+    }
+
+    // Initialize from config before BeginPlay so mesh and AnimBP are set
+    // when the weapon's own BeginPlay runs
+    if (DefaultWeaponConfig)
+    {
+        NewWeapon->InitFromConfig(DefaultWeaponConfig);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("UCombatComponent::SpawnDefaultWeapon — DefaultWeaponConfig is null. "
+                 "Weapon will spawn with no mesh. Assign it in BP defaults."));
+    }
+
+    UGameplayStatics::FinishSpawningActor(NewWeapon, FTransform::Identity);
+
+    // Route through the existing EquipWeapon path so all state, HUD
+    // binding, and replication are handled identically to a pickup equip
+    EquipWeapon(NewWeapon);
 }
 
 // -----------------------------------------------------------------------
@@ -432,13 +510,13 @@ void UCombatComponent::CycleFireMode()
 
 bool UCombatComponent::CanReload() const
 {
-	if (!EquippedWeapon)                                              { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: No weapon"));           return false; }
-	if (EquippedWeapon->GetFeedType() == EWeaponFeedType::EFT_SingleShot) { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: SingleShot"));            return false; }
-	if (bIsReloading)                                                 { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: bIsReloading true"));   return false; }
-	if (!Character)                                                   { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: No character"));        return false; }
+	if (!EquippedWeapon) { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: No weapon")); return false; }
+	if (EquippedWeapon->GetFeedType() == EWeaponFeedType::EFT_SingleShot) { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: SingleShot")); return false; }
+	if (CurrentCombatAction == ECombatAction::Reloading) return false;
+	if (!Character){ UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: No character")); return false; }
 
 	UInventoryComponent* Inventory = Character->GetInventory();
-	if (!Inventory)                                                   { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: No inventory"));        return false; }
+	if (!Inventory) { UE_LOG(LogTemp, Warning, TEXT("CanReload — FALSE: No inventory")); return false; }
 
 	const bool bHasMag = Inventory->HasMagazineFor(EquippedWeapon->GetSupportedAmmoType());
 	UE_LOG(LogTemp, Warning,
@@ -452,16 +530,30 @@ bool UCombatComponent::CanReload() const
 
 void UCombatComponent::ReloadEquippedWeapon()
 {
+	UE_LOG(LogTemp, Warning, TEXT("[Reload] Called — EquippedWeapon: %s"),
+		EquippedWeapon ? *EquippedWeapon->GetName() : TEXT("NULL"));
+	UE_LOG(LogTemp, Warning, TEXT("[Reload] CurrentAction: %d, bAiming: %d"),
+	(int32)CurrentCombatAction, (int32)bAiming);
+	UE_LOG(LogTemp, Warning, TEXT("[Reload] MagRounds: %d"),
+		EquippedWeapon ? EquippedWeapon->GetMagRounds() : -1);
+	
+	
 	if (!EquippedWeapon || !Character) return;
 	if (bLocalReloadPending) return;  // ← client-local gate only, never touches bIsReloading
 	if (EquippedWeapon->GetFeedType() == EWeaponFeedType::EFT_SingleShot) return;
 	
-	if (Character->HasAuthority() && bIsReloading) return;
+	if (Character->HasAuthority() && CurrentCombatAction == ECombatAction::Reloading) return;
 
 	// Quick local inventory pre-check for responsiveness — server re-validates authoritatively
 	UInventoryComponent* Inventory = Character->GetInventory();
 	if (!Inventory || !Inventory->HasMagazineFor(EquippedWeapon->GetSupportedAmmoType())) return;
 
+	UE_LOG(LogTemp, Warning, TEXT("[Reload] bLocalReloadPending: %d, HasMag: %d, AmmoType: %d"),
+	(int32)bLocalReloadPending,
+	Character->GetInventory() ? (int32)Character->GetInventory()->HasMagazineFor(EquippedWeapon->GetSupportedAmmoType()) : -1,
+	(int32)EquippedWeapon->GetSupportedAmmoType());
+	
+	
 	bLocalReloadPending = true;
 
 	// Play audio locally for immediate feedback
@@ -492,41 +584,30 @@ void UCombatComponent::ReloadEquippedWeapon()
 
 void UCombatComponent::ServerReload_Implementation()
 {
-	UE_LOG(LogTemp, Warning, TEXT("ServerReload_Implementation — ENTERED"));
-
 	if (!EquippedWeapon || !Character) return;
 
-	// Server-authoritative validation — bIsReloading is only ever set here
-	if (!CanReload())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ServerReload_Implementation — ABORTED: CanReload false"));
-		return;
-	}
+	if (!CanReload()) return;
 
-	// Set bIsReloading on the server — this is the only place it is written
-	bIsReloading = true;
+	// Determine reload variant before setting state
+	const bool bMagEmpty = (EquippedWeapon->GetMagRounds() == 0);
+	CurrentReloadType = bMagEmpty ? EReloadType::Empty : EReloadType::Normal;
+
+	// Set authoritative action state
+	CurrentCombatAction = ECombatAction::Reloading;
+	bIsBusy = true;
 
 	if (EquippedWeapon->WeaponAudioComp)
 	{
-		EquippedWeapon->WeaponAudioComp->PlayReload_ForMultiplayer(
-			EquippedWeapon->IsPistolClass()
-		);
+		EquippedWeapon->WeaponAudioComp->PlayReload_ForMultiplayer(EquippedWeapon->IsPistolClass());
 	}
-	
+
 	MulticastReload();
 
-	// Server timer calls the authoritative mag swap after ReloadDuration
 	GetWorld()->GetTimerManager().SetTimer(
-		ServerReloadTimerHandle,
-		this,
+		ServerReloadTimerHandle, this,
 		&UCombatComponent::FinishReload_Server,
-		ReloadDuration,
-		false
+		ReloadDuration, false
 	);
-
-	UE_LOG(LogTemp, Warning,
-		TEXT("ServerReload_Implementation — SUCCESS: bIsReloading=true, timer set for %.2fs"),
-		ReloadDuration);
 }
 
 
@@ -557,11 +638,7 @@ void UCombatComponent::MulticastReload_Implementation()
 
 void UCombatComponent::FinishReload()
 {
-	// Client cosmetic only — clears the local pending flag for UI/input gating
-	// Never touches bIsReloading — that belongs to the server exclusively
 	bLocalReloadPending = false;
-
-	UE_LOG(LogTemp, Warning, TEXT("FinishReload — Client cosmetic: cleared bLocalReloadPending"));
 }
 
 void UCombatComponent::MulticastFinishReload_Implementation()
@@ -573,12 +650,13 @@ void UCombatComponent::MulticastFinishReload_Implementation()
 
 void UCombatComponent::FinishReload_Server()
 {
-	// Server-only — performs the authoritative mag swap after ReloadDuration
 	UE_LOG(LogTemp, Warning, TEXT("FinishReload_Server — Executing mag swap"));
 
 	if (!EquippedWeapon || !Character)
 	{
-		bIsReloading = false;
+		CurrentCombatAction = ECombatAction::None;
+		CurrentReloadType   = EReloadType::None;
+		bIsBusy             = false;
 		MulticastFinishReload();
 		return;
 	}
@@ -586,7 +664,9 @@ void UCombatComponent::FinishReload_Server()
 	UInventoryComponent* Inventory = Character->GetInventory();
 	if (!Inventory)
 	{
-		bIsReloading = false;
+		CurrentCombatAction = ECombatAction::None;
+		CurrentReloadType   = EReloadType::None;
+		bIsBusy             = false;
 		MulticastFinishReload();
 		return;
 	}
@@ -605,8 +685,10 @@ void UCombatComponent::FinishReload_Server()
 		UE_LOG(LogTemp, Warning,
 			TEXT("FinishReload_Server — FAILED: No magazine found. Slots: %d"),
 			Inventory->GetUsedMagazineSlots());
-		bIsReloading = false;
-		MulticastFinishReload(); // ← unblock all clients even on failure
+		CurrentCombatAction = ECombatAction::None;
+		CurrentReloadType   = EReloadType::None;
+		bIsBusy             = false;
+		MulticastFinishReload();
 		return;
 	}
 
@@ -618,11 +700,14 @@ void UCombatComponent::FinishReload_Server()
 	EquippedWeapon->ChamberRound();
 	EquippedWeapon->ForceNetUpdate();
 
-	EquippedWeapon->OnAmmoChanged.Broadcast(EquippedWeapon->GetLoadedRounds(), EquippedWeapon->GetMagCapacity());
-	
-	// Server-side bIsReloading cleared here — allows next reload cycle
-	bIsReloading = false;
-	
+	EquippedWeapon->OnAmmoChanged.Broadcast(
+		EquippedWeapon->GetLoadedRounds(),
+		EquippedWeapon->GetMagCapacity()
+	);
+
+	CurrentCombatAction = ECombatAction::None;
+	CurrentReloadType   = EReloadType::None;
+	bIsBusy             = false;
 	MulticastFinishReload();
 
 	UE_LOG(LogTemp, Warning,
@@ -985,7 +1070,7 @@ bool UCombatComponent::ServerToggleSuppressor_Validate(bool bEquipping) { return
 
 bool UCombatComponent::IsReloadAnimationActive() const
 {
-	return bIsReloading || bLocalReloadPending;
+	return CurrentCombatAction == ECombatAction::Reloading || bLocalReloadPending;
 }
 
 EPlayerWeaponStance UCombatComponent::GetPlayerWeaponStance() const
@@ -1001,4 +1086,81 @@ EPlayerWeaponStance UCombatComponent::GetPlayerWeaponStance() const
 	}
 
 	return EPlayerWeaponStance::EPWS_Rifle;
+}
+
+void UCombatComponent::SetCombatAction(ECombatAction NewAction)
+{
+	CurrentCombatAction = NewAction;
+	bIsBusy = (NewAction != ECombatAction::None);
+}
+
+void UCombatComponent::OnRep_CombatAction()
+{
+	// Anim instance on simulated proxies polls GetCombatAction() directly.
+	// No additional work needed here yet — Milestone 5 will consume this.
+}
+
+
+void UCombatComponent::OnLoadoutUpdated(const FLoadoutData& NewLoadout)
+{
+	UE_LOG(LogTemp, Warning, TEXT("[Combat] OnLoadoutUpdated fired — %d slots, HasAuthority: %d"),
+		NewLoadout.Slots.Num(), Character ? (int32)Character->HasAuthority() : -1);
+
+	if (!Character || !Character->HasAuthority()) return;
+
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->Destroy();
+		EquippedWeapon = nullptr;
+	}
+
+	for (const FLoadoutSlot& Slot : NewLoadout.Slots)
+	{
+		if (!Slot.IsOccupied()) continue;
+		UE_LOG(LogTemp, Warning, TEXT("[Combat] Found occupied slot, spawning weapon"));
+		SpawnAndEquipWeaponFromSlot(Slot);
+		break;
+	}
+}
+
+void UCombatComponent::SpawnAndEquipWeaponFromSlot(const FLoadoutSlot& Slot)
+{
+	UClass* ResolvedClass = Slot.ItemClass.LoadSynchronous();
+	if (!ResolvedClass || !Character) return;
+
+	AWeapon* SpawnedWeapon = GetWorld()->SpawnActorDeferred<AWeapon>(
+		ResolvedClass,
+		FTransform::Identity,
+		Character,
+		Character,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn
+	);
+
+	if (!SpawnedWeapon) return;
+
+	// Get config from the weapon's CDO
+	if (UWeaponConfig* CDOConfig = Cast<AWeapon>(ResolvedClass->GetDefaultObject())->GetWeaponConfig())
+	{
+		SpawnedWeapon->InitFromConfig(CDOConfig);
+	}
+
+	UGameplayStatics::FinishSpawningActor(SpawnedWeapon, FTransform::Identity);
+
+	EquipWeapon(SpawnedWeapon);
+
+	UInventoryComponent* Inventory = Character->GetInventory();
+	if (Inventory)
+	{
+		const EAmmoType AmmoType = SpawnedWeapon->GetSupportedAmmoType();
+		FMagazine* BestMag = Inventory->GetBestMagazine(AmmoType);
+		if (BestMag)
+		{
+			SpawnedWeapon->InsertMagazine(*BestMag);
+			Inventory->RemoveMagazine(*BestMag);
+			SpawnedWeapon->ChamberRound();
+			SpawnedWeapon->OnAmmoChanged.Broadcast(
+				SpawnedWeapon->GetLoadedRounds(),
+				SpawnedWeapon->GetMagCapacity());
+		}
+	}
 }

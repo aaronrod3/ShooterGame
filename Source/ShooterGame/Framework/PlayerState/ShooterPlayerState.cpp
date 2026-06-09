@@ -84,6 +84,10 @@ void AShooterPlayerState::PushLoadoutToCharacter(ACharacter* NewCharacter)
 {
     // Only the server should push authoritative loadout data
     if (!HasAuthority()) return;
+    
+    UE_LOG(LogTemp, Warning, TEXT("[PlayerState] PushLoadoutToCharacter — SavedLoadout slots: %d, Slot0 Occupied: %d"),
+        SavedLoadout.Slots.Num(),
+        SavedLoadout.Slots.Num() > 0 ? (int32)SavedLoadout.Slots[0].IsOccupied() : -1);
 
     if (!NewCharacter)
     {

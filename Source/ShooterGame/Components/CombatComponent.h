@@ -5,7 +5,10 @@
 #include "Components/ActorComponent.h"
 #include "ShooterGame/Types/FireMode.h"
 #include "ShooterGame/Items/Ammo/WeaponFeedTypes.h"
+#include "ShooterGame/Items/Weapon/WeaponConfig.h"
 #include "ShooterGame/Types/PlayerWeaponStance.h"
+#include "ShooterGame/Types/CombatTypes.h"
+#include "ShooterGame/Components/LoadoutComponent.h"
 #include "CombatComponent.generated.h"
 
 
@@ -48,6 +51,9 @@ public:
 	// Returns true if a reload is currently possible
 	bool CanReload() const;
 	
+	/** Called by the character to push action state. Used for interactions and future actions. */
+	void SetCombatAction(ECombatAction NewAction);
+	
 	void EquipSuppressor();
 	void RemoveSuppressor();
 	bool CurrentWeaponHasSuppressor() const;
@@ -65,10 +71,40 @@ public:
 	FORCEINLINE const FReticleState&	GetReticleState()			const { return ReticleState; }
 	FORCEINLINE FVector					GetReticleWorldPosition()	const { return ReticleWorldPosition; }
 	FORCEINLINE float					GetBaseWalkSpeed()			const { return BaseWalkSpeed; }
-	FORCEINLINE bool					IsReloading()				const { return bIsReloading; }
 	FORCEINLINE bool					IsReloadPendingLocal()		const { return bLocalReloadPending; }
+	FORCEINLINE ECombatAction			GetCombatAction()			const { return CurrentCombatAction; }
+	FORCEINLINE EReloadType				GetReloadType()				const { return CurrentReloadType; }
+	FORCEINLINE EWeaponGrip				GetCurrentGrip()			const { return CurrentGrip; }
+	FORCEINLINE bool					IsBusy()					const { return bIsBusy; }
+	FORCEINLINE bool					IsAimingBlocked()			const { return bIsAimingBlocked; }
 	bool								IsReloadAnimationActive()	const;
 	EPlayerWeaponStance					GetPlayerWeaponStance()		const;
+	
+	
+	
+	/** Current left-hand grip. Drives grip-blend in the anim instance. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|State")
+	EWeaponGrip CurrentGrip = EWeaponGrip::Default;
+
+	/**
+	 * True when any action is running that should block new inputs
+	 * (reloading, interacting, inspecting, healing, etc.).
+	 * Fire and ADS are gated by this — never set it for Firing itself.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|State")
+	bool bIsBusy = false;
+
+	/**
+	 * True during an ADS window that the current montage has blocked
+	 * (e.g., reload start, equip). Prevents entering ADS mid-animation.
+	 * Set/cleared by notify state in Milestone 7.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|State")
+	bool bIsAimingBlocked = false;
+	
+	UFUNCTION()
+	void OnLoadoutUpdated(const FLoadoutData& NewLoadout);
+
 
 protected:
 	virtual void BeginPlay() override;
@@ -132,6 +168,44 @@ private:
 
 	bool bFireButtonPressed;
 	FVector HitTarget;
+	
+	
+	/** Weapon actor class to spawn at startup. Assign in character BP defaults. */
+	UPROPERTY(EditDefaultsOnly, Category = "Combat|Starter Weapon")
+	TSubclassOf<AWeapon> DefaultWeaponClass;
+
+	/** Config asset to initialize the starter weapon from. Assign in character BP defaults. */
+	UPROPERTY(EditDefaultsOnly, Category = "Combat|Starter Weapon")
+	TObjectPtr<UWeaponConfig> DefaultWeaponConfig;
+
+	/** Server-only. Spawns, initializes, and equips the starter weapon. */
+	void SpawnDefaultWeapon();
+	
+	void SpawnAndEquipWeaponFromSlot(const FLoadoutSlot& Slot);
+	
+	// -----------------------------------------------------------------------
+	// Combat Action State (Milestone 4)
+	// -----------------------------------------------------------------------
+
+	/** The action the character is currently performing. Server-authoritative. */
+	UPROPERTY(ReplicatedUsing = OnRep_CombatAction, VisibleAnywhere, Category = "Combat|State")
+	ECombatAction CurrentCombatAction = ECombatAction::None;
+
+	UFUNCTION()
+	void OnRep_CombatAction();
+
+	/** Which reload variant is active. Set alongside CurrentCombatAction = Reloading. */
+	UPROPERTY(VisibleAnywhere, Category = "Combat|State")
+	EReloadType CurrentReloadType = EReloadType::None;
+
+	
+
+	// Internal fire state — these stay local, not replicated
+	bool bFullAutoFiring    = false;
+	bool bBurstInProgress   = false;
+
+	// Client-local cosmetic gate — cleared by FinishReload, never touches server state
+	bool bLocalReloadPending = false;
 
 	// -----------------------------------------------------------------------
 	// Fire Cycle State
@@ -139,18 +213,16 @@ private:
 	FTimerHandle BurstFireTimerHandle;
 	float LastFireTime    = -1.f;
 	int32 BurstShotsRemaining = 0;
-	bool bFullAutoFiring  = false;
 	bool bFiredThisPress  = false;
-	bool bBurstInProgress = false;
 
 	// -----------------------------------------------------------------------
 	// Reload State
 	// -----------------------------------------------------------------------
-	bool bIsReloading = false;
+	
 	FTimerHandle ReloadTimerHandle;
 	FTimerHandle ServerReloadTimerHandle;
 	void FinishReload_Server();
-	bool bLocalReloadPending = false;
+	
 
 	// Duration of the reload — should match your reload montage length.
 	// Set this in BP defaults or tune here.

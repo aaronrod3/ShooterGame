@@ -4,12 +4,14 @@
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Components/TextBlock.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Net/UnrealNetwork.h"
 #include "Animation/AnimationAsset.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Items/Weapon/CaseEject.h"
+#include "ShooterGame/Items/Weapon/WeaponConfig.h"
 
 AWeapon::AWeapon()
 {
@@ -68,6 +70,79 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AWeapon, ReplicatedMagState);
 	DOREPLIFETIME(AWeapon, bHasSuppressor);
 }
+
+
+void AWeapon::InitFromConfig(UWeaponConfig* InConfig)
+{
+	if (!InConfig)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("AWeapon::InitFromConfig — null config passed to %s"), *GetName());
+		return;
+	}
+
+	WeaponConfig = InConfig;
+
+	// -----------------------------------------------------------------------
+	// Receiver mesh + AnimBP
+	// -----------------------------------------------------------------------
+	if (InConfig->MeshReceiver && WeaponMesh)
+	{
+		WeaponMesh->SetSkeletalMesh(InConfig->MeshReceiver);
+	}
+
+	if (InConfig->ABPWeapon && WeaponMesh)
+	{
+		WeaponMesh->SetAnimInstanceClass(InConfig->ABPWeapon);
+	}
+
+	// -----------------------------------------------------------------------
+	// Optional static mesh attachments
+	// Each part only attaches if both the mesh and socket are configured.
+	// -----------------------------------------------------------------------
+	MeshComp_Handguard  = AttachStaticMeshFromConfig(InConfig->MeshHandguard,  InConfig->SocketHandguard);
+	MeshComp_Scope      = AttachStaticMeshFromConfig(InConfig->MeshScope,      InConfig->SocketScope);
+	MeshComp_SightFront = AttachStaticMeshFromConfig(InConfig->MeshSightFront, InConfig->SocketSightFront);
+	MeshComp_SightRear  = AttachStaticMeshFromConfig(InConfig->MeshSightRear,  InConfig->SocketSightRear);
+	MeshComp_Silencer   = AttachStaticMeshFromConfig(InConfig->MeshSilencer,   InConfig->SocketMuzzle);
+
+	UE_LOG(LogTemp, Log,
+		TEXT("AWeapon::InitFromConfig — '%s' assembled from config '%s'"),
+		*GetName(), *InConfig->GetName());
+}
+
+
+UStaticMeshComponent* AWeapon::AttachStaticMeshFromConfig(UStaticMesh* Mesh, FName Socket)
+{
+	if (!Mesh || Socket == NAME_None)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Weapon] AttachStaticMesh — SKIP: Mesh=%d, Socket=%s"),
+			Mesh != nullptr, *Socket.ToString());
+		return nullptr;
+	}
+
+	if (WeaponMesh && !WeaponMesh->DoesSocketExist(Socket))
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Weapon] AttachStaticMesh — socket '%s' not found on %s. Skipping."),
+			*Socket.ToString(), *GetName());
+		return nullptr;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[Weapon] AttachStaticMesh — attaching mesh to socket '%s'"),
+		*Socket.ToString());
+
+	UStaticMeshComponent* NewComp = NewObject<UStaticMeshComponent>(this);
+	NewComp->SetStaticMesh(Mesh);
+	NewComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	NewComp->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	NewComp->SetupAttachment(WeaponMesh, Socket);
+	NewComp->RegisterComponent();
+
+	return NewComp;
+}
+
+
 
 // -----------------------------------------------------------------------
 // Overlap / Pickup Widget

@@ -5,6 +5,7 @@
 #include "Perception/AISense_Hearing.h"
 #include "ShooterGame/Player/Animation/PlayerAnimInstance.h"
 #include "ShooterGame/Types/PlayerWeaponStance.h"
+#include "ShooterGame/Types/CombatTypes.h"
 #include "ShooterGame/Items/Ammo/AmmoPickup.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
@@ -165,6 +166,8 @@ void AShooterGameCharacter::BeginPlay()
 			InteractPromptWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
+	
+	
 }
 
 void AShooterGameCharacter::Tick(float DeltaTime)
@@ -314,27 +317,14 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 void AShooterGameCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	
+
 	if (Combat)
-	{
 		Combat->Character = this;
-	}
-	
-	// -----------------------------------------------------------------------
-	// Loadout delegate binding
-	// Bind here — after all subobjects are initialized but before BeginPlay.
-	// CombatComponent will subscribe to OnLoadoutChanged in Step 6 to handle
-	// unequipped weapon socket attachment when the loadout changes.
-	// AppearanceChanged will drive mesh/material swaps in a future step.
-	//
-	// Both components are guaranteed non-null here since CreateDefaultSubobject
-	// always succeeds or crashes — no null check needed.
-	// -----------------------------------------------------------------------
+
 	if (LoadoutComp)
 	{
-		// Step 6 will replace this log with the real CombatComponent binding:
-		// LoadoutComp->OnLoadoutChanged.AddDynamic(Combat, &UCombatComponent::OnLoadoutUpdated);
-		LoadoutComp->OnLoadoutChanged.AddDynamic(this, &AShooterGameCharacter::OnLoadoutChanged_Internal);
+		LoadoutComp->OnLoadoutChanged.AddDynamic(this, &AShooterGameCharacter::OnLoadoutChanged_Internal); // inventory first
+		LoadoutComp->OnLoadoutChanged.AddDynamic(Combat, &UCombatComponent::OnLoadoutUpdated);             // weapon second
 		LoadoutComp->OnAppearanceChanged.AddDynamic(this, &AShooterGameCharacter::OnAppearanceChanged_Internal);
 	}
 }
@@ -949,14 +939,22 @@ void AShooterGameCharacter::ToggleSuppressor_Input(const FInputActionValue& Valu
 void AShooterGameCharacter::PlayReloadMontage()
 {
 	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	if (!AnimInstance || !ReloadMontage)
+	if (!AnimInstance || !Combat) return;
+
+	UAnimMontage* MontageToPlay = nullptr;
+	switch (Combat->GetReloadType())
 	{
-		return;
+	case EReloadType::Empty:  MontageToPlay = Montage_Reload_Empty; break;
+	case EReloadType::Quick:  MontageToPlay = Montage_Reload_Quick; break;
+	default:                  MontageToPlay = Montage_Reload;       break;
 	}
 
-	if (!AnimInstance->Montage_IsPlaying(ReloadMontage))
+	UE_LOG(LogTemp, Warning, TEXT("[Reload] PlayReloadMontage — AnimInst: %d, MontageToPlay: %d, ReloadType: %d"),
+		AnimInstance != nullptr, MontageToPlay != nullptr, (int32)Combat->GetReloadType());
+
+	if (MontageToPlay && !AnimInstance->Montage_IsPlaying(MontageToPlay))
 	{
-		AnimInstance->Montage_Play(ReloadMontage);
+		AnimInstance->Montage_Play(MontageToPlay);
 	}
 }
 
@@ -1002,22 +1000,27 @@ UAnimMontage* AShooterGameCharacter::GetInteractionMontageForCurrentStance() con
 
 void AShooterGameCharacter::StartInteractionAnimation()
 {
-	if (bInteractionAnimationRequested)
-	{
-		return;
-	}
-
+	if (bInteractionAnimationRequested) return;
 	SetInteractionAnimationRequested(true);
 
-	if (IsLocallyControlled())
+	// Notify combat state
+	if (Combat)
 	{
-		PlayInteractionMontage();
+		Combat->SetCombatAction(ECombatAction::Interacting);
 	}
+
+	if (IsLocallyControlled()) PlayInteractionMontage();
 }
 
 void AShooterGameCharacter::StopInteractionAnimation()
 {
 	SetInteractionAnimationRequested(false);
+
+	// Clear combat state
+	if (Combat)
+	{
+		Combat->SetCombatAction(ECombatAction::None);
+	}
 }
 
 void AShooterGameCharacter::ClientPlayInteractionMontage_Implementation()
@@ -1034,7 +1037,11 @@ void AShooterGameCharacter::SetInteractionAnimationRequested(bool bRequested)
 bool AShooterGameCharacter::IsReloadAnimationPlaying() const
 {
 	const UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	return AnimInstance && ReloadMontage && AnimInstance->Montage_IsPlaying(ReloadMontage);
+	if (!AnimInstance) return false;
+
+	return (Montage_Reload      && AnimInstance->Montage_IsPlaying(Montage_Reload))
+		|| (Montage_Reload_Empty && AnimInstance->Montage_IsPlaying(Montage_Reload_Empty))
+		|| (Montage_Reload_Quick && AnimInstance->Montage_IsPlaying(Montage_Reload_Quick));
 }
 
 bool AShooterGameCharacter::IsInteractionAnimationPlaying() const
@@ -1047,17 +1054,17 @@ bool AShooterGameCharacter::IsInteractionAnimationPlaying() const
 
 void AShooterGameCharacter::PlayFireMontage(bool bAiming)
 {
-	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
-	
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	if (AnimInstance && FireWeaponMontage)
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance) return;
+
+	AWeapon* Weapon = GetEquippedWeapon();
+	const bool bMagEmpty = Weapon && Weapon->GetMagRounds() == 0;
+
+	UAnimMontage* MontageToPlay = bMagEmpty ? Montage_Fire_Empty : Montage_Fire;
+	if (MontageToPlay)
 	{
-		AnimInstance->Montage_Play(FireWeaponMontage);
-		FName SectionName;
-		SectionName = bAiming ? FName("RifleAim") : FName("RifleHip");
-		AnimInstance->Montage_JumpToSection(SectionName);
+		AnimInstance->Montage_Play(MontageToPlay);
 	}
-	
 }
 
 void AShooterGameCharacter::PlayHitReactMontage()
@@ -1180,12 +1187,36 @@ void AShooterGameCharacter::ReviveReleased()
 
 void AShooterGameCharacter::OnLoadoutChanged_Internal(const FLoadoutData& NewLoadout)
 {
-	// Step 6 replaces this body with:
-	//   if (Combat) Combat->OnLoadoutUpdated(NewLoadout);
-	UE_LOG(LogShooterGameCharacter, Log,
-		TEXT("[%s] Loadout updated — %d slots configured."),
-		HasAuthority() ? TEXT("Server") : TEXT("Client"),
-		NewLoadout.Slots.Num());
+	if (!HasAuthority()) return;
+
+	UInventoryComponent* InventoryComp = GetInventory();
+	if (!InventoryComp) return;
+
+	InventoryComp->ClearAllMagazines();
+
+	for (const FLoadoutSlot& Slot : NewLoadout.Slots)
+	{
+		if (!Slot.IsOccupied() || Slot.MagazineCount <= 0) continue;
+
+		UClass* ResolvedClass = Slot.ItemClass.LoadSynchronous();
+		if (!ResolvedClass) continue;
+
+		AWeapon* WeaponCDO = Cast<AWeapon>(ResolvedClass->GetDefaultObject());
+		if (!WeaponCDO) continue;
+
+		UWeaponConfig* Config = WeaponCDO->GetWeaponConfig();
+		if (!Config) continue;
+
+		const EAmmoType AmmoType = WeaponCDO->GetSupportedAmmoType();
+		const int32     Capacity = Config->MagazineCapacity;
+
+		if (Capacity <= 0) continue;
+
+		for (int32 i = 0; i < Slot.MagazineCount; i++)
+		{
+			InventoryComp->AddMagazine(FMagazine::MakeFull(AmmoType, Capacity));
+		}
+	}
 }
 
 void AShooterGameCharacter::OnAppearanceChanged_Internal(const FCharacterAppearance& NewAppearance)
@@ -1204,13 +1235,14 @@ void AShooterGameCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
 
-	// Push the PlayerState's saved loadout into this character's LoadoutComponent.
-	// Only runs on server (PossessedBy is server-only in UE5).
 	if (AShooterPlayerState* PS = GetPlayerState<AShooterPlayerState>())
 	{
+		// Seed PlayerState with DefaultLoadout if it has no saved data yet
+		if (!PS->HasSavedLoadout())
+		{
+			PS->SetSavedLoadout(DefaultLoadout);
+		}
 		PS->PushLoadoutToCharacter(this);
 	}
-	
-	
 }
 

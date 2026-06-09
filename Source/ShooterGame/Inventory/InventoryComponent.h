@@ -147,6 +147,10 @@ public:
 	bool RemoveMagazine(const FMagazine& Mag);
 
 	bool ReturnMagazine(const FMagazine& Mag);
+	
+	// Removes all magazines from MagazineSlots.
+	// Called by OnLoadoutChanged_Internal before granting fresh starting mags.
+	void ClearAllMagazines();
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	int32 CountMagazinesOfType(EAmmoType AmmoType) const;

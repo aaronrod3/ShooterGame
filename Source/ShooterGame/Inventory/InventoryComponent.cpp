@@ -251,3 +251,8 @@ bool UInventoryComponent::HasMagazineFor(EAmmoType AmmoType) const
 {
 	return CountMagazinesOfType(AmmoType) > 0;
 }
+
+void UInventoryComponent::ClearAllMagazines()
+{
+	MagazineSlots.Empty();
+}

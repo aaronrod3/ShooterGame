@@ -7,6 +7,7 @@
 #include "ShooterGame/Types/AmmoType.h"
 #include "ShooterGame/Items/Ammo/WeaponFeedTypes.h"
 #include "ShooterGame/Items/Ammo/AmmoData.h"
+#include "ShooterGame/Items/Weapon/WeaponConfig.h"
 #include "ShooterGame/Components/WeaponAudioComponent.h"
 #include "ShooterGame/Components/AudioPerceptionComponent.h"
 #include "Weapon.generated.h"
@@ -220,6 +221,23 @@ public:
 		default:						return TEXT("Unknown");
 		}
 	}
+	
+	
+	/** Config asset this weapon was initialized from. Set by InitFromConfig(). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Config")
+	TObjectPtr<UWeaponConfig> WeaponConfig;
+
+	/**
+	 * Initializes the weapon from a config asset.
+	 * Sets the receiver mesh, weapon AnimBP, and stores the config reference
+	 * so later phases (socket queries, montage selection) can read it.
+	 * Must be called immediately after spawn, before BeginPlay resolves
+	 * overlap delegates.
+	 */
+	void InitFromConfig(UWeaponConfig* InConfig);
+
+	/** Returns the config this weapon was initialized from, or nullptr. */
+	FORCEINLINE UWeaponConfig* GetWeaponConfig() const { return WeaponConfig; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -264,6 +282,26 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<class ACaseEject> CasingClass;
+	
+	
+	// -----------------------------------------------------------------------
+	// Config-assembled attachment components
+	// Created at runtime by InitFromConfig — null if config field was empty.
+	// -----------------------------------------------------------------------
+	UPROPERTY(VisibleInstanceOnly, Category = "Weapon|Attachments")
+	UStaticMeshComponent* MeshComp_Handguard = nullptr;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Weapon|Attachments")
+	UStaticMeshComponent* MeshComp_Scope = nullptr;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Weapon|Attachments")
+	UStaticMeshComponent* MeshComp_SightFront = nullptr;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Weapon|Attachments")
+	UStaticMeshComponent* MeshComp_SightRear = nullptr;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Weapon|Attachments")
+	UStaticMeshComponent* MeshComp_Silencer = nullptr;
 
 	// -----------------------------------------------------------------------
 	// Weapon State
@@ -367,6 +405,10 @@ private:
 
 	// Mirrors InsertedMagazine and bRoundChambered into replicated properties
 	void SyncReplicatedLoadState();
+	
+	// Creates, registers, and attaches a static mesh component to WeaponMesh
+	// at the given socket. Returns null if either argument is invalid.
+	UStaticMeshComponent* AttachStaticMeshFromConfig(UStaticMesh* Mesh, FName Socket);
 
 	void DecaySpread(float DeltaTime);
 	

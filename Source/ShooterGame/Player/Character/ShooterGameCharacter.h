@@ -100,6 +100,15 @@ public:
 	FORCEINLINE UEquippedStateComponent* GetEquippedState()		const { return EquippedStateComp; }
 	FORCEINLINE UHitZoneComponent* GetHitZoneComponent()		const { return HitZoneComponent; }
 	FORCEINLINE bool IsInteractionAnimationRequested()			const { return bInteractionAnimationRequested; }
+	FORCEINLINE UAnimMontage* GetMontage_Fire()					const { return Montage_Fire; }
+	FORCEINLINE UAnimMontage* GetMontage_Fire_Empty()			const { return Montage_Fire_Empty; }
+	FORCEINLINE UAnimMontage* GetMontage_Reload()				const { return Montage_Reload; }
+	FORCEINLINE UAnimMontage* GetMontage_Reload_Empty()			const { return Montage_Reload_Empty; }
+	FORCEINLINE UAnimMontage* GetMontage_Reload_Quick()			const { return Montage_Reload_Quick; }
+	FORCEINLINE UAnimMontage* GetMontage_FireModeSwitch()		const { return Montage_FireModeSwitch; }
+	FORCEINLINE UAnimMontage* GetMontage_MagCheck()				const { return Montage_MagCheck; }
+	
+	FORCEINLINE bool GetIsProne()								const { return bIsProne; }
 	
 	FORCEINLINE float GetHealth()								const { return Health; }
 	FORCEINLINE float GetMaxHealth()							const { return MaxHealth; }
@@ -171,6 +180,13 @@ public:
 	ETeam Team = ETeam::ET_Players; // all human players share this for now
 	
 	AWeapon* GetEquippedWeapon();
+	
+	// Default loadout applied on spawn before any save data is pushed.
+	// Set this in BP_PlayerCharacter defaults to give the character a starting weapon and mags.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Loadout")
+	FLoadoutData DefaultLoadout;
+	
+	
 	
 	/* Inputs */
 	void Look(const FInputActionValue& Value);	
@@ -302,18 +318,61 @@ private:
 	
 	
 	/* MONTAGES */
-	UPROPERTY(EditAnywhere, Category = "Animation|Montages")
-	class UAnimMontage* FireWeaponMontage;
-	UPROPERTY(EditAnywhere, Category = "Animation|Montages")
-	class UAnimMontage* HitReactMontage;
+	// -----------------------------------------------------------------------
+	// assign in BP defaults
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Fire")
+	UAnimMontage* Montage_Fire = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Fire")
+	UAnimMontage* Montage_Fire_Empty = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Reload")
+	UAnimMontage* Montage_Reload = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Reload")
+	UAnimMontage* Montage_Reload_Empty = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Reload")
+	UAnimMontage* Montage_Reload_Quick = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Actions")
+	UAnimMontage* Montage_FireModeSwitch = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Actions")
+	UAnimMontage* Montage_MagCheck = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Actions")
+	UAnimMontage* Montage_ClearJam_MagSwipe = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Actions")
+	UAnimMontage* Montage_ClearJam_Rack = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Actions")
+	UAnimMontage* Montage_Grenade_Throw = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Actions")
+	UAnimMontage* Montage_Melee_Bash = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Actions")
+	UAnimMontage* Montage_Melee_Swing_L = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages|Actions")
+	UAnimMontage* Montage_Melee_Swing_R = nullptr;
+
+	// Keep these for non-Infima paths
 	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
-	UAnimMontage* ReloadMontage;
+	UAnimMontage* HitReactMontage = nullptr;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
-	UAnimMontage* SuppressorMontage;
+	UAnimMontage* SuppressorMontage = nullptr;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
 	UAnimMontage* InteractionMontage_Unarmed = nullptr;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
 	UAnimMontage* InteractionMontage_Pistol = nullptr;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Animation|Montages")
 	UAnimMontage* InteractionMontage_Rifle = nullptr;
 	
