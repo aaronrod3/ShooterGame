@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "ShooterGame/Types/CombatTypes.h"
 #include "WeaponConfig.generated.h"
 
 /**
@@ -413,6 +414,58 @@ public:
      */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Cosmetics")
     FString PrefixBulletSocket = TEXT("Bullet");
+    
+    
+    // -----------------------------------------------------------------------
+    // Grip
+    // -----------------------------------------------------------------------
+
+    /**
+     * Which left-hand grip pose this weapon uses.
+     * Read by UCombatComponent::EquipWeapon to set CurrentGrip on equip.
+     */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Grip")
+    EWeaponGrip WeaponGrip = EWeaponGrip::Default;
+
+    // -----------------------------------------------------------------------
+    // ADS Offsets
+    // -----------------------------------------------------------------------
+
+    /**
+     * World-space location offset applied to the camera/character when fully
+     * aimed down sights. Drives ADSLocationTarget on UCombatComponent.
+     * Matches Infima's BPTFABaseConfig ADS location offset convention.
+     */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|ADS")
+    FVector ADSLocationOffset = FVector::ZeroVector;
+
+    /**
+     * Rotation offset applied when fully aimed down sights.
+     * Drives ADSRotationTarget on UCombatComponent.
+     */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|ADS")
+    FRotator ADSRotationOffset = FRotator::ZeroRotator;
+
+    // -----------------------------------------------------------------------
+    // Recoil Offsets
+    // -----------------------------------------------------------------------
+
+    /**
+     * Rotation target for procedural recoil per shot.
+     * X = Pitch kick (upward), Y = Yaw drift, Z = Roll.
+     * Interpolated by UCombatComponent each tick and read by the anim instance.
+     */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Recoil")
+    FRotator RecoilRotationPerShot = FRotator(2.f, 0.5f, 0.f);
+
+    /**
+     * Translation kick applied per shot (camera spring offset).
+     * Typically a small negative X (push back) value.
+     */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Recoil")
+    FVector RecoilTranslationPerShot = FVector(-1.f, 0.f, 0.f);
+    
+    
 
     // -----------------------------------------------------------------------
     // UPrimaryDataAsset interface

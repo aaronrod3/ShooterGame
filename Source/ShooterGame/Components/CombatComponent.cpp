@@ -52,6 +52,26 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 	{
 		UpdateReticleWorldPosition();
 		UpdateReticleState();
+		
+		// Interpolate ADSAlpha toward aim state
+		const float ADSTarget = bAiming ? 1.f : 0.f;
+		ADSAlpha = FMath::FInterpTo(ADSAlpha, ADSTarget, DeltaTime, ADSInterpSpeed);
+
+		// Decay recoil rotation back to zero
+		RecoilRotationTarget = FMath::RInterpTo(
+			RecoilRotationTarget,
+			FRotator::ZeroRotator,
+			DeltaTime,
+			RecoilDecaySpeed
+		);
+
+		// Decay recoil translation back to zero
+		RecoilTranslationTarget = FMath::VInterpTo(
+			RecoilTranslationTarget,
+			FVector::ZeroVector,
+			DeltaTime,
+			RecoilDecaySpeed
+		);
 	}
 
 	UpdatePendingHipFireShot(DeltaTime);
@@ -71,6 +91,19 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	EquippedWeapon = WeaponToEquip;
 	EquippedWeapon->SetOwner(Character);
 	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+	
+	// Read grip and ADS offsets from config — set once at equip time
+	if (const UWeaponConfig* Cfg = EquippedWeapon->GetWeaponConfig())
+	{
+		CurrentGrip       = Cfg->WeaponGrip;
+		ADSLocationTarget = FVector::ZeroVector;   // cleared; set to Cfg->ADSLocationOffset when ADS starts
+		ADSRotationTarget = FRotator::ZeroRotator; // cleared; set to Cfg->ADSRotationOffset when ADS starts
+	}
+	else
+	{
+		CurrentGrip = EWeaponGrip::Default;
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Combat] EquipWeapon — grip set to %d"), (int32)CurrentGrip);
 
 	const FName AttachSocket = (EquippedWeapon->GetWeaponConfig() && EquippedWeapon->GetWeaponConfig()->SocketGunAttachment != NAME_None)
 	? EquippedWeapon->GetWeaponConfig()->SocketGunAttachment
@@ -219,13 +252,25 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	{
 		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
 	}
-	
+
 	if (bIsAiming && EquippedWeapon)
 	{
 		EquippedWeapon->ApplySpreadMultiplier(AimAccuracyBonusMultiplier);
+
+		// Pull ADS offset targets from the current weapon config
+		if (const UWeaponConfig* Cfg = EquippedWeapon->GetWeaponConfig())
+		{
+			ADSLocationTarget = Cfg->ADSLocationOffset;
+			ADSRotationTarget = Cfg->ADSRotationOffset;
+		}
+	}
+	else
+	{
+		// Hip fire — clear ADS targets so the AnimGraph lerps back to zero
+		ADSLocationTarget = FVector::ZeroVector;
+		ADSRotationTarget = FRotator::ZeroRotator;
 	}
 }
-
 void UCombatComponent::OnRep_Aiming()
 {
 	// Fires on simulated proxies when bAiming replicates from the server.
@@ -467,6 +512,16 @@ void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& InHi
 	{
 		EquippedWeapon->ConsumeRound();
 	}
+	
+	// Accumulate recoil target — decayed in TickComponent on the owning client
+	// Server sets it so simulated proxies can also read a meaningful value if needed
+	if (EquippedWeapon->GetWeaponConfig())
+	{
+		const UWeaponConfig* Cfg = EquippedWeapon->GetWeaponConfig();
+		RecoilRotationTarget    += Cfg->RecoilRotationPerShot;
+		RecoilTranslationTarget += Cfg->RecoilTranslationPerShot;
+	}
+	
 
 	MulticastFire();
 }

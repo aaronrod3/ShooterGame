@@ -68,17 +68,22 @@ public:
 	 */
 	void SetAimAccuracyBonus(float InMultiplier);
 
-	FORCEINLINE const FReticleState&	GetReticleState()			const { return ReticleState; }
-	FORCEINLINE FVector					GetReticleWorldPosition()	const { return ReticleWorldPosition; }
-	FORCEINLINE float					GetBaseWalkSpeed()			const { return BaseWalkSpeed; }
-	FORCEINLINE bool					IsReloadPendingLocal()		const { return bLocalReloadPending; }
-	FORCEINLINE ECombatAction			GetCombatAction()			const { return CurrentCombatAction; }
-	FORCEINLINE EReloadType				GetReloadType()				const { return CurrentReloadType; }
-	FORCEINLINE EWeaponGrip				GetCurrentGrip()			const { return CurrentGrip; }
-	FORCEINLINE bool					IsBusy()					const { return bIsBusy; }
-	FORCEINLINE bool					IsAimingBlocked()			const { return bIsAimingBlocked; }
-	bool								IsReloadAnimationActive()	const;
-	EPlayerWeaponStance					GetPlayerWeaponStance()		const;
+	FORCEINLINE const FReticleState&	GetReticleState()				const { return ReticleState; }
+	FORCEINLINE FVector					GetReticleWorldPosition()		const { return ReticleWorldPosition; }
+	FORCEINLINE float					GetBaseWalkSpeed()				const { return BaseWalkSpeed; }
+	FORCEINLINE bool					IsReloadPendingLocal()			const { return bLocalReloadPending; }
+	FORCEINLINE ECombatAction			GetCombatAction()				const { return CurrentCombatAction; }
+	FORCEINLINE EReloadType				GetReloadType()					const { return CurrentReloadType; }
+	FORCEINLINE EWeaponGrip				GetCurrentGrip()				const { return CurrentGrip; }
+	FORCEINLINE FRotator				GetRecoilRotationTarget()		const { return RecoilRotationTarget; }
+	FORCEINLINE FVector					GetRecoilTranslationTarget()	const { return RecoilTranslationTarget; }
+	FORCEINLINE float					GetADSAlpha()					const { return ADSAlpha; }
+	FORCEINLINE FVector					GetADSLocationTarget()			const { return ADSLocationTarget; }
+	FORCEINLINE FRotator				GetADSRotationTarget()			const { return ADSRotationTarget; }
+	FORCEINLINE bool					IsBusy()						const { return bIsBusy; }
+	FORCEINLINE bool					IsAimingBlocked()				const { return bIsAimingBlocked; }
+	bool								IsReloadAnimationActive()		const;
+	EPlayerWeaponStance					GetPlayerWeaponStance()			const;
 	
 	
 	
@@ -101,6 +106,29 @@ public:
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|State")
 	bool bIsAimingBlocked = false;
+	
+	/** Current accumulated recoil rotation target. Interpolated toward per-shot kick, decays to zero. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|Recoil")
+	FRotator RecoilRotationTarget = FRotator::ZeroRotator;
+
+	/** Current accumulated recoil translation target. Interpolated toward per-shot kick, decays to zero. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|Recoil")
+	FVector RecoilTranslationTarget = FVector::ZeroVector;
+
+	/**
+	 * 0.0 = fully hip-fire, 1.0 = fully ADS.
+	 * Driven by SetAiming() — used by the AnimGraph to lerp between hip and ADS poses.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|ADS")
+	float ADSAlpha = 0.f;
+
+	/** World-space location offset target for ADS. Read from WeaponConfig on equip. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|ADS")
+	FVector ADSLocationTarget = FVector::ZeroVector;
+
+	/** Rotation offset target for ADS. Read from WeaponConfig on equip. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|ADS")
+	FRotator ADSRotationTarget = FRotator::ZeroRotator;
 	
 	UFUNCTION()
 	void OnLoadoutUpdated(const FLoadoutData& NewLoadout);
@@ -240,6 +268,14 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	float AimWalkSpeed;
+	
+	/** How fast recoil rotation decays back to zero per second. */
+	UPROPERTY(EditAnywhere, Category = "Combat|Recoil")
+	float RecoilDecaySpeed = 8.f;
+
+	/** How fast ADSAlpha interpolates toward its target (0 or 1). */
+	UPROPERTY(EditAnywhere, Category = "Combat|ADS")
+	float ADSInterpSpeed = 10.f;
 
 	// -----------------------------------------------------------------------
 	// Reticle State (local client only, never replicated)
