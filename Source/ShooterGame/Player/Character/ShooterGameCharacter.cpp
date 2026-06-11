@@ -39,6 +39,19 @@
 
 DEFINE_LOG_CATEGORY(LogShooterGameCharacter);
 
+// -----------------------------------------------------------------------
+// Config lookup helper
+// -----------------------------------------------------------------------
+
+/** Returns the WeaponConfig for the currently equipped weapon, or nullptr. */
+static const UWeaponConfig* GetConfigForEquippedWeapon(AShooterGameCharacter* Character)
+{
+	if (!Character) return nullptr;
+	const AWeapon* Weapon = Character->GetEquippedWeapon();
+	if (!Weapon) return nullptr;
+	return Weapon->GetWeaponConfig();
+}
+
 AShooterGameCharacter::AShooterGameCharacter()
 {
 	
@@ -942,14 +955,31 @@ void AShooterGameCharacter::PlayReloadMontage()
 	if (!AnimInstance || !Combat) return;
 
 	UAnimMontage* MontageToPlay = nullptr;
-	switch (Combat->GetReloadType())
+
+	// Config-driven lookup — primary path
+	if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
 	{
-	case EReloadType::Empty:  MontageToPlay = Montage_Reload_Empty; break;
-	case EReloadType::Quick:  MontageToPlay = Montage_Reload_Quick; break;
-	default:                  MontageToPlay = Montage_Reload;       break;
+		switch (Combat->GetReloadType())
+		{
+		case EReloadType::Empty:  MontageToPlay = Cfg->TPReloadEmpty; break;
+		case EReloadType::Quick:  MontageToPlay = Cfg->TPReloadQuick; break;
+		default:                  MontageToPlay = Cfg->TPReload;      break;
+		}
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[Reload] PlayReloadMontage — AnimInst: %d, MontageToPlay: %d, ReloadType: %d"),
+	// Fallback to legacy character properties if config slot is not yet assigned
+	if (!MontageToPlay)
+	{
+		switch (Combat->GetReloadType())
+		{
+		case EReloadType::Empty:  MontageToPlay = Montage_Reload_Empty; break;
+		case EReloadType::Quick:  MontageToPlay = Montage_Reload_Quick; break;
+		default:                  MontageToPlay = Montage_Reload;       break;
+		}
+	}
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[Reload] PlayReloadMontage — AnimInst: %d, MontageToPlay: %d, ReloadType: %d"),
 		AnimInstance != nullptr, MontageToPlay != nullptr, (int32)Combat->GetReloadType());
 
 	if (MontageToPlay && !AnimInstance->Montage_IsPlaying(MontageToPlay))
@@ -1039,6 +1069,18 @@ bool AShooterGameCharacter::IsReloadAnimationPlaying() const
 	const UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
 	if (!AnimInstance) return false;
 
+	// Check config montages first
+	if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(const_cast<AShooterGameCharacter*>(this)))
+	{
+		if ((Cfg->TPReload      && AnimInstance->Montage_IsPlaying(Cfg->TPReload))
+		 || (Cfg->TPReloadEmpty && AnimInstance->Montage_IsPlaying(Cfg->TPReloadEmpty))
+		 || (Cfg->TPReloadQuick && AnimInstance->Montage_IsPlaying(Cfg->TPReloadQuick)))
+		{
+			return true;
+		}
+	}
+
+	// Legacy fallback properties
 	return (Montage_Reload      && AnimInstance->Montage_IsPlaying(Montage_Reload))
 		|| (Montage_Reload_Empty && AnimInstance->Montage_IsPlaying(Montage_Reload_Empty))
 		|| (Montage_Reload_Quick && AnimInstance->Montage_IsPlaying(Montage_Reload_Quick));
@@ -1052,17 +1094,131 @@ bool AShooterGameCharacter::IsInteractionAnimationPlaying() const
 	return AnimInstance && MontageToCheck && AnimInstance->Montage_IsPlaying(MontageToCheck);
 }
 
+
+void AShooterGameCharacter::PlayEquipMontage()
+{
+    UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+    if (!AnimInstance) return;
+
+    UAnimMontage* MontageToPlay = nullptr;
+    if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
+    {
+        MontageToPlay = Cfg->TPEquip;
+    }
+
+    if (MontageToPlay && !AnimInstance->Montage_IsPlaying(MontageToPlay))
+    {
+        AnimInstance->Montage_Play(MontageToPlay);
+    }
+}
+
+void AShooterGameCharacter::PlayFireModeMontage()
+{
+    UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+    if (!AnimInstance) return;
+	
+	UE_LOG(LogTemp, Warning, TEXT("[M6] AnimInstance class: %s"), *AnimInstance->GetClass()->GetName());
+
+    UAnimMontage* MontageToPlay = nullptr;
+    if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
+    {
+        MontageToPlay = Cfg->TPFireMode;
+    }
+
+    // Fallback to legacy property
+    if (!MontageToPlay)
+    {
+        MontageToPlay = Montage_FireModeSwitch;
+    }
+
+    if (MontageToPlay && !AnimInstance->Montage_IsPlaying(MontageToPlay))
+    {
+    	UE_LOG(LogTemp, Warning, TEXT("[M6] PlayFireMontage — playing: %s, length: %.2f"),
+		*MontageToPlay->GetName(),
+		MontageToPlay->GetPlayLength());
+    	AnimInstance->Montage_Play(MontageToPlay);
+        AnimInstance->Montage_Play(MontageToPlay);
+    }
+}
+
+void AShooterGameCharacter::PlayMagCheckMontage()
+{
+    // Input binding deferred — called manually or via future IA_MagCheck binding.
+    UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+    if (!AnimInstance) return;
+
+    UAnimMontage* MontageToPlay = nullptr;
+    if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
+    {
+        MontageToPlay = Cfg->TPMagCheck;
+    }
+
+    // Fallback to legacy property
+    if (!MontageToPlay)
+    {
+        MontageToPlay = Montage_MagCheck;
+    }
+
+    if (MontageToPlay && !AnimInstance->Montage_IsPlaying(MontageToPlay))
+    {
+        AnimInstance->Montage_Play(MontageToPlay);
+    }
+}
+
+void AShooterGameCharacter::PlayInspectMontage()
+{
+    // Input binding deferred — called manually or via future IA_Inspect binding.
+    UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+    if (!AnimInstance) return;
+
+    const AWeapon* Weapon    = GetEquippedWeapon();
+    const bool bMagEmpty     = Weapon && Weapon->GetMagRounds() == 0;
+
+    UAnimMontage* MontageToPlay = nullptr;
+    if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
+    {
+        MontageToPlay = bMagEmpty ? Cfg->TPInspectEmpty : Cfg->TPInspect;
+        // If InspectEmpty is not set, fall back to Inspect regardless of mag state
+        if (!MontageToPlay) MontageToPlay = Cfg->TPInspect;
+    }
+
+    if (MontageToPlay && !AnimInstance->Montage_IsPlaying(MontageToPlay))
+    {
+        AnimInstance->Montage_Play(MontageToPlay);
+    }
+}
+
+
 void AShooterGameCharacter::PlayFireMontage(bool bAiming)
 {
 	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
 	if (!AnimInstance) return;
 
-	AWeapon* Weapon = GetEquippedWeapon();
-	const bool bMagEmpty = Weapon && Weapon->GetMagRounds() == 0;
+	const AWeapon* Weapon    = GetEquippedWeapon();
+	const bool bMagEmpty     = Weapon && Weapon->GetMagRounds() == 0;
 
-	UAnimMontage* MontageToPlay = bMagEmpty ? Montage_Fire_Empty : Montage_Fire;
+	// Config-driven lookup — primary path
+	UAnimMontage* MontageToPlay = nullptr;
+	if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
+	{
+		if (bMagEmpty)
+			MontageToPlay = Cfg->TPFireEmpty;
+		else if (bAiming && Cfg->TPFireADS)
+			MontageToPlay = Cfg->TPFireADS;
+		else
+			MontageToPlay = Cfg->TPFire;
+	}
+
+	// Fallback to legacy character properties if config slot is not yet assigned
+	if (!MontageToPlay)
+	{
+		MontageToPlay = bMagEmpty ? Montage_Fire_Empty : Montage_Fire;
+	}
+
 	if (MontageToPlay)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[M6] AnimInstance class: %s"),
+		*AnimInstance->GetClass()->GetName());
 		AnimInstance->Montage_Play(MontageToPlay);
 	}
 }

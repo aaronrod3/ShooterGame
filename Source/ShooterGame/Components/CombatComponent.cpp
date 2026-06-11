@@ -139,7 +139,16 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 				EquippedWeapon->GetMagCapacity()
 			);
 		}
+		
+		// M6 — play equip montage on the owning client only
+		if (Character && Character->IsLocallyControlled())
+		{
+			Character->PlayEquipMontage();
+		}
+		
 	}
+	
+	
 }
 
 void UCombatComponent::OnRep_EquippedWeapon()
@@ -333,6 +342,13 @@ void UCombatComponent::FireButtonReleased()
 
 void UCombatComponent::HandleFire()
 {
+	
+	UE_LOG(LogTemp, Warning, TEXT("[M6] HandleFire — weapon: %d, canfire: %d, pending: %d"),
+		EquippedWeapon != nullptr,
+		EquippedWeapon ? (int32)EquippedWeapon->CanFire() : -1,
+		(int32)bPendingHipFireShot);
+	
+	
     if (!EquippedWeapon) return;
 
     // Ammo gate — play dry fire click and bail, never reach Fire()
@@ -341,19 +357,17 @@ void UCombatComponent::HandleFire()
         UE_LOG(LogTemp, Warning,
             TEXT("UCombatComponent::HandleFire — CanFire false, playing dry fire"));
 
-        // Stop any running loop if mag just ran out mid-burst
-    	if (EquippedWeapon->WeaponAudioComp)
-    	{
-    		UE_LOG(LogTemp, Warning,
-				TEXT("UCombatComponent::HandleFire — stopping loop on empty mag"));
-    		EquippedWeapon->WeaponAudioComp->StopLoop_ForMultiplayer();
-    		EquippedWeapon->WeaponAudioComp->PlayDryFire_ForMultiplayer();
-    	}
-    	// Tell server to multicast dry fire to all other clients
-    	if (Character && !Character->HasAuthority())
-    	{
-    		ServerPlayDryFire();
-    	}
+        if (EquippedWeapon->WeaponAudioComp)
+        {
+            UE_LOG(LogTemp, Warning,
+                TEXT("UCombatComponent::HandleFire — stopping loop on empty mag"));
+            EquippedWeapon->WeaponAudioComp->StopLoop_ForMultiplayer();
+            EquippedWeapon->WeaponAudioComp->PlayDryFire_ForMultiplayer();
+        }
+        if (Character && !Character->HasAuthority())
+        {
+            ServerPlayDryFire();
+        }
         return;
     }
 
@@ -378,15 +392,23 @@ void UCombatComponent::HandleFire()
 
         ApplyDownedDebuffsPreFire();
 
+    		UE_LOG(LogTemp, Warning, TEXT("[M6] SemiAuto — bFiredThisPress: %d, delayHip: %d"),
+		(int32)bFiredThisPress,
+		(int32)ShouldDelayHipFireShot());
+    		
         if (ShouldDelayHipFireShot())
         {
             StartPendingHipFireShot(ComputeFinalHitTarget());
         }
         else
         {
-        	const FVector FinalHitTarget = ComputeFinalHitTarget();
-        	EquippedWeapon->Fire(FinalHitTarget);
-        	ServerFire(FinalHitTarget);
+            const FVector FinalHitTarget = ComputeFinalHitTarget();
+            EquippedWeapon->Fire(FinalHitTarget);
+            ServerFire(FinalHitTarget);
+            if (Character && Character->IsLocallyControlled())
+            {
+                Character->PlayFireMontage(bAiming);
+            }
         }
         break;
     }
@@ -420,6 +442,10 @@ void UCombatComponent::HandleFire()
             const FVector FinalHitTarget = ComputeFinalHitTarget();
             EquippedWeapon->Fire(FinalHitTarget);
             ServerFire(FinalHitTarget);
+            if (Character && Character->IsLocallyControlled())
+            {
+                Character->PlayFireMontage(bAiming);
+            }
         }
 
         GetWorld()->GetTimerManager().SetTimer(
@@ -529,11 +555,12 @@ void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& InHi
 
 void UCombatComponent::MulticastFire_Implementation()
 {
-	// Replay cosmetics on non-owning clients only
-	// Owning client and server already called Fire() locally in HandleFire()
-	if (EquippedWeapon && !Character->IsLocallyControlled())
+	if (!EquippedWeapon || !Character) return;
+
+	if (!Character->IsLocallyControlled())
 	{
 		EquippedWeapon->Fire(HitTarget);
+		Character->PlayFireMontage(bAiming);
 	}
 }
 
@@ -550,6 +577,12 @@ void UCombatComponent::CycleFireMode()
 	if (EquippedWeapon->WeaponAudioComp)
 	{
 		EquippedWeapon->WeaponAudioComp->PlaySwitchFireMode_ForMultiplayer();
+	}
+
+	// M6 — play fire mode switch montage on owning client
+	if (Character && Character->IsLocallyControlled())
+	{
+		Character->PlayFireModeMontage();
 	}
 
 	// Send to server to multicast audio to all other clients
@@ -980,9 +1013,14 @@ void UCombatComponent::ExecutePendingHipFireShot()
 	if (!bPendingHipFireShot || !EquippedWeapon) return;
 
 	const FVector FinalHitTarget = ComputeFinalHitTarget();
-	
+    
 	EquippedWeapon->Fire(FinalHitTarget);
 	ServerFire(FinalHitTarget);
+
+	if (Character && Character->IsLocallyControlled())
+	{
+		Character->PlayFireMontage(bAiming);
+	}
 
 	if (Character && !Character->HasAuthority())
 	{

@@ -53,10 +53,16 @@ public:
 	
 	void PlayFireMontage(bool bAiming);
 	void PlayHitReactMontage();
-	
-	
 	void PlayReloadMontage();
 	void PlayInteractionMontage();
+	// M6 — config-driven montage play functions
+	// Each reads the montage from the equipped weapon's WeaponConfig.
+	// No hardcoded asset reference. Call sites are in CombatComponent and
+	// on input actions (mag check / inspect input bindings deferred).
+	void PlayEquipMontage();
+	void PlayFireModeMontage();
+	void PlayMagCheckMontage();
+	void PlayInspectMontage();
 	
 	bool IsReloadAnimationPlaying() const;
 	bool IsInteractionAnimationPlaying() const;

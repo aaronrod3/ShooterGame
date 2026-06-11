@@ -185,6 +185,9 @@ public:
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
     TObjectPtr<UAnimMontage> TPFire;
+    
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TObjectPtr<UAnimMontage> TPFireADS;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
     TObjectPtr<UAnimMontage> TPFireEmpty;
@@ -237,6 +240,9 @@ public:
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
     TObjectPtr<UAnimMontage> FPFireSemi;
+    
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
+    TObjectPtr<UAnimMontage> FPFireADS;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
     TObjectPtr<UAnimMontage> FPFireAuto;

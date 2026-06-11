@@ -255,7 +255,7 @@ private:
 	// Duration of the reload — should match your reload montage length.
 	// Set this in BP defaults or tune here.
 	UPROPERTY(EditAnywhere, Category = "Combat|Reload")
-	float ReloadDuration = 2.0f;
+	float ReloadDuration = 1.0f;
 
 	// Called when reload timer completes — actually swaps the magazine
 	void FinishReload();
