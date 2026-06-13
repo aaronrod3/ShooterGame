@@ -82,6 +82,7 @@ public:
 	FORCEINLINE FRotator				GetADSRotationTarget()			const { return ADSRotationTarget; }
 	FORCEINLINE bool					IsBusy()						const { return bIsBusy; }
 	FORCEINLINE bool					IsAimingBlocked()				const { return bIsAimingBlocked; }
+	FORCEINLINE float					GetAimSpeedMultiplier()			const { return AimSpeedMultiplier; }
 	bool								IsReloadAnimationActive()		const;
 	EPlayerWeaponStance					GetPlayerWeaponStance()			const;
 	
@@ -106,6 +107,10 @@ public:
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|State")
 	bool bIsAimingBlocked = false;
+	
+	/** Fraction of current tier speed applied while aiming. Default 0.5 = half speed. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|Aiming")
+	float AimSpeedMultiplier = 0.5f;
 	
 	/** Current accumulated recoil rotation target. Interpolated toward per-shot kick, decays to zero. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|Recoil")

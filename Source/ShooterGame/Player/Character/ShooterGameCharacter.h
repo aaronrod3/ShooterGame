@@ -96,7 +96,8 @@ public:
 	
 	FORCEINLINE ETeam GetTeam() const { return Team; }
 	
-	FORCEINLINE float GetAimOffset_Yaw()						const { return AimOffset_Yaw; }
+	FORCEINLINE float GetAimOffset_Yaw()							const { return AimOffset_Yaw; }
+	FORCEINLINE float GetAimOffset_Pitch()						const { return AimOffset_Pitch; }
 	FORCEINLINE ETurningInPlace GetTurningInPlace()				const { return TurningInPlace; }
 	FORCEINLINE UInventoryComponent* GetInventory()				const { return Inventory; }
 	FORCEINLINE UDownedComponent* GetDownedComponent()			const { return DownedComp; }
@@ -115,6 +116,14 @@ public:
 	FORCEINLINE UAnimMontage* GetMontage_MagCheck()				const { return Montage_MagCheck; }
 	
 	FORCEINLINE bool GetIsProne()								const { return bIsProne; }
+	FORCEINLINE bool IsSprinting()								const { return bIsSprinting; }
+	FORCEINLINE bool CanSprint()								const { return bCanSprint; }
+	FORCEINLINE float GetCurrentStamina()						const { return CurrentStamina; }
+	FORCEINLINE float GetMaxStamina()							const { return MaxStamina; }
+	FORCEINLINE FVector2D GetAnimationInputMoveVector()			const { return AnimationInputMoveVector; }
+	FORCEINLINE const FTransform& GetAimDownSightsTransform()	const { return AimDownSightsTransform; }
+	FORCEINLINE const FTransform& GetRecoilTransform()			const { return RecoilTransform; }
+	FORCEINLINE const FTransform& GetCrouchTransform()			const { return CrouchTransform; }
 	
 	FORCEINLINE float GetHealth()								const { return Health; }
 	FORCEINLINE float GetMaxHealth()							const { return MaxHealth; }
@@ -207,6 +216,8 @@ public:
 	void ToggleAim();
 	void SetOrientationForAiming(bool bAiming); // TPS body orientation toggle
 	void SwapShoulder();
+	void StartSprinting();
+	void StopSprinting();
 	void FireButtonPressed();
 	void FireButtonReleased();
 	void CycleFireModeButtonPressed();
@@ -224,7 +235,8 @@ public:
 	float DesiredYaw = 0.f;
 	
 	float TargetYaw  = 0.f;			// local only, no replication needed
-	float AimOffset_Yaw;
+	float AimOffset_Yaw = 0.f;
+	float AimOffset_Pitch = 0.f;
 	
 	float GetBaseWalkSpeed() const;
 	
@@ -321,7 +333,8 @@ private:
 	TObjectPtr<UInputAction> ToggleSuppressorAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* ReviveAction;
-	
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* SprintAction;
 	
 	/* MONTAGES */
 	// -----------------------------------------------------------------------
@@ -402,6 +415,59 @@ private:
 	bool bRightShoulder = true;
 	float TargetShoulderOffsetY = 60.f;
 	float LastReplicatedYaw = 0.f; // throttle ServerSetFacingYaw RPC calls
+	
+	// -----------------------------------------------------------------------
+	// Phase 1 animation bridge / sprint contract
+	// -----------------------------------------------------------------------
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement|Speed", meta = (AllowPrivateAccess = "true"))
+	float WalkSpeed = 50.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement|Speed", meta = (AllowPrivateAccess = "true"))
+	float RunSpeed = 150.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement|Speed", meta = (AllowPrivateAccess = "true"))
+	float SprintSpeed = 250.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement|Sprint", meta = (AllowPrivateAccess = "true"))
+	float MaxStamina = 100.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Sprint", meta = (AllowPrivateAccess = "true"))
+	float CurrentStamina = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement|Sprint", meta = (AllowPrivateAccess = "true"))
+	float SprintDrainRate = 20.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement|Sprint", meta = (AllowPrivateAccess = "true"))
+	float SprintRecoveryRate = 15.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement|Sprint", meta = (AllowPrivateAccess = "true"))
+	float SprintMinStaminaToStart = 10.f;
+	
+	/**
+	 * When false (default): hold shift to sprint, release to stop.
+	 * When true: first press starts sprint, second press stops it.
+	 * Exposed so a settings menu can toggle this at runtime via Blueprint.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Sprint", meta = (AllowPrivateAccess = "true"))
+	bool bSprintToggleMode = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Sprint", meta = (AllowPrivateAccess = "true"))
+	bool bIsSprinting = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Sprint", meta = (AllowPrivateAccess = "true"))
+	bool bCanSprint = true;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|Movement", meta = (AllowPrivateAccess = "true"))
+	FVector2D AnimationInputMoveVector = FVector2D::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|Procedural", meta = (AllowPrivateAccess = "true"))
+	FTransform AimDownSightsTransform = FTransform::Identity;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|Procedural", meta = (AllowPrivateAccess = "true"))
+	FTransform RecoilTransform = FTransform::Identity;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|Procedural", meta = (AllowPrivateAccess = "true"))
+	FTransform CrouchTransform = FTransform::Identity;
 	
 	/*** FUNCTIONS ***/
 	UFUNCTION(Server, Reliable)

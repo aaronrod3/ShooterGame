@@ -74,7 +74,7 @@ AShooterGameCharacter::AShooterGameCharacter()
 	// instead of recompiling to adjust them
 	GetCharacterMovement()->JumpZVelocity = 500.f;
 	GetCharacterMovement()->AirControl = 0.35f;
-	GetCharacterMovement()->MaxWalkSpeed = 500.f;
+	GetCharacterMovement()->MaxWalkSpeed = 150.f;
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
@@ -272,14 +272,88 @@ void AShooterGameCharacter::Tick(float DeltaTime)
             LastReplicatedYaw = CurrentYaw;
         }
     }
-	
-	// Interaction focus — local client only, purely cosmetic
-	if (IsLocallyControlled())
-	{
-		UpdateInteractFocus();
-	}
-	
-	
+
+    // Interaction focus — local client only, purely cosmetic
+    if (IsLocallyControlled())
+    {
+        UpdateInteractFocus();
+    }
+
+    // -----------------------------------------------------------------------
+    // Stamina drain / recovery (authority or locally controlled)
+    // -----------------------------------------------------------------------
+    if (IsLocallyControlled() || HasAuthority())
+    {
+        if (bIsSprinting)
+        {
+            CurrentStamina = FMath::Clamp(
+                CurrentStamina - (SprintDrainRate * DeltaTime),
+                0.f,
+                MaxStamina
+            );
+
+            // Auto-stop sprint when stamina runs out — bypasses toggle mode
+            if (CurrentStamina <= 0.f)
+            {
+                bIsSprinting = false;
+                bCanSprint = false;
+            }
+        }
+        else
+        {
+            CurrentStamina = FMath::Clamp(
+                CurrentStamina + (SprintRecoveryRate * DeltaTime),
+                0.f,
+                MaxStamina
+            );
+
+            if (!bCanSprint && CurrentStamina >= SprintMinStaminaToStart)
+            {
+                bCanSprint = true;
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Authoritative speed selection — single source of truth for MaxWalkSpeed
+    // Precedence: prone (ApplyProneState) > sprint > run
+    // ADS multiplier applied on top of current tier speed.
+    // -----------------------------------------------------------------------
+    if (!bIsProne)
+    {
+        const float TierSpeed = bIsSprinting ? SprintSpeed : RunSpeed;
+        const float AimMult   = (Combat && Combat->bAiming)
+            ? Combat->GetAimSpeedMultiplier()
+            : 1.f;
+        GetCharacterMovement()->MaxWalkSpeed = TierSpeed * AimMult;
+    }
+
+    // -----------------------------------------------------------------------
+    // AnimationInputMoveVector — local-space 2D movement input for blend spaces
+    // -----------------------------------------------------------------------
+    {
+        const FVector WorldVelocity = GetVelocity();
+        const FVector ActorForward  = GetActorForwardVector();
+        const FVector ActorRight    = GetActorRightVector();
+
+        const float ForwardComponent = FVector::DotProduct(WorldVelocity, ActorForward);
+        const float RightComponent   = FVector::DotProduct(WorldVelocity, ActorRight);
+
+        AnimationInputMoveVector = FVector2D(ForwardComponent, RightComponent);
+    }
+
+    // -----------------------------------------------------------------------
+    // AimOffset_Pitch — normalized control pitch for AnimBP aim offset
+    // -----------------------------------------------------------------------
+    if (Controller)
+    {
+        float RawPitch = GetControlRotation().Pitch;
+        if (RawPitch > 180.f)
+        {
+            RawPitch -= 360.f;
+        }
+        AimOffset_Pitch = FMath::Clamp(RawPitch, -90.f, 90.f);
+    }
 }
 
 void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -291,6 +365,13 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		EnhancedInputComponent->BindAction(LookAction,				ETriggerEvent::Triggered,	this,	&AShooterGameCharacter::Look);
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction,				ETriggerEvent::Triggered,	this,	&AShooterGameCharacter::Move);
+		// Sprint — Started/Completed pair for hold-to-sprint
+		if (SprintAction)
+		{
+			EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started,   this, &AShooterGameCharacter::StartSprinting);
+			EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &AShooterGameCharacter::StopSprinting);
+			EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Canceled,  this, &AShooterGameCharacter::StopSprinting);
+		}
 		// Crouch
 		EnhancedInputComponent->BindAction(CrouchAction,				ETriggerEvent::Triggered,	this,	&AShooterGameCharacter::CrouchButtonPressed);
 		if (ProneAction)
@@ -378,6 +459,39 @@ void AShooterGameCharacter::DoMove(float Right, float Forward)
 	}
 }
 
+void AShooterGameCharacter::StartSprinting()
+{
+	if (DownedComp && !DownedComp->IsAlive()) return;
+	if (Combat && Combat->bAiming) return;
+
+	if (bSprintToggleMode)
+	{
+		// Toggle: first press starts, second press stops
+		if (bIsSprinting)
+		{
+			StopSprinting();
+			return;
+		}
+	}
+
+	if (!bCanSprint) return;
+
+	bIsSprinting = true;
+	GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
+}
+
+void AShooterGameCharacter::StopSprinting()
+{
+	if (!bIsSprinting) return;
+
+	// In toggle mode the Completed event fires when the key is released,
+	// but we only want to stop on the next press — so ignore the release.
+	if (bSprintToggleMode) return;
+
+	bIsSprinting = false;
+	GetCharacterMovement()->MaxWalkSpeed = RunSpeed;
+}
+
 
 void AShooterGameCharacter::Look(const FInputActionValue& Value)
 {
@@ -431,6 +545,18 @@ AActor* AShooterGameCharacter::FindBestInteractableInView(FHitResult& OutHit) co
 
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
+	TArray<UPrimitiveComponent*> OwnedPrimitives;
+	GetComponents<UPrimitiveComponent>(OwnedPrimitives);
+	for (UPrimitiveComponent* Comp : OwnedPrimitives)
+	{
+		QueryParams.AddIgnoredComponent(Comp);
+	}
+	TArray<AActor*> AttachedActors;
+	GetAttachedActors(AttachedActors);
+	for (AActor* Attached : AttachedActors)
+	{
+		QueryParams.AddIgnoredActor(Attached);
+	}
 	QueryParams.bReturnPhysicalMaterial = false;
 
 	const bool bHit = GetWorld()->SweepSingleByChannel(
@@ -445,8 +571,12 @@ AActor* AShooterGameCharacter::FindBestInteractableInView(FHitResult& OutHit) co
 
 	if (bDrawInteractTraceDebug)
 	{
-		//DrawDebugLine(GetWorld(), TraceStart, TraceEnd, bHit ? FColor::Green : FColor::Red, false, 0.f, 0, 1.5f);
-		//DrawDebugSphere(GetWorld(), bHit ? OutHit.ImpactPoint : TraceEnd, InteractTraceRadius, 12, bHit ? FColor::Green : FColor::Red, false, 0.f);
+		/*
+		// Draw from camera to actual trace END (not hit point) so the line
+		// always shows full length regardless of what was hit
+		DrawDebugLine(GetWorld(), TraceStart, TraceEnd, bHit ? FColor::Green : FColor::Red, false, 0.f, 0, 1.5f);
+		DrawDebugSphere(GetWorld(), bHit ? OutHit.ImpactPoint : TraceEnd, InteractTraceRadius, 12, bHit ? FColor::Green : FColor::Red, false, 0.f);
+		*/
 	}
 
 	if (!bHit || !OutHit.GetActor()) return nullptr;
@@ -744,6 +874,7 @@ void AShooterGameCharacter::ServerPrimaryInteract_Implementation()
 		UE_LOG(LogTemp, Warning, TEXT("[ServerPrimaryInteract] Executing Interact on %s"), *InteractTarget->GetName());
 
 		IInteractable::Execute_Interact(InteractTarget, this);
+		
 		ClientPlayInteractionMontage();
 		return;
 	}
@@ -881,9 +1012,8 @@ void AShooterGameCharacter::ApplyProneState(bool bProne)
 	}
 	else
 	{
-		// Restore speed — use combat component's base speed if available
-		const float RestoreSpeed = Combat ? Combat->GetBaseWalkSpeed() : 500.f;
-		GetCharacterMovement()->MaxWalkSpeed = RestoreSpeed;
+		// Restore to run speed — sprint/walk tiers are enforced in Tick
+		GetCharacterMovement()->MaxWalkSpeed = RunSpeed;
 
 		// Restore capsule height
 		GetCapsuleComponent()->SetCapsuleHalfHeight(StandingCapsuleHalfHeight);
@@ -991,6 +1121,7 @@ void AShooterGameCharacter::PlayReloadMontage()
 void AShooterGameCharacter::PlayInteractionMontage()
 {
 	UAnimMontage* MontageToPlay = GetInteractionMontageForCurrentStance();
+	
 	if (!MontageToPlay)
 	{
 		return;

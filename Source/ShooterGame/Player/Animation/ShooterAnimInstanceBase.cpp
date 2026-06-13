@@ -71,18 +71,24 @@ void UShooterAnimInstanceBase::UpdateMovementData()
         ShooterGameCharacter->GetVelocity(),
         ShooterGameCharacter->GetActorRotation()
     );
+
+    // -----------------------------------------------------------------------
+    // Phase 1 — locomotion tier flags
+    // -----------------------------------------------------------------------
+    bIsSprinting = ShooterGameCharacter->IsSprinting();
+    bIsRunning   = !bIsSprinting && (Speed >= RunSpeedThreshold);
+    bIsWalking   = !bIsSprinting && !bIsRunning && (Speed >= IdleSpeedThreshold);
+
+    // 2D local-space move vector for Infima-style blend spaces
+    InputMoveVector = ShooterGameCharacter->GetAnimationInputMoveVector();
 }
 
 void UShooterAnimInstanceBase::UpdateAimData()
 {
     bIsAiming      = ShooterGameCharacter->IsAiming();
     AimOffset_Yaw  = ShooterGameCharacter->GetAimOffset_Yaw();
+    AimOffset_Pitch = ShooterGameCharacter->GetAimOffset_Pitch(); // pre-normalized in character Tick
     TurningInPlace = ShooterGameCharacter->GetTurningInPlace();
-
-    const FRotator ControlRot = ShooterGameCharacter->GetControlRotation();
-    AimOffset_Pitch = ControlRot.Pitch > 180.f
-        ? ControlRot.Pitch - 360.f
-        : ControlRot.Pitch;
 }
 
 void UShooterAnimInstanceBase::UpdateCombatData()
@@ -101,6 +107,26 @@ void UShooterAnimInstanceBase::UpdateCombatData()
                      || CombatComponent->IsReloadPendingLocal();
     bIsInteracting = (CurrentAction == ECombatAction::Interacting)
                      || ShooterGameCharacter->IsInteractionAnimationRequested();
+
+    // -----------------------------------------------------------------------
+    // Phase 1 — grip blend alpha
+    // Interpolate toward 1.0 when a non-default grip is active, 0.0 otherwise.
+    // -----------------------------------------------------------------------
+    const float GripTarget = (CurrentGrip != EWeaponGrip::Default) ? 1.f : 0.f;
+    CurrentGripAlpha = FMath::FInterpTo(
+        CurrentGripAlpha,
+        GripTarget,
+        GetWorld()->GetDeltaSeconds(),
+        GripInterpSpeed
+    );
+
+    // -----------------------------------------------------------------------
+    // Phase 1 — procedural transform reads from character
+    // Authored offset targets are zero/identity until tuning phase.
+    // -----------------------------------------------------------------------
+    CrouchTransform       = ShooterGameCharacter->GetCrouchTransform();
+    AimDownSightsTransform = ShooterGameCharacter->GetAimDownSightsTransform();
+    RecoilTransform       = ShooterGameCharacter->GetRecoilTransform();
 }
 
 void UShooterAnimInstanceBase::UpdateIKData()

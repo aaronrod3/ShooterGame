@@ -10,13 +10,6 @@
 class AShooterGameCharacter;
 class UCombatComponent;
 
-/**
- * Shared base for all ShooterGame anim instances (TP and FP).
- * Owns the data that both perspectives need: movement, combat action
- * state, weapon stance, and left-hand IK inputs.
- * Does NOT own any montage slots or pose logic — those belong to the
- * derived TP/FP classes.
- */
 UCLASS()
 class SHOOTERGAME_API UShooterAnimInstanceBase : public UAnimInstance
 {
@@ -28,11 +21,10 @@ public:
 
     UFUNCTION()
     void AnimNotify_InteractionFinished();
-    
-    
+
 protected:
     // -----------------------------------------------------------------------
-    // Cached pointers — set once in NativeInitializeAnimation
+    // Cached pointers
     // -----------------------------------------------------------------------
     UPROPERTY(BlueprintReadOnly, Category = "Anim|Cache")
     TObjectPtr<AShooterGameCharacter> ShooterGameCharacter;
@@ -59,17 +51,47 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Movement")
     bool bIsProne = false;
 
-    /** Per-frame yaw delta used for locomotion blendspaces. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Movement")
     float YawOffset = 0.f;
 
-    /** Smoothed version of YawOffset — fed into lean blendspaces. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Movement")
     float Lean = 0.f;
 
-    /** Strafe direction angle — fed into directional blendspaces. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Movement")
     float Direction = 0.f;
+
+    // -----------------------------------------------------------------------
+    // Locomotion tier flags — Phase 1 Infima bridge contract
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Movement|Tiers")
+    bool bIsWalking = false;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Movement|Tiers")
+    bool bIsRunning = false;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Movement|Tiers")
+    bool bIsSprinting = false;
+
+    /**
+     * Local-space 2D movement vector for Infima-style blend spaces.
+     * X = forward/backward (cm/s), Y = right/left strafe (cm/s).
+     */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Movement|Tiers")
+    FVector2D InputMoveVector = FVector2D::ZeroVector;
+
+    // -----------------------------------------------------------------------
+    // Speed threshold config
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim|Movement|Thresholds")
+    float IdleSpeedThreshold = 10.f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim|Movement|Thresholds")
+    float RunSpeedThreshold = 150.f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim|Movement|Thresholds")
+    float SprintSpeedThreshold = 250.f;
 
     // -----------------------------------------------------------------------
     // Aim / turn state
@@ -78,11 +100,13 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Aim")
     bool bIsAiming = false;
 
-    /** Yaw delta between actor and control rotation. Fed into AimOffset. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Aim")
     float AimOffset_Yaw = 0.f;
 
-    /** Pitch of the control rotation. Fed into AimOffset. */
+    /**
+     * Normalized control pitch for aim offset vertical axis.
+     * Range: [-90, 90]. UE wrap-around resolved in character Tick.
+     */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Aim")
     float AimOffset_Pitch = 0.f;
 
@@ -90,7 +114,7 @@ protected:
     ETurningInPlace TurningInPlace = ETurningInPlace::ETIP_NotTurning;
 
     // -----------------------------------------------------------------------
-    // Combat action state (from CombatComponent)
+    // Combat action state
     // -----------------------------------------------------------------------
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
@@ -105,37 +129,53 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
     EPlayerWeaponStance WeaponStance = EPlayerWeaponStance::EPWS_Unarmed;
 
-    /** True while a weapon is equipped. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
     bool bWeaponEquipped = false;
 
-    /** True while any action is blocking inputs (reload, interact, etc.). */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
     bool bIsBusy = false;
 
-    /** Convenience bool — true when CurrentAction == Reloading. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
     bool bIsReloading = false;
 
-    /** Convenience bool — true when CurrentAction == Interacting. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
     bool bIsInteracting = false;
 
-    /** True when a montage notify state is blocking ADS entry. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
     bool bIsAimingBlocked = false;
 
     // -----------------------------------------------------------------------
-    // Left-hand IK inputs (fed from character socket config)
+    // Left-hand IK inputs
     // -----------------------------------------------------------------------
 
-    /** Component-space transform of the left-hand IK target this frame. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|IK")
     FTransform LeftHandTransform = FTransform::Identity;
 
-    /** True when the left hand should be IK-pinned to the weapon. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|IK")
     bool bLeftHandOnWeapon = false;
+
+    // -----------------------------------------------------------------------
+    // Procedural transform contract — Phase 1 Infima bridge
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Procedural")
+    FTransform CrouchTransform = FTransform::Identity;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Procedural")
+    FTransform AimDownSightsTransform = FTransform::Identity;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Procedural")
+    FTransform RecoilTransform = FTransform::Identity;
+
+    // -----------------------------------------------------------------------
+    // Grip blend alpha — Phase 1 Infima bridge
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
+    float CurrentGripAlpha = 0.f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim|Combat")
+    float GripInterpSpeed = 10.f;
 
 private:
     float LastYaw = 0.f;

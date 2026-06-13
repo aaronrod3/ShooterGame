@@ -29,11 +29,10 @@ void UCombatComponent::BeginPlay()
 	Super::BeginPlay();
 
 	Character = Cast<AShooterGameCharacter>(GetOwner());
-	if (Character && Character->GetCharacterMovement())
-	{
-		Character->GetCharacterMovement()->MaxWalkSpeed = BaseWalkSpeed;
-	}
-	
+	// MaxWalkSpeed is now owned by AShooterGameCharacter's sprint/run/walk
+	// tier system (Phase 1 contract). CombatComponent no longer sets it here.
+	// BaseWalkSpeed and AimWalkSpeed are retained for future ADS speed
+	// modulation — that wiring is deferred to Phase 2.
 }
 
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -256,17 +255,13 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 {
 	bAiming = bIsAiming;
 	ServerSetAiming(bIsAiming);
-
-	if (Character && Character->GetCharacterMovement())
-	{
-		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
-	}
+	// MaxWalkSpeed is now owned by AShooterGameCharacter tier system.
+	// ADS speed reduction is applied there via GetAimSpeedMultiplier().
 
 	if (bIsAiming && EquippedWeapon)
 	{
 		EquippedWeapon->ApplySpreadMultiplier(AimAccuracyBonusMultiplier);
 
-		// Pull ADS offset targets from the current weapon config
 		if (const UWeaponConfig* Cfg = EquippedWeapon->GetWeaponConfig())
 		{
 			ADSLocationTarget = Cfg->ADSLocationOffset;
@@ -275,11 +270,11 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	}
 	else
 	{
-		// Hip fire — clear ADS targets so the AnimGraph lerps back to zero
 		ADSLocationTarget = FVector::ZeroVector;
 		ADSRotationTarget = FRotator::ZeroRotator;
 	}
 }
+
 void UCombatComponent::OnRep_Aiming()
 {
 	// Fires on simulated proxies when bAiming replicates from the server.
@@ -293,11 +288,8 @@ void UCombatComponent::OnRep_Aiming()
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 {
 	bAiming = bIsAiming;
-	if (Character && Character->GetCharacterMovement())
-	{
-		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
-	}
-	
+	// MaxWalkSpeed is now owned by AShooterGameCharacter tier system.
+
 	if (Character)
 	{
 		Character->SetOrientationForAiming(bIsAiming);
