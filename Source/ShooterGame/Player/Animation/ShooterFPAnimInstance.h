@@ -33,6 +33,15 @@ protected:
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|FP|ADS")
 	float ADSAlpha = 0.f;
+	
+	/**
+	 * When false (default), the FP arms mesh never drives the head bone —
+	 * SKM_FP_Arms is arms-only and has no head bone anyway.
+	 * When true (set by Phase 4 TP path), the Layered Blend Per Bone
+	 * head branch is active. Default MUST remain false.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim|FP|Camera")
+	bool bAnimateCamera = false;
 
 
 private:

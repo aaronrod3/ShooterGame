@@ -122,10 +122,19 @@ void UShooterAnimInstanceBase::UpdateMovementData()
 
 void UShooterAnimInstanceBase::UpdateAimData()
 {
-    bIsAiming      = ShooterGameCharacter->IsAiming();
-    AimOffset_Yaw  = ShooterGameCharacter->GetAimOffset_Yaw();
-    AimOffset_Pitch = ShooterGameCharacter->GetAimOffset_Pitch(); // pre-normalized in character Tick
-    TurningInPlace = ShooterGameCharacter->GetTurningInPlace();
+    bIsAiming       = ShooterGameCharacter->IsAiming();
+    AimOffset_Yaw   = ShooterGameCharacter->GetAimOffset_Yaw();
+    AimOffset_Pitch = ShooterGameCharacter->GetAimOffset_Pitch();
+    TurningInPlace  = ShooterGameCharacter->GetTurningInPlace();
+
+    // -----------------------------------------------------------------------
+    // Stance derivation — Aiming > Crouching > Standing
+    // Placed here because bIsAiming and bIsCrouched are both resolved above
+    // and inside UpdateMovementData() respectively.
+    // -----------------------------------------------------------------------
+    if (bIsAiming)        CurrentStance = EShooterStance::Aiming;
+    else if (bIsCrouched) CurrentStance = EShooterStance::Crouching;
+    else                  CurrentStance = EShooterStance::Standing;
 }
 
 void UShooterAnimInstanceBase::UpdateCombatData()

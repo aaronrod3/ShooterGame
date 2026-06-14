@@ -11,6 +11,19 @@
 class AShooterGameCharacter;
 class UCombatComponent;
 
+
+// ---------------------------------------------------------------------------
+// Stance enum — used by both FP and TP AnimBPs to drive locomotion layers.
+// ---------------------------------------------------------------------------
+UENUM(BlueprintType)
+enum class EShooterStance : uint8
+{
+    Standing  UMETA(DisplayName = "Standing"),
+    Crouching UMETA(DisplayName = "Crouching"),
+    Aiming    UMETA(DisplayName = "Aiming"),
+};
+
+
 UCLASS()
 class SHOOTERGAME_API UShooterAnimInstanceBase : public UAnimInstance, public IShooterAnimStateInterface
 {
@@ -126,6 +139,14 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Aim")
     ETurningInPlace TurningInPlace = ETurningInPlace::ETIP_NotTurning;
 
+    // -----------------------------------------------------------------------
+    // Stance — drives FP and TP locomotion state machines
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Stance")
+    EShooterStance CurrentStance = EShooterStance::Standing;
+    
+    
     // -----------------------------------------------------------------------
     // Combat action state
     // -----------------------------------------------------------------------
