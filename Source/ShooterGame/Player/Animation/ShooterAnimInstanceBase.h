@@ -5,13 +5,14 @@
 #include "ShooterGame/Types/CombatTypes.h"
 #include "ShooterGame/Types/PlayerWeaponStance.h"
 #include "ShooterGame/Types/TurningInPlace.h"
+#include "ShooterGame/Player/Animation/ShooterAnimStateInterface.h"
 #include "ShooterAnimInstanceBase.generated.h"
 
 class AShooterGameCharacter;
 class UCombatComponent;
 
 UCLASS()
-class SHOOTERGAME_API UShooterAnimInstanceBase : public UAnimInstance
+class SHOOTERGAME_API UShooterAnimInstanceBase : public UAnimInstance, public IShooterAnimStateInterface
 {
     GENERATED_BODY()
 
@@ -21,6 +22,18 @@ public:
 
     UFUNCTION()
     void AnimNotify_InteractionFinished();
+    
+    // IShooterAnimStateInterface
+    virtual void UpdateLeftHandGrip_Implementation(bool bIsLeftHandOnWeapon, float BlendSpeed) override;
+    virtual void SetAimingBlocked_Implementation(bool bBlocked) override;
+    virtual void OnAnimStateMessage_Implementation(FName MessageTag, float Value) override;
+    
+    /** Called by ANS_LeftHandGrip::NotifyEnd to hand control back to UpdateIKData. */
+    FORCEINLINE void ClearGripOverride()
+    {
+        bGripOverrideActive    = false;
+        GripBlendSpeedOverride = 0.f;
+    }
 
 protected:
     // -----------------------------------------------------------------------
@@ -176,6 +189,35 @@ protected:
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anim|Combat")
     float GripInterpSpeed = 10.f;
+    
+    /** True while ANS_LeftHandGrip is actively overriding left-hand IK. */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|IK")
+    bool bGripOverrideActive = false;
+
+    /**
+     * Notify-driven override for bLeftHandOnWeapon.
+     * When bGripOverrideActive is true, UpdateIKData result is ignored
+     * and this value is used instead.
+     */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|IK")
+    bool bLeftHandOnWeaponOverride = false;
+
+    /**
+     * Per-message blend speed override.
+     * When > 0, CurrentGripAlpha interpolation uses this instead of GripInterpSpeed.
+     * Reset to 0 when notify ends.
+     */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|IK")
+    float GripBlendSpeedOverride = 0.f;
+
+    /**
+     * Notify-driven ADS block — set by ANS_BlockADS.
+     * Takes precedence over CombatComponent::bIsAimingBlocked for the AnimInstance.
+     * CombatComponent flag is the authoritative server value; this is a local
+     * AnimInstance shadow for the current montage window only.
+     */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
+    bool bIsAimingBlockedLocal = false;
 
 private:
     float LastYaw = 0.f;

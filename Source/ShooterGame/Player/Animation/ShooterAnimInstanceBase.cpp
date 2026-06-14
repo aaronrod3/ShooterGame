@@ -1,8 +1,10 @@
 ﻿#include "ShooterAnimInstanceBase.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
+#include "ShooterAnimStateInterface.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "ShooterGame/Framework/ShooterGame.h"
 #include "KismetAnimationLibrary.h"
 
 void UShooterAnimInstanceBase::NativeInitializeAnimation()
@@ -45,6 +47,41 @@ void UShooterAnimInstanceBase::AnimNotify_InteractionFinished()
     }
 }
 
+
+// -----------------------------------------------------------------------
+// IShooterAnimStateInterface — _Implementation bodies
+// -----------------------------------------------------------------------
+
+void UShooterAnimInstanceBase::UpdateLeftHandGrip_Implementation(
+    bool bIsLeftHandOnWeapon, float BlendSpeed)
+{
+    bGripOverrideActive         = true;
+    bLeftHandOnWeaponOverride   = bIsLeftHandOnWeapon;
+    GripBlendSpeedOverride      = (BlendSpeed > 0.f) ? BlendSpeed : GripInterpSpeed;
+
+    UE_LOG(LogShooterGame, Verbose,
+        TEXT("UShooterAnimInstanceBase::UpdateLeftHandGrip — OnWeapon=%d BlendSpeed=%.1f"),
+        bIsLeftHandOnWeapon, GripBlendSpeedOverride);
+}
+
+void UShooterAnimInstanceBase::SetAimingBlocked_Implementation(bool bBlocked)
+{
+    bIsAimingBlockedLocal = bBlocked;
+
+    UE_LOG(LogShooterGame, Verbose,
+        TEXT("UShooterAnimInstanceBase::SetAimingBlocked — Blocked=%d"),
+        bBlocked);
+}
+
+void UShooterAnimInstanceBase::OnAnimStateMessage_Implementation(
+    FName MessageTag, float Value)
+{
+    // Default implementation is a no-op pass-through.
+    // Blueprint AnimBPs can override this for tag-driven responses.
+    UE_LOG(LogShooterGame, Verbose,
+        TEXT("UShooterAnimInstanceBase::OnAnimStateMessage — Tag=%s Value=%.2f"),
+        *MessageTag.ToString(), Value);
+}
 
 
 
@@ -100,7 +137,7 @@ void UShooterAnimInstanceBase::UpdateCombatData()
     CurrentGrip       = CombatComponent->GetCurrentGrip();
     WeaponStance      = CombatComponent->GetPlayerWeaponStance();
     bIsBusy           = CombatComponent->IsBusy();
-    bIsAimingBlocked  = CombatComponent->IsAimingBlocked();
+    bIsAimingBlocked = bIsAimingBlockedLocal || CombatComponent->IsAimingBlocked();
     bWeaponEquipped   = (ShooterGameCharacter->GetEquippedWeapon() != nullptr);
 
     bIsReloading   = (CurrentAction == ECombatAction::Reloading)
@@ -108,16 +145,14 @@ void UShooterAnimInstanceBase::UpdateCombatData()
     bIsInteracting = (CurrentAction == ECombatAction::Interacting)
                      || ShooterGameCharacter->IsInteractionAnimationRequested();
 
-    // -----------------------------------------------------------------------
-    // Phase 1 — grip blend alpha
-    // Interpolate toward 1.0 when a non-default grip is active, 0.0 otherwise.
-    // -----------------------------------------------------------------------
-    const float GripTarget = (CurrentGrip != EWeaponGrip::Default) ? 1.f : 0.f;
+    
+    const float GripTarget       = (CurrentGrip != EWeaponGrip::Default) ? 1.f : 0.f;
+    const float ActiveBlendSpeed = (GripBlendSpeedOverride > 0.f) ? GripBlendSpeedOverride : GripInterpSpeed;
     CurrentGripAlpha = FMath::FInterpTo(
         CurrentGripAlpha,
         GripTarget,
         GetWorld()->GetDeltaSeconds(),
-        GripInterpSpeed
+        ActiveBlendSpeed
     );
 
     // -----------------------------------------------------------------------
@@ -148,7 +183,7 @@ void UShooterAnimInstanceBase::UpdateIKData()
     USkeletalMeshComponent* CharMesh = ShooterGameCharacter->GetMesh();
     if (!CharMesh || !Weapon->GetWeaponMesh()->DoesSocketExist(LeftSocketName))
     {
-        bLeftHandOnWeapon = false;
+        bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : false;
         return;
     }
 
@@ -174,5 +209,5 @@ void UShooterAnimInstanceBase::UpdateIKData()
     LeftHandTransform.SetRotation(FQuat(OutRotation));
     LeftHandTransform.SetScale3D(FVector::OneVector);
 
-    bLeftHandOnWeapon = true;
+    bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : true;
 }
