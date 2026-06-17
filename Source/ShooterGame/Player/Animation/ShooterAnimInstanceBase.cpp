@@ -141,18 +141,17 @@ void UShooterAnimInstanceBase::UpdateCombatData()
 {
     if (!CombatComponent) return;
 
-    CurrentAction     = CombatComponent->GetCombatAction();
-    CurrentReloadType = CombatComponent->GetReloadType();
-    CurrentGrip       = CombatComponent->GetCurrentGrip();
-    WeaponStance      = CombatComponent->GetPlayerWeaponStance();
-    bIsBusy           = CombatComponent->IsBusy();
-    bIsAimingBlocked = bIsAimingBlockedLocal || CombatComponent->IsAimingBlocked();
-    bWeaponEquipped   = (ShooterGameCharacter->GetEquippedWeapon() != nullptr);
+    CurrentAction       = CombatComponent->GetCombatAction();
+    CurrentReloadType   = CombatComponent->GetReloadType();
+    CurrentGrip         = CombatComponent->GetCurrentGrip();
+    WeaponStance        = CombatComponent->GetPlayerWeaponStance();
+    bIsBusy             = CombatComponent->IsBusy();
+    bIsAimingBlocked    = bIsAimingBlockedLocal || CombatComponent->IsAimingBlocked();
+    bWeaponEquipped     = (ShooterGameCharacter->GetEquippedWeapon() != nullptr);
+    bInCombatState      = CombatComponent->GetInCombatState();
 
-    bIsReloading   = (CurrentAction == ECombatAction::Reloading)
-                     || CombatComponent->IsReloadPendingLocal();
-    bIsInteracting = (CurrentAction == ECombatAction::Interacting)
-                     || ShooterGameCharacter->IsInteractionAnimationRequested();
+    bIsReloading        = (CurrentAction == ECombatAction::Reloading)|| CombatComponent->IsReloadPendingLocal();
+    bIsInteracting      = (CurrentAction == ECombatAction::Interacting) || ShooterGameCharacter->IsInteractionAnimationRequested();
 
     
     const float GripTarget       = (CurrentGrip != EWeaponGrip::Default) ? 1.f : 0.f;

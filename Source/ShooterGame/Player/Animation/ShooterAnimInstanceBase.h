@@ -177,6 +177,9 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
     bool bIsAimingBlocked = false;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
+    bool bInCombatState = false;
 
     // -----------------------------------------------------------------------
     // Left-hand IK inputs

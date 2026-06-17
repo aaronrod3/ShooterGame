@@ -253,6 +253,12 @@ void UCombatComponent::SpawnDefaultWeapon()
 
 void UCombatComponent::SetAiming(bool bIsAiming)
 {
+	if (bIsAiming)
+	{
+		EnterCombatState(); // Phase 4 — aim start enters combat state
+	}
+	
+	
 	bAiming = bIsAiming;
 	ServerSetAiming(bIsAiming);
 	// MaxWalkSpeed is now owned by AShooterGameCharacter tier system.
@@ -334,12 +340,7 @@ void UCombatComponent::FireButtonReleased()
 
 void UCombatComponent::HandleFire()
 {
-	
-	UE_LOG(LogTemp, Warning, TEXT("[M6] HandleFire — weapon: %d, canfire: %d, pending: %d"),
-		EquippedWeapon != nullptr,
-		EquippedWeapon ? (int32)EquippedWeapon->CanFire() : -1,
-		(int32)bPendingHipFireShot);
-	
+	EnterCombatState();
 	
     if (!EquippedWeapon) return;
 
@@ -610,12 +611,7 @@ bool UCombatComponent::CanReload() const
 
 void UCombatComponent::ReloadEquippedWeapon()
 {
-	UE_LOG(LogTemp, Warning, TEXT("[Reload] Called — EquippedWeapon: %s"),
-		EquippedWeapon ? *EquippedWeapon->GetName() : TEXT("NULL"));
-	UE_LOG(LogTemp, Warning, TEXT("[Reload] CurrentAction: %d, bAiming: %d"),
-	(int32)CurrentCombatAction, (int32)bAiming);
-	UE_LOG(LogTemp, Warning, TEXT("[Reload] MagRounds: %d"),
-		EquippedWeapon ? EquippedWeapon->GetMagRounds() : -1);
+	EnterCombatState();
 	
 	
 	if (!EquippedWeapon || !Character) return;
@@ -1248,4 +1244,36 @@ void UCombatComponent::SpawnAndEquipWeaponFromSlot(const FLoadoutSlot& Slot)
 				SpawnedWeapon->GetMagCapacity());
 		}
 	}
+}
+
+void UCombatComponent::EnterCombatState()
+{
+	bInCombatState = true;
+
+	// Reset the inactivity timer every time a combative action occurs.
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			CombatStateInactivityTimerHandle,
+			this,
+			&UCombatComponent::OnCombatStateInactivityExpired,
+			CombatStateInactivityDuration,
+			false  // not looping
+		);
+	}
+}
+
+void UCombatComponent::ExitCombatState()
+{
+	bInCombatState = false;
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(CombatStateInactivityTimerHandle);
+	}
+}
+
+void UCombatComponent::OnCombatStateInactivityExpired()
+{
+	bInCombatState = false;
 }

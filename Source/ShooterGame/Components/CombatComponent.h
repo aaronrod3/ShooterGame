@@ -67,6 +67,15 @@ public:
 	 * Clamped to 0.1 - 2.0 to prevent extreme values.
 	 */
 	void SetAimAccuracyBonus(float InMultiplier);
+	
+	/** Enter combat state. Call on fire, aim start, reload start, mag check start. */
+	void EnterCombatState();
+
+	/** Exit combat state immediately. Call on sprint start. */
+	void ExitCombatState();
+
+	/** Read by UShooterAnimInstanceBase::UpdateCombatData via GetInCombatState(). */
+	FORCEINLINE bool GetInCombatState() const { return bInCombatState; }
 
 	FORCEINLINE const FReticleState&	GetReticleState()				const { return ReticleState; }
 	FORCEINLINE FVector					GetReticleWorldPosition()		const { return ReticleWorldPosition; }
@@ -231,7 +240,22 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Combat|State")
 	EReloadType CurrentReloadType = EReloadType::None;
 
-	
+	/**
+	 * True when the player is in an active combat engagement.
+	 * Entered: fire, aim start, reload start, mag check start.
+	 * Exited:  sprint start (immediate) or CombatStateInactivityTimer fires.
+	 */
+	bool bInCombatState = false;
+
+	/** Handle for the 3-second inactivity timer that clears bInCombatState. */
+	FTimerHandle CombatStateInactivityTimerHandle;
+
+	/** Inactivity window before bInCombatState auto-clears. Tunable. */
+	UPROPERTY(EditAnywhere, Category = "Combat|CombatState")
+	float CombatStateInactivityDuration = 3.f;
+
+	/** Internal callback bound to CombatStateInactivityTimerHandle. */
+	void OnCombatStateInactivityExpired();
 
 	// Internal fire state — these stay local, not replicated
 	bool bFullAutoFiring    = false;

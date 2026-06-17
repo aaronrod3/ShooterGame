@@ -1,6 +1,5 @@
 ﻿#include "ShooterTPAnimInstance.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
-#include "ShooterGame/Types/PlayerWeaponStance.h"
 
 void UShooterTPAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
@@ -13,6 +12,7 @@ void UShooterTPAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 
 void UShooterTPAnimInstance::UpdateTPData()
 {
-	bUseTwoHandedGrip = (WeaponStance == EPlayerWeaponStance::EPWS_Rifle
-					  || WeaponStance == EPlayerWeaponStance::EPWS_Shotgun);
+	// Phase 4: no TP-only state to compute.
+	// bWeaponEquipped (base class) drives left-arm FABRIK alpha in ABP_TP_Default.
+	// Phase 5 will add weapon-config-driven state here.
 }

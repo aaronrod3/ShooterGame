@@ -461,6 +461,8 @@ void AShooterGameCharacter::DoMove(float Right, float Forward)
 
 void AShooterGameCharacter::StartSprinting()
 {
+	if (Combat) { Combat->ExitCombatState(); }
+	
 	if (DownedComp && !DownedComp->IsAlive()) return;
 	if (Combat && Combat->bAiming) return;
 
