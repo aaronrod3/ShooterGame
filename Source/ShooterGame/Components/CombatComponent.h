@@ -152,6 +152,13 @@ public:
 	void OnLoadoutUpdated(const FLoadoutData& NewLoadout);
 
 
+	// Deferred loadout apply — coalesces rapid OnLoadoutChanged broadcasts
+	UFUNCTION()
+	void ApplyPendingLoadout();
+	FTimerHandle LoadoutApplyTimerHandle;
+	FLoadoutData PendingLoadoutData;
+	
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -367,4 +374,7 @@ private:
 
 	bool ShouldDelayHipFireShot() const;
 	float GetHipFireYawDeltaToControl() const;
+	
+	
+	
 };

@@ -445,9 +445,27 @@ void AShooterGameCharacter::PostInitializeComponents()
 
 	if (LoadoutComp)
 	{
-		LoadoutComp->OnLoadoutChanged.AddDynamic(this, &AShooterGameCharacter::OnLoadoutChanged_Internal); // inventory first
-		LoadoutComp->OnLoadoutChanged.AddDynamic(Combat, &UCombatComponent::OnLoadoutUpdated);             // weapon second
-		LoadoutComp->OnAppearanceChanged.AddDynamic(this, &AShooterGameCharacter::OnAppearanceChanged_Internal);
+		// Clear any stale bindings first — guards against re-init and seamless travel
+		LoadoutComp->OnLoadoutChanged.RemoveAll(this);
+		LoadoutComp->OnLoadoutChanged.RemoveAll(Combat);
+		LoadoutComp->OnAppearanceChanged.RemoveAll(this);
+
+		// Inventory/UI listener runs on all roles — purely cosmetic/local work only
+		LoadoutComp->OnLoadoutChanged.AddDynamic(
+			this, &AShooterGameCharacter::OnLoadoutChanged_Internal
+		);
+
+		// Weapon spawning only on the server
+		if (HasAuthority())
+		{
+			LoadoutComp->OnLoadoutChanged.AddDynamic(
+				Combat, &UCombatComponent::OnLoadoutUpdated
+			);
+		}
+
+		LoadoutComp->OnAppearanceChanged.AddDynamic(
+			this, &AShooterGameCharacter::OnAppearanceChanged_Internal
+		);
 	}
 }
 
@@ -877,11 +895,6 @@ bool AShooterGameCharacter::IsWeaponEquipped()
 AWeapon* AShooterGameCharacter::GetEquippedWeapon()
 {
 	if (Combat == nullptr) return nullptr;
-
-	if (!Combat->EquippedWeapon)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[GEW] null on: %s"), *GetName());
-	}
 
 	return Combat->EquippedWeapon;
 }

@@ -3,19 +3,30 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/BlendSpace.h"
+#include "Animation/AnimSequence.h"
+#include "Animation/AnimInstance.h"
+#include "Sound/SoundBase.h"
+#include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 #include "ShooterGame/Types/CombatTypes.h"
 #include "WeaponConfig.generated.h"
 
 /**
  * UWeaponConfig
  *
- * Primary data asset that is the single source of truth for a weapon's
- * meshes, sockets, montages, AnimBP references, offsets, sounds, and
- * cosmetic ammo count.  Mirrors Infima's BPTFABaseConfig design.
+ * Primary data asset — the single source of truth for all weapon-specific
+ * mesh references, socket names, animation assets, sounds, offsets, and
+ * cosmetic values consumed by the character, weapon actor, magazine actor,
+ * and AnimBPs.
  *
- * Both AWeapon (presentation assembly) and AShooterGameCharacter
- * (equip flow, camera, offsets) read from this asset.
- * Gameplay logic (ammo economy, damage) stays in AWeapon and UCombatComponent.
+ * Mirrors Infima Games BP_TFA_BaseConfig field-for-field.
+ * All asset references are TSoftObjectPtr so the Asset Manager can stream
+ * weapon configs without eagerly loading every referenced asset.
+ *
+ * Gameplay logic (ammo economy, damage, fire rate) lives in AWeapon /
+ * UCombatComponent — NOT here.
  */
 UCLASS(BlueprintType)
 class SHOOTERGAME_API UWeaponConfig : public UPrimaryDataAsset
@@ -28,358 +39,429 @@ public:
     // Mesh References
     // -----------------------------------------------------------------------
 
-    /** Main skeletal mesh — the rifle receiver / frame. */
+    /** Main skeletal mesh — the weapon receiver / frame. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<USkeletalMesh> MeshReceiver;
+    TSoftObjectPtr<USkeletalMesh> MeshReceiver;
 
     /** Skeletal magazine mesh (animated, used for cosmetic magazine actors). */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<USkeletalMesh> MeshMagazineSK;
+    TSoftObjectPtr<USkeletalMesh> MeshMagazineSK;
 
-    /** Static magazine mesh (used for dropped/physics magazine prop). */
+    /** Static magazine mesh (used for dropped / physics magazine prop). */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshMagazine;
-
-    /** Chambered or ejected bullet mesh. */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshBulletCasing;
+    TSoftObjectPtr<UStaticMesh> MeshMagazine;
 
     /** Live round mesh shown in magazine bullet sockets. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshBullet;
+    TSoftObjectPtr<UStaticMesh> MeshBullet;
+
+    /** Chambered / ejected casing mesh. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
+    TSoftObjectPtr<UStaticMesh> MeshBulletCasing;
 
     /** Handguard static mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshHandguard;
+    TSoftObjectPtr<UStaticMesh> MeshHandguard;
 
     /** Scope static mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshScope;
+    TSoftObjectPtr<UStaticMesh> MeshScope;
 
     /** Front iron sight static mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshSightFront;
+    TSoftObjectPtr<UStaticMesh> MeshSightFront;
 
     /** Rear iron sight static mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshSightRear;
-
-    /** Silencer / suppressor static mesh. */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshSilencer;
+    TSoftObjectPtr<UStaticMesh> MeshSightRear;
 
     /** Laser attachment static mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshLaserAttachment;
+    TSoftObjectPtr<UStaticMesh> MeshLaserAttachment;
 
     /** Vertical foregrip static mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshGripVertical;
+    TSoftObjectPtr<UStaticMesh> MeshGripVertical;
 
     /** Angled foregrip static mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<UStaticMesh> MeshGripAngled;
+    TSoftObjectPtr<UStaticMesh> MeshGripAngled;
+
+    /** Silencer / suppressor static mesh. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
+    TSoftObjectPtr<UStaticMesh> MeshSilencer;
+
+    /** First-person character skeletal mesh (arms + weapon). */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
+    TSoftObjectPtr<USkeletalMesh> FP_Mesh;
 
     /** Third-person character skeletal mesh (full body with weapon pose). */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<USkeletalMesh> TPMesh;
+    TSoftObjectPtr<USkeletalMesh> TP_Mesh;
 
-    /** First-person character skeletal mesh (arms only). */
+    // -----------------------------------------------------------------------
+    // AnimBP Class References
+    // -----------------------------------------------------------------------
+
+    /** AnimBP class to assign to the weapon receiver skeletal mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
-    TObjectPtr<USkeletalMesh> FPMesh;
+    TSubclassOf<UAnimInstance> ABP_Weapon;
 
-    // -----------------------------------------------------------------------
-    // AnimBP References
-    // -----------------------------------------------------------------------
-
-    /** AnimBP class for the weapon receiver skeletal mesh. */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Animation")
-    TSubclassOf<UAnimInstance> ABPWeapon;
-
-    /** AnimBP class for the cosmetic magazine actor. */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Animation")
-    TSubclassOf<UAnimInstance> ABPMagazine;
+    /** AnimBP class to assign to the cosmetic magazine actor. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Meshes")
+    TSubclassOf<UAnimInstance> ABP_Magazine;
 
     // -----------------------------------------------------------------------
     // Socket Names
     // -----------------------------------------------------------------------
 
-    /** Socket on character mesh where the weapon actor attaches. */
+    /** Socket on the character mesh where the weapon actor attaches. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketGunAttachment = NAME_None;
 
-    /** Socket on receiver for the main cosmetic magazine. */
+    /** Socket on the receiver for the main cosmetic magazine actor. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketMagazineAttachment = NAME_None;
 
-    /** Socket on receiver for the reserve cosmetic magazine. */
+    /** Socket on the receiver for the reserve cosmetic magazine actor. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketMagazineReserveAttachment = NAME_None;
 
-    /** Socket on receiver for the grip mesh. */
+    /** Socket on the receiver for the laser attachment actor. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
+    FName SocketLaserAttachment = NAME_None;
+
+    /** Socket on the receiver for the foregrip static mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketGripAttachment = NAME_None;
 
-    /** Socket on receiver for the laser attachment actor. */
+    /** Socket on the receiver for casing ejection spawn. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
-    FName SocketLaserAttachment = NAME_None;
+    FName SocketCasingEject = NAME_None;
 
     /** Socket on the laser attachment mesh for the beam origin trace. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketLaserStart = NAME_None;
 
-    /** Socket on receiver for casing ejection spawn. */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
-    FName SocketCasingEject = NAME_None;
-
-    /** Socket on receiver for the handguard static mesh. */
+    /** Socket on the receiver for the handguard static mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketHandguard = NAME_None;
 
-    /** Socket on receiver for muzzle flash VFX spawn. */
+    /** Socket on the receiver for muzzle flash VFX spawn / line trace origin. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketMuzzle = NAME_None;
 
-    /** Socket on receiver for the scope static mesh. */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
-    FName SocketScope = NAME_None;
-
-    /** Socket on receiver for the front sight. */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
-    FName SocketSightFront = NAME_None;
-
-    /** Socket on receiver for the rear sight. */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
-    FName SocketSightRear = NAME_None;
-
-    /** Socket on receiver for the chambered round mesh. */
+    /** Socket on the receiver for the chambered round mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketBulletChambered = NAME_None;
 
-    /** Socket on receiver for the jammed casing mesh. */
+    /** Socket on the receiver for the jammed casing mesh. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketCasingJammed = NAME_None;
 
-    /** Socket on receiver for the gun/scope camera attachment. */
+    /** Socket on the receiver for the scope static mesh. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
+    FName SocketScope = NAME_None;
+
+    /** Socket on the receiver for the front iron sight. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
+    FName SocketSightFront = NAME_None;
+
+    /** Socket on the receiver for the rear iron sight. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
+    FName SocketSightRear = NAME_None;
+
+    /** Socket on the receiver / scope for the gun / scope camera. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketGunCamera = NAME_None;
 
-    /** Socket on character mesh for helmet bodycam attachment. */
+    /** Socket on the character mesh for helmet bodycam attachment. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketHelmetCamera = NAME_None;
 
-    /** Socket on character mesh for chest bodycam attachment. */
+    /**
+     * Socket on the character mesh for chest bodycam attachment.
+     * Left as NAME_None deliberately — helmet and chest cam are explicit per weapon.
+     */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
     FName SocketChestCamera = NAME_None;
-
-    /** Socket on the left hand for IK targeting. */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sockets")
-    FName SocketLeftHandIK = NAME_None;
-
-    // -----------------------------------------------------------------------
-    // Third-Person Character Montages
-    // -----------------------------------------------------------------------
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPEquip;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPFire;
-    
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPFireADS;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPFireEmpty;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPReload;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPReloadEmpty;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPReloadQuick;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPInspect;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPInspectEmpty;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPMagCheck;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPFireMode;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPGrenadeThrowQuick;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TObjectPtr<UAnimMontage> TPRandomization;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TArray<TObjectPtr<UAnimMontage>> TPMelee;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TArray<TObjectPtr<UAnimMontage>> TPMalfunctions;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TArray<TObjectPtr<UAnimMontage>> TPInteractions;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
-    TArray<TObjectPtr<UAnimMontage>> TPHealing;
 
     // -----------------------------------------------------------------------
     // First-Person Character Montages
     // -----------------------------------------------------------------------
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPEquip;
+    TSoftObjectPtr<UAnimMontage> FP_Equip;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPFireSemi;
-    
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPFireADS;
+    TSoftObjectPtr<UAnimMontage> FP_FireSemi;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPFireAuto;
+    TSoftObjectPtr<UAnimMontage> FP_FireAuto;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPFireEmpty;
+    TSoftObjectPtr<UAnimMontage> FP_FireEmpty;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPReload;
+    TSoftObjectPtr<UAnimMontage> FP_Reload;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPReloadEmpty;
+    TSoftObjectPtr<UAnimMontage> FP_ReloadEmpty;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPReloadQuick;
+    TSoftObjectPtr<UAnimMontage> FP_ReloadQuick;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPInspect;
+    TSoftObjectPtr<UAnimMontage> FP_Inspect;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPInspectEmpty;
+    TSoftObjectPtr<UAnimMontage> FP_InspectEmpty;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPMagCheck;
+    TSoftObjectPtr<UAnimMontage> FP_MagCheck;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPFireMode;
+    TSoftObjectPtr<UAnimMontage> FP_GrenadeThrowQuick;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPGrenadeThrowQuick;
+    TSoftObjectPtr<UAnimMontage> FP_FireMode;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPJumpFull;
+    TSoftObjectPtr<UAnimMontage> FP_JumpFull;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TObjectPtr<UAnimMontage> FPRandomization;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TArray<TObjectPtr<UAnimMontage>> FPMelee;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TArray<TObjectPtr<UAnimMontage>> FPMalfunctions;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TArray<TObjectPtr<UAnimMontage>> FPInteractions;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
-    TArray<TObjectPtr<UAnimMontage>> FPHealing;
+    TSoftObjectPtr<UAnimMontage> FP_Randomization;
 
     // -----------------------------------------------------------------------
-    // Third-Person Weapon Montages
+    // Third-Person Character Montages
     // -----------------------------------------------------------------------
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TPWeapon")
-    TObjectPtr<UAnimMontage> TPWEPEquip;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_Equip;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TPWeapon")
-    TObjectPtr<UAnimMontage> TPWEPFire;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_Fire;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TPWeapon")
-    TObjectPtr<UAnimMontage> TPWEPReload;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_FireEmpty;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TPWeapon")
-    TObjectPtr<UAnimMontage> TPWEPReloadEmpty;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_Reload;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TPWeapon")
-    TObjectPtr<UAnimMontage> TPWEPReloadQuick;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_ReloadEmpty;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TPWeapon")
-    TObjectPtr<UAnimMontage> TPWEPInspect;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_ReloadQuick;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TPWeapon")
-    TObjectPtr<UAnimMontage> TPWEPMagCheck;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_Inspect;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_InspectEmpty;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_MagCheck;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_GrenadeThrowQuick;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_FireMode;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TSoftObjectPtr<UAnimMontage> TP_Randomization;
 
     // -----------------------------------------------------------------------
     // First-Person Weapon Montages
     // -----------------------------------------------------------------------
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FPWeapon")
-    TObjectPtr<UAnimMontage> FPWEPEquip;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> FP_WEP_Equip;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FPWeapon")
-    TObjectPtr<UAnimMontage> FPWEPFire;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> FP_WEP_Fire;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FPWeapon")
-    TObjectPtr<UAnimMontage> FPWEPReload;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> FP_WEP_Reload;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FPWeapon")
-    TObjectPtr<UAnimMontage> FPWEPReloadEmpty;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> FP_WEP_ReloadEmpty;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FPWeapon")
-    TObjectPtr<UAnimMontage> FPWEPReloadQuick;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> FP_WEP_ReloadQuick;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FPWeapon")
-    TObjectPtr<UAnimMontage> FPWEPInspect;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> FP_WEP_Inspect;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FPWeapon")
-    TObjectPtr<UAnimMontage> FPWEPMagCheck;
-
-    // -----------------------------------------------------------------------
-    // Locomotion / Pose Assets  (filled per-weapon in the data asset)
-    // -----------------------------------------------------------------------
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Animation|Poses")
-    TObjectPtr<UAnimSequence> TPIdlePose;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Animation|Poses")
-    TObjectPtr<UAnimSequence> TPAimPose;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Animation|Poses")
-    TObjectPtr<UAnimSequence> TPIdlePoseGripAngled;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Animation|Poses")
-    TObjectPtr<UAnimSequence> TPAimPoseGripAngled;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Animation|Poses")
-    TObjectPtr<UAnimSequence> TPIdlePoseGripVertical;
-
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Animation|Poses")
-    TObjectPtr<UAnimSequence> TPAimPoseGripVertical;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> FP_WEP_MagCheck;
 
     // -----------------------------------------------------------------------
-    // Procedural Offsets
+    // Third-Person Weapon Montages
     // -----------------------------------------------------------------------
 
-    /**
-     * Transform applied to the procedural ADS spring when the player aims.
-     * Drives the character mesh offset while ADS is active.
-     * Matches BPTFABaseConfig.OffsetAimDownSights.
-     */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> TP_WEP_Equip;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> TP_WEP_Fire;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> TP_WEP_Reload;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> TP_WEP_ReloadEmpty;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> TP_WEP_ReloadQuick;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> TP_WEP_Inspect;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TSoftObjectPtr<UAnimMontage> TP_WEP_MagCheck;
+
+    // -----------------------------------------------------------------------
+    // Animation Arrays
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
+    TArray<TSoftObjectPtr<UAnimMontage>> FP_Melee;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TArray<TSoftObjectPtr<UAnimMontage>> TP_Melee;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
+    TArray<TSoftObjectPtr<UAnimMontage>> FP_Malfunctions;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TArray<TSoftObjectPtr<UAnimMontage>> TP_Malfunctions;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TArray<TSoftObjectPtr<UAnimMontage>> FP_WEP_Malfunctions;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|Weapon")
+    TArray<TSoftObjectPtr<UAnimMontage>> TP_WEP_Malfunctions;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
+    TArray<TSoftObjectPtr<UAnimMontage>> FP_Interactions;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TArray<TSoftObjectPtr<UAnimMontage>> TP_Interactions;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|FP")
+    TArray<TSoftObjectPtr<UAnimMontage>> FP_Healing;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Montages|TP")
+    TArray<TSoftObjectPtr<UAnimMontage>> TP_Healing;
+
+    // -----------------------------------------------------------------------
+    // Locomotion — Blend Spaces
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UBlendSpace> FP_Locomotion_Standing;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UBlendSpace> FP_Locomotion_Crouching;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UBlendSpace> FP_Locomotion_Aiming;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_RunLoop;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_SprintLoop;
+
+    // -----------------------------------------------------------------------
+    // Locomotion — First-Person Poses & Transitions
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_IdlePose;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_AimPose;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_IdlePoseGripAngled;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_IdlePoseGripVertical;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_AimPoseGripAngled;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_AimPoseGripVertical;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_Transition_WalkEnd;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_Transition_RunEnd;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_Transition_CrouchStart;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> FP_Transition_CrouchEnd;
+
+    // -----------------------------------------------------------------------
+    // Locomotion — Third-Person Poses & Transitions
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> TP_IdleLoop;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> TP_IdlePose;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> TP_AimPose;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> TP_IdlePoseGripAngled;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> TP_IdlePoseGripVertical;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> TP_AimPoseGripAngled;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> TP_AimPoseGripVertical;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> TP_Transition_AimStart;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> TP_Transition_AimEnd;
+
+    // -----------------------------------------------------------------------
+    // Weapon Pose / State Sequences
+    // -----------------------------------------------------------------------
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> WEP_ReferencePose;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> WEP_FireModeStates;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Locomotion")
+    TSoftObjectPtr<UAnimSequence> WEP_MagazineDepletion;
+
+    // -----------------------------------------------------------------------
+    // Offsets
+    // -----------------------------------------------------------------------
+
+    /** ADS procedural spring offset. Mirrors BP_TFA_BaseConfig.OffsetAimDownSights. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Offsets")
     FTransform OffsetAimDownSights = FTransform::Identity;
 
-    /**
-     * Transform applied to the procedural crouch spring when the player crouches.
-     * Matches BPTFABaseConfig.OffsetCrouch.
-     */
+    /** Crouch procedural spring offset. Mirrors BP_TFA_BaseConfig.OffsetCrouch. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Offsets")
     FTransform OffsetCrouch = FTransform::Identity;
 
@@ -387,105 +469,43 @@ public:
     // Sounds
     // -----------------------------------------------------------------------
 
-    /** Sound cue played when a magazine is dropped. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sounds")
-    TObjectPtr<USoundBase> SoundCueWEPMagDrop;
+    TSoftObjectPtr<USoundBase> SoundCue_WEP_MagDrop;
 
-    /** Sound cue played when a casing is ejected and impacts a surface. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sounds")
-    TObjectPtr<USoundBase> SoundCueWEPCasingEject;
+    TSoftObjectPtr<USoundBase> SoundCue_WEP_CasingEject;
 
-    /** Sound cue played when the player enters ADS. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Sounds")
-    TObjectPtr<USoundBase> SoundCueWEPAimIn;
+    TSoftObjectPtr<USoundBase> SoundCue_WEP_AimIn;
 
     // -----------------------------------------------------------------------
     // Cosmetic Values
     // -----------------------------------------------------------------------
 
-    /**
-     * Starting cosmetic ammo count used by the weapon's visual magazine system.
-     * This is NOT authoritative ammo — authoritative ammo lives in AWeapon /
-     * UCombatComponent.  This value drives magazine depletion animation only.
-     * Matches BPTFABaseConfig.TotalAmmoCount.
-     */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Cosmetics",
+    /** Bullet socket prefix. Sockets are named Bullet_01, Bullet_02, etc. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Offsets")
+    FString PrefixBulletSocket = TEXT("Bullet_");
+
+    /** Starting cosmetic ammo count for magazine depletion animation. Default 0 = unset. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Offsets",
         meta = (ClampMin = "0"))
-    int32 TotalAmmoCount = 30;
+    int32 TotalAmmoCount = 0;
 
-    /**
-     * Prefix used to find bullet sockets on the magazine skeleton.
-     * Defaults to "Bullet" to match the Infima convention.
-     * Matches BPTFABaseConfig.PrefixBulletSocket.
-     */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Cosmetics")
-    FString PrefixBulletSocket = TEXT("Bullet");
-    
-    
     // -----------------------------------------------------------------------
-    // Grip
+    // Grip & Capacity (project extensions — not in Infima base config)
     // -----------------------------------------------------------------------
 
-    /**
-     * Which left-hand grip pose this weapon uses.
-     * Read by UCombatComponent::EquipWeapon to set CurrentGrip on equip.
-     */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Grip")
+    /** Left-hand grip pose. Read by UCombatComponent on equip. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Offsets")
     EWeaponGrip WeaponGrip = EWeaponGrip::Default;
 
-    // -----------------------------------------------------------------------
-    // ADS Offsets
-    // -----------------------------------------------------------------------
-
-    /**
-     * World-space location offset applied to the camera/character when fully
-     * aimed down sights. Drives ADSLocationTarget on UCombatComponent.
-     * Matches Infima's BPTFABaseConfig ADS location offset convention.
-     */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|ADS")
-    FVector ADSLocationOffset = FVector::ZeroVector;
-
-    /**
-     * Rotation offset applied when fully aimed down sights.
-     * Drives ADSRotationTarget on UCombatComponent.
-     */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|ADS")
-    FRotator ADSRotationOffset = FRotator::ZeroRotator;
-
-    // -----------------------------------------------------------------------
-    // Recoil Offsets
-    // -----------------------------------------------------------------------
-
-    /**
-     * Rotation target for procedural recoil per shot.
-     * X = Pitch kick (upward), Y = Yaw drift, Z = Roll.
-     * Interpolated by UCombatComponent each tick and read by the anim instance.
-     */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Recoil")
-    FRotator RecoilRotationPerShot = FRotator(2.f, 0.5f, 0.f);
-
-    /**
-     * Translation kick applied per shot (camera spring offset).
-     * Typically a small negative X (push back) value.
-     */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Recoil")
-    FVector RecoilTranslationPerShot = FVector(-1.f, 0.f, 0.f);
-    
-    
+    /** Authoritative magazine capacity used by LoadoutComponent and CombatComponent. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Offsets",
+        meta = (ClampMin = "1"))
+    int32 MagazineCapacity = 30;
 
     // -----------------------------------------------------------------------
     // UPrimaryDataAsset interface
     // -----------------------------------------------------------------------
     virtual FPrimaryAssetId GetPrimaryAssetId() const override;
-    
-    /**
-     * Authoritative magazine capacity for this weapon.
-     * Used by LoadoutComponent to grant starting magazines on spawn,
-     * and by CombatComponent when constructing a fresh magazine during reload.
-     */
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Ammo",
-        meta = (ClampMin = "1"))
-    int32 MagazineCapacity = 30;
-    
-    
 };

@@ -11,21 +11,6 @@ void UShooterAnimInstanceBase::NativeInitializeAnimation()
 {
     Super::NativeInitializeAnimation();
 
-    USkeletalMeshComponent* OwningMesh = GetSkelMeshComponent();
-    UE_LOG(LogTemp, Warning, TEXT("[AnimInit] NativeInitializeAnimation — Class: %s | Mesh: %s"),
-        *GetClass()->GetName(),
-        OwningMesh ? *OwningMesh->GetName() : TEXT("NULL"));
-
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(
-            41, 10.f, FColor::Cyan,
-            FString::Printf(TEXT("[AnimInit] %s on mesh: %s"),
-                *GetClass()->GetName(),
-                OwningMesh ? *OwningMesh->GetName() : TEXT("NULL"))
-        );
-    }
-
     ShooterGameCharacter = Cast<AShooterGameCharacter>(GetOwningActor());
     if (ShooterGameCharacter)
     {
@@ -41,33 +26,8 @@ void UShooterAnimInstanceBase::NativeInitializeAnimation()
 void UShooterAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 {
     Super::NativeUpdateAnimation(DeltaSeconds);
-    
-    USkeletalMeshComponent* OwningMesh = GetSkelMeshComponent();
-    UE_LOG(LogTemp, Warning, TEXT("[AnimInit] NativeInitializeAnimation — Class: %s | Mesh: %s"),
-        *GetClass()->GetName(),
-        OwningMesh ? *OwningMesh->GetName() : TEXT("NULL"));
 
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(
-            41, 10.f, FColor::Cyan,
-            FString::Printf(TEXT("[AnimInit] %s on mesh: %s"),
-                *GetClass()->GetName(),
-                OwningMesh ? *OwningMesh->GetName() : TEXT("NULL"))
-        );
-    }
-
-    ShooterGameCharacter = Cast<AShooterGameCharacter>(GetOwningActor());
-    if (ShooterGameCharacter)
-    {
-        CombatComponent = ShooterGameCharacter->GetCombat();
-    }
-
-    UE_LOG(LogTemp, Warning, TEXT("[AnimInit] %s — Character: %s | CombatComponent: %s"),
-        *GetClass()->GetName(),
-        ShooterGameCharacter ? TEXT("valid") : TEXT("NULL"),
-        CombatComponent ? TEXT("valid") : TEXT("NULL"));
-
+    // Lazy init — character/component may not have been ready at NativeInitializeAnimation
     if (!ShooterGameCharacter)
     {
         ShooterGameCharacter = Cast<AShooterGameCharacter>(GetOwningActor());
@@ -261,23 +221,19 @@ void UShooterAnimInstanceBase::UpdateIKData()
         return;
     }
 
-    const FName LeftSocketName = ShooterGameCharacter->GetLeftHandIKSocketName();
-    const FName RightBoneName  = ShooterGameCharacter->GetRightHandIKBoneName();
-    const FVector LocOffset    = ShooterGameCharacter->GetLeftHandIKLocationOffset();
-    const FRotator RotOffset   = ShooterGameCharacter->GetLeftHandIKRotationOffset();
+    static const FName GripSocketName = FName("SOCKET_Grip");
+    static const FName RightBoneName  = FName("hand_r");
 
     USkeletalMeshComponent* CharMesh = ShooterGameCharacter->GetMesh();
-    if (!CharMesh || !Weapon->GetWeaponMesh()->DoesSocketExist(LeftSocketName))
+    if (!CharMesh || !Weapon->GetWeaponMesh()->DoesSocketExist(GripSocketName))
     {
         bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : false;
         return;
     }
 
     FTransform SocketTransform = Weapon->GetWeaponMesh()->GetSocketTransform(
-        LeftSocketName, RTS_World
+        GripSocketName, RTS_World
     );
-    SocketTransform.AddToTranslation(LocOffset);
-    SocketTransform.ConcatenateRotation(RotOffset.Quaternion());
 
     FVector OutPosition;
     FRotator OutRotation;
@@ -293,5 +249,15 @@ void UShooterAnimInstanceBase::UpdateIKData()
     LeftHandTransform.SetRotation(FQuat(OutRotation));
     LeftHandTransform.SetScale3D(FVector::OneVector);
 
+    FVector WorldDebug = CharMesh->GetBoneTransform(
+        CharMesh->GetBoneIndex(RightBoneName)
+    ).TransformPosition(OutPosition);
+    DrawDebugSphere(GetWorld(), WorldDebug, 3.f, 8, FColor::Green, false, -1.f);
+
     bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : true;
+
+    UE_LOG(LogTemp, Warning, TEXT("[IK] COMPLETE — bLeftHandOnWeapon: %d | bGripOverride: %d"),
+        (int32)bLeftHandOnWeapon,
+        (int32)bGripOverrideActive
+    );
 }

@@ -1192,21 +1192,15 @@ void UCombatComponent::OnLoadoutUpdated(const FLoadoutData& NewLoadout)
 
 	if (!Character || !Character->HasAuthority()) return;
 
-	if (EquippedWeapon)
-	{
-		EquippedWeapon->Destroy();
-		EquippedWeapon = nullptr;
-	}
+	PendingLoadoutData = NewLoadout;
 
-	for (const FLoadoutSlot& Slot : NewLoadout.Slots)
-	{
-		if (!Slot.IsOccupied()) continue;
-		UE_LOG(LogTemp, Warning, TEXT("[Combat] Found occupied slot, spawning weapon"));
-		SpawnAndEquipWeaponFromSlot(Slot);
-		break;
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("[Combat] OnLoadoutUpdated complete — EquippedWeapon: %d"), EquippedWeapon != nullptr);
+	GetWorld()->GetTimerManager().SetTimer(
+		LoadoutApplyTimerHandle,
+		this,
+		&UCombatComponent::ApplyPendingLoadout,
+		0.05f,
+		false
+	);
 }
 
 void UCombatComponent::SpawnAndEquipWeaponFromSlot(const FLoadoutSlot& Slot)
@@ -1359,3 +1353,22 @@ void UCombatComponent::OnRep_HighReady()
 	// Mirrors the OnRep_Aiming pattern.
 }
 
+
+void UCombatComponent::ApplyPendingLoadout()
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->Destroy();
+		EquippedWeapon = nullptr;
+	}
+
+	for (const FLoadoutSlot& Slot : PendingLoadoutData.Slots)
+	{
+		if (!Slot.IsOccupied()) continue;
+		UE_LOG(LogTemp, Warning, TEXT("[Combat] Found occupied slot, spawning weapon"));
+		SpawnAndEquipWeaponFromSlot(Slot);
+		break;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[Combat] ApplyPendingLoadout complete — EquippedWeapon: %d"), EquippedWeapon != nullptr);
+}
