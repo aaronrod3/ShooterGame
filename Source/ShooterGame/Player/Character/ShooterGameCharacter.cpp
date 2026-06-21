@@ -391,7 +391,7 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		}
 		
 		EnhancedInputComponent->BindAction(EquipAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::EquipButtonPressed);
-		EnhancedInputComponent->BindAction(AimAction,				ETriggerEvent::Triggered,	this,	&AShooterGameCharacter::ToggleAim);
+		EnhancedInputComponent->BindAction(AimAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::ToggleAim);
 		EnhancedInputComponent->BindAction(ShoulderSwapAction,			ETriggerEvent::Started,		this,	&AShooterGameCharacter::SwapShoulder);
 		EnhancedInputComponent->BindAction(FireAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::FireButtonPressed);
 		EnhancedInputComponent->BindAction(FireAction,				ETriggerEvent::Completed,	this,	&AShooterGameCharacter::FireButtonReleased);
@@ -1270,7 +1270,6 @@ void AShooterGameCharacter::PlayFireModeMontage()
 		*MontageToPlay->GetName(),
 		MontageToPlay->GetPlayLength());
     	AnimInstance->Montage_Play(MontageToPlay);
-        AnimInstance->Montage_Play(MontageToPlay);
     }
 }
 
