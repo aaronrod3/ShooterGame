@@ -222,6 +222,7 @@ public:
 	void FireButtonReleased();
 	void CycleFireModeButtonPressed();
 	void ReloadButtonPressed();
+	void HighReadyButtonPressed();
 	void ToggleSuppressor_Input(const FInputActionValue& Value);
 	void RevivePressed();
 	void ReviveReleased();
@@ -335,6 +336,8 @@ private:
 	UInputAction* ReviveAction;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* SprintAction;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* HighReadyAction;
 	
 	/* MONTAGES */
 	// -----------------------------------------------------------------------

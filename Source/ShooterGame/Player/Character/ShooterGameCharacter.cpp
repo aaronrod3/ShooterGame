@@ -127,60 +127,87 @@ AShooterGameCharacter::AShooterGameCharacter()
 
 void AShooterGameCharacter::BeginPlay()
 {
-	Super::BeginPlay();
-	
-	// Temporary debug
-	if (APlayerController* PC = Cast<APlayerController>(GetController()))
-	{
-		PC->SetIgnoreLookInput(false);
-		PC->SetIgnoreMoveInput(false);
-		UE_LOG(LogShooterGameCharacter, Warning, TEXT("Controller found: %s"), *PC->GetName());
-	}
-	else
-	{
-		UE_LOG(LogShooterGameCharacter, Warning, TEXT("NO PLAYER CONTROLLER on BeginPlay"));
-	}
-	
-	UAIPerceptionStimuliSourceComponent* StimuliComp =
-	FindComponentByClass<UAIPerceptionStimuliSourceComponent>();
+    Super::BeginPlay();
 
-	if (!StimuliComp)
-	{
-		StimuliComp = NewObject<UAIPerceptionStimuliSourceComponent>(
-			this, TEXT("StimuliSource"));
-		StimuliComp->RegisterComponent();
-	}
+    UAIPerceptionStimuliSourceComponent* StimuliComp =
+        FindComponentByClass<UAIPerceptionStimuliSourceComponent>();
 
-	StimuliComp->RegisterForSense(UAISense_Hearing::StaticClass());
-	StimuliComp->RegisterWithPerceptionSystem();
+    if (!StimuliComp)
+    {
+        StimuliComp = NewObject<UAIPerceptionStimuliSourceComponent>(
+            this, TEXT("StimuliSource"));
+        StimuliComp->RegisterComponent();
+    }
 
-	UE_LOG(LogTemp, Warning, TEXT("[STIMULI] %s registered for UAISense_Hearing"),
-		*GetName());
+    StimuliComp->RegisterForSense(UAISense_Hearing::StaticClass());
+    StimuliComp->RegisterWithPerceptionSystem();
 	
-	// TPS — CameraBoom uses bUsePawnControlRotation.
-	// No manual rotation setup needed at BeginPlay.
-	
-	// Set initial TPS orientation — not aiming by default
-	SetOrientationForAiming(false);
-	
-	// Create the interaction prompt widget — local client only
-	// HasAuthority check is not enough here because listen server players
-	// are both authority AND locally controlled. IsLocallyControlled is correct.
-	if (IsLocallyControlled() && InteractPromptWidgetClass)
-	{
-		InteractPromptWidgetInstance = CreateWidget<UInteractPromptWidget>(
-			GetWorld(),
-			InteractPromptWidgetClass
-		);
 
-		if (InteractPromptWidgetInstance)
-		{
-			InteractPromptWidgetInstance->AddToViewport();
-			InteractPromptWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
-		}
-	}
-	
-	
+    // TPS — CameraBoom uses bUsePawnControlRotation.
+    // No manual rotation setup needed at BeginPlay.
+
+    // Set initial TPS orientation — not aiming by default
+    SetOrientationForAiming(false);
+
+    // Create the interaction prompt widget — local client only
+    if (IsLocallyControlled() && InteractPromptWidgetClass)
+    {
+        InteractPromptWidgetInstance = CreateWidget<UInteractPromptWidget>(
+            GetWorld(),
+            InteractPromptWidgetClass
+        );
+
+        if (InteractPromptWidgetInstance)
+        {
+            InteractPromptWidgetInstance->AddToViewport();
+            InteractPromptWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Anim diagnostic
+    // -----------------------------------------------------------------------
+    if (GetMesh())
+    {
+        UAnimInstance* TPInst = GetMesh()->GetAnimInstance();
+        UE_LOG(LogTemp, Warning, TEXT("[AnimDiag] TP Mesh AnimInstance: %s"),
+            TPInst ? *TPInst->GetClass()->GetName() : TEXT("NULL"));
+
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                40, 10.f, FColor::Green,
+                FString::Printf(TEXT("[AnimDiag] TP Mesh: %s"),
+                    TPInst ? *TPInst->GetClass()->GetName() : TEXT("NULL"))
+            );
+        }
+
+        UE_LOG(LogTemp, Warning, TEXT("[AnimDiag] TP Mesh visible:%d hiddenInGame:%d"),
+            (int32)GetMesh()->IsVisible(),
+            (int32)GetMesh()->bHiddenInGame);
+
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                42, 10.f, FColor::Orange,
+                FString::Printf(TEXT("[AnimDiag] TP Mesh visible:%d hiddenInGame:%d"),
+                    (int32)GetMesh()->IsVisible(),
+                    (int32)GetMesh()->bHiddenInGame)
+            );
+        }
+    }
+
+    TArray<USkeletalMeshComponent*> AllMeshComponents;
+    GetComponents<USkeletalMeshComponent>(AllMeshComponents);
+    for (USkeletalMeshComponent* MeshComp : AllMeshComponents)
+    {
+        UAnimInstance* MeshInst = MeshComp->GetAnimInstance();
+        UE_LOG(LogTemp, Warning, TEXT("[AnimDiag] MeshComp: %s — AnimBP: %s — visible:%d hiddenInGame:%d"),
+            *MeshComp->GetName(),
+            MeshInst ? *MeshInst->GetClass()->GetName() : TEXT("NULL"),
+            (int32)MeshComp->IsVisible(),
+            (int32)MeshComp->bHiddenInGame);
+    }
 }
 
 void AShooterGameCharacter::Tick(float DeltaTime)
@@ -392,6 +419,7 @@ void AShooterGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		
 		EnhancedInputComponent->BindAction(EquipAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::EquipButtonPressed);
 		EnhancedInputComponent->BindAction(AimAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::ToggleAim);
+		EnhancedInputComponent->BindAction(HighReadyAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::HighReadyButtonPressed);
 		EnhancedInputComponent->BindAction(ShoulderSwapAction,			ETriggerEvent::Started,		this,	&AShooterGameCharacter::SwapShoulder);
 		EnhancedInputComponent->BindAction(FireAction,				ETriggerEvent::Started,		this,	&AShooterGameCharacter::FireButtonPressed);
 		EnhancedInputComponent->BindAction(FireAction,				ETriggerEvent::Completed,	this,	&AShooterGameCharacter::FireButtonReleased);
@@ -461,7 +489,20 @@ void AShooterGameCharacter::DoMove(float Right, float Forward)
 
 void AShooterGameCharacter::StartSprinting()
 {
-	if (Combat) { Combat->ExitCombatState(); }
+	if (Combat)
+	{
+		Combat->ExitCombatState();
+		Combat->SetHighReady(false);   // High Ready clears on sprint
+		
+		UE_LOG(LogTemp, Warning, TEXT("[HighReady] Sprint started — SetHighReady(false) called"));
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				13, 3.f, FColor::Yellow,
+				TEXT("[HighReady] Sprint — weapon forced down")
+			);
+		}
+	}
 	
 	if (DownedComp && !DownedComp->IsAlive()) return;
 	if (Combat && Combat->bAiming) return;
@@ -836,6 +877,12 @@ bool AShooterGameCharacter::IsWeaponEquipped()
 AWeapon* AShooterGameCharacter::GetEquippedWeapon()
 {
 	if (Combat == nullptr) return nullptr;
+
+	if (!Combat->EquippedWeapon)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GEW] null on: %s"), *GetName());
+	}
+
 	return Combat->EquippedWeapon;
 }
 
@@ -1048,6 +1095,17 @@ void AShooterGameCharacter::ReloadButtonPressed()
 {
 	if (!Combat) return;
 	Combat->ReloadEquippedWeapon();
+}
+
+void AShooterGameCharacter::HighReadyButtonPressed()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[HighReady] HighReadyButtonPressed — Combat valid: %s"),
+		Combat ? TEXT("yes") : TEXT("no"));
+
+	if (Combat)
+	{
+		Combat->ToggleHighReady();
+	}
 }
 
 void AShooterGameCharacter::ToggleSuppressor_Input(const FInputActionValue& Value)

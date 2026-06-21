@@ -40,7 +40,9 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
 	DOREPLIFETIME(UCombatComponent, bAiming);
+	DOREPLIFETIME(UCombatComponent, bHighReady);
 	DOREPLIFETIME(UCombatComponent, CurrentCombatAction);
+	
 }
 
 void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -84,6 +86,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
 	UE_LOG(LogTemp, Warning, TEXT("[Combat] EquipWeapon ENTERED — Weapon: %d, Character: %d"),
 		WeaponToEquip != nullptr, Character != nullptr);
+	UE_LOG(LogTemp, Warning, TEXT("[EquipWeapon] CALLED"));
 	
 	if (!Character || !WeaponToEquip) return;
 
@@ -147,7 +150,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 		
 	}
 	
-	
+	UE_LOG(LogTemp, Warning, TEXT("[EquipWeapon] EquippedWeapon after set: %d"), EquippedWeapon != nullptr);
 }
 
 void UCombatComponent::OnRep_EquippedWeapon()
@@ -1202,6 +1205,8 @@ void UCombatComponent::OnLoadoutUpdated(const FLoadoutData& NewLoadout)
 		SpawnAndEquipWeaponFromSlot(Slot);
 		break;
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[Combat] OnLoadoutUpdated complete — EquippedWeapon: %d"), EquippedWeapon != nullptr);
 }
 
 void UCombatComponent::SpawnAndEquipWeaponFromSlot(const FLoadoutSlot& Slot)
@@ -1275,5 +1280,82 @@ void UCombatComponent::ExitCombatState()
 
 void UCombatComponent::OnCombatStateInactivityExpired()
 {
-	bInCombatState = false;
+	UE_LOG(LogTemp, Warning, TEXT("[HighReady] InactivityExpired — bHighReady: %s → bInCombatState will be: %s"),
+		bHighReady ? TEXT("true") : TEXT("false"),
+		bHighReady ? TEXT("KEPT true (guarded)") : TEXT("cleared to false"));
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			12, 4.f,
+			bHighReady ? FColor::Cyan : FColor::Red,
+			FString::Printf(TEXT("[HighReady] Timer expired — %s"),
+				bHighReady ? TEXT("GUARDED, weapon stays up") : TEXT("weapon lowered"))
+		);
+	}
+
+	if (!bHighReady)
+	{
+		bInCombatState = false;
+	}
 }
+
+// -----------------------------------------------------------------------
+// High Ready Stance
+// -----------------------------------------------------------------------
+
+void UCombatComponent::ToggleHighReady()
+{
+	SetHighReady(!bHighReady);
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			10,   // key — reuses same slot so it doesn't spam
+			3.f,
+			bHighReady ? FColor::Green : FColor::Orange,
+			FString::Printf(TEXT("[HighReady] Toggled → %s"), bHighReady ? TEXT("RAISED") : TEXT("LOWERED"))
+		);
+	}
+	UE_LOG(LogTemp, Warning, TEXT("[HighReady] ToggleHighReady — bHighReady is now: %s"),
+		bHighReady ? TEXT("true") : TEXT("false"));
+}
+
+void UCombatComponent::SetHighReady(bool bNewHighReady)
+{
+	bHighReady = bNewHighReady;
+
+	if (bHighReady)
+	{
+		EnterCombatState();
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				11, 3.f, FColor::Green,
+				TEXT("[HighReady] RAISED — EnterCombatState called")
+			);
+		}
+	}
+	else
+	{
+		// Manual lower — clear combat state immediately and cancel the inactivity timer
+		bInCombatState = false;
+		GetWorld()->GetTimerManager().ClearTimer(CombatStateInactivityTimerHandle);
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				11, 3.f, FColor::Orange,
+				TEXT("[HighReady] LOWERED — bInCombatState cleared, timer cancelled")
+			);
+		}
+	}
+}
+
+void UCombatComponent::OnRep_HighReady()
+{
+	// Simulated proxies — AnimInstance reads GetHighReady() next tick.
+	// Mirrors the OnRep_Aiming pattern.
+}
+

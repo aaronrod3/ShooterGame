@@ -11,16 +11,62 @@ void UShooterAnimInstanceBase::NativeInitializeAnimation()
 {
     Super::NativeInitializeAnimation();
 
+    USkeletalMeshComponent* OwningMesh = GetSkelMeshComponent();
+    UE_LOG(LogTemp, Warning, TEXT("[AnimInit] NativeInitializeAnimation — Class: %s | Mesh: %s"),
+        *GetClass()->GetName(),
+        OwningMesh ? *OwningMesh->GetName() : TEXT("NULL"));
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            41, 10.f, FColor::Cyan,
+            FString::Printf(TEXT("[AnimInit] %s on mesh: %s"),
+                *GetClass()->GetName(),
+                OwningMesh ? *OwningMesh->GetName() : TEXT("NULL"))
+        );
+    }
+
     ShooterGameCharacter = Cast<AShooterGameCharacter>(GetOwningActor());
     if (ShooterGameCharacter)
     {
         CombatComponent = ShooterGameCharacter->GetCombat();
     }
+
+    UE_LOG(LogTemp, Warning, TEXT("[AnimInit] %s — Character: %s | CombatComponent: %s"),
+        *GetClass()->GetName(),
+        ShooterGameCharacter ? TEXT("valid") : TEXT("NULL"),
+        CombatComponent ? TEXT("valid") : TEXT("NULL"));
 }
 
 void UShooterAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 {
     Super::NativeUpdateAnimation(DeltaSeconds);
+    
+    USkeletalMeshComponent* OwningMesh = GetSkelMeshComponent();
+    UE_LOG(LogTemp, Warning, TEXT("[AnimInit] NativeInitializeAnimation — Class: %s | Mesh: %s"),
+        *GetClass()->GetName(),
+        OwningMesh ? *OwningMesh->GetName() : TEXT("NULL"));
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            41, 10.f, FColor::Cyan,
+            FString::Printf(TEXT("[AnimInit] %s on mesh: %s"),
+                *GetClass()->GetName(),
+                OwningMesh ? *OwningMesh->GetName() : TEXT("NULL"))
+        );
+    }
+
+    ShooterGameCharacter = Cast<AShooterGameCharacter>(GetOwningActor());
+    if (ShooterGameCharacter)
+    {
+        CombatComponent = ShooterGameCharacter->GetCombat();
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[AnimInit] %s — Character: %s | CombatComponent: %s"),
+        *GetClass()->GetName(),
+        ShooterGameCharacter ? TEXT("valid") : TEXT("NULL"),
+        CombatComponent ? TEXT("valid") : TEXT("NULL"));
 
     if (!ShooterGameCharacter)
     {
@@ -139,6 +185,11 @@ void UShooterAnimInstanceBase::UpdateAimData()
 
 void UShooterAnimInstanceBase::UpdateCombatData()
 {
+    // Lazy re-cache — CombatComponent may have been null at NativeInitializeAnimation
+    if (!CombatComponent && ShooterGameCharacter)
+    {
+        CombatComponent = ShooterGameCharacter->GetCombat();
+    }
     if (!CombatComponent) return;
 
     CurrentAction       = CombatComponent->GetCombatAction();
@@ -149,6 +200,7 @@ void UShooterAnimInstanceBase::UpdateCombatData()
     bIsAimingBlocked    = bIsAimingBlockedLocal || CombatComponent->IsAimingBlocked();
     bWeaponEquipped     = (ShooterGameCharacter->GetEquippedWeapon() != nullptr);
     bInCombatState      = CombatComponent->GetInCombatState();
+    bHighReady          = CombatComponent->GetHighReady();
 
     bIsReloading        = (CurrentAction == ECombatAction::Reloading)|| CombatComponent->IsReloadPendingLocal();
     bIsInteracting      = (CurrentAction == ECombatAction::Interacting) || ShooterGameCharacter->IsInteractionAnimationRequested();
@@ -170,6 +222,32 @@ void UShooterAnimInstanceBase::UpdateCombatData()
     CrouchTransform       = ShooterGameCharacter->GetCrouchTransform();
     AimDownSightsTransform = ShooterGameCharacter->GetAimDownSightsTransform();
     RecoilTransform       = ShooterGameCharacter->GetRecoilTransform();
+    
+    if (GEngine)
+    {
+        const bool bIsTP = GetClass()->GetName().Contains(TEXT("TP"));
+        const int32 MsgKey = bIsTP ? 21 : 25;  // separate keys so they don't overwrite each other
+        const FColor MsgColor = bIsTP ? FColor::Yellow : FColor::Purple;
+
+        FName StateName = NAME_None;
+        if (bIsTP)
+        {
+            int32 MachineIndex = GetStateMachineIndex(FName("SM_TP_UpperBody"));
+            if (MachineIndex != INDEX_NONE)
+            {
+                StateName = GetCurrentStateName(MachineIndex);
+            }
+        }
+
+        GEngine->AddOnScreenDebugMessage(
+            MsgKey, 0.f, MsgColor,
+            FString::Printf(TEXT("[%s] bHighReady:%d | bInCombatState:%d | State:%s"),
+                bIsTP ? TEXT("TP") : TEXT("FP"),
+                (int32)bHighReady,
+                (int32)bInCombatState,
+                *StateName.ToString())
+        );
+    }
 }
 
 void UShooterAnimInstanceBase::UpdateIKData()
@@ -183,10 +261,10 @@ void UShooterAnimInstanceBase::UpdateIKData()
         return;
     }
 
-    const FName LeftSocketName  = ShooterGameCharacter->GetLeftHandIKSocketName();
-    const FName RightBoneName   = ShooterGameCharacter->GetRightHandIKBoneName();
-    const FVector LocOffset     = ShooterGameCharacter->GetLeftHandIKLocationOffset();
-    const FRotator RotOffset    = ShooterGameCharacter->GetLeftHandIKRotationOffset();
+    const FName LeftSocketName = ShooterGameCharacter->GetLeftHandIKSocketName();
+    const FName RightBoneName  = ShooterGameCharacter->GetRightHandIKBoneName();
+    const FVector LocOffset    = ShooterGameCharacter->GetLeftHandIKLocationOffset();
+    const FRotator RotOffset   = ShooterGameCharacter->GetLeftHandIKRotationOffset();
 
     USkeletalMeshComponent* CharMesh = ShooterGameCharacter->GetMesh();
     if (!CharMesh || !Weapon->GetWeaponMesh()->DoesSocketExist(LeftSocketName))
@@ -195,14 +273,12 @@ void UShooterAnimInstanceBase::UpdateIKData()
         return;
     }
 
-    // Get the socket in world space and apply designer offsets
     FTransform SocketTransform = Weapon->GetWeaponMesh()->GetSocketTransform(
         LeftSocketName, RTS_World
     );
     SocketTransform.AddToTranslation(LocOffset);
     SocketTransform.ConcatenateRotation(RotOffset.Quaternion());
 
-    // Convert to right-hand bone space — this is what the Two Bone IK node expects
     FVector OutPosition;
     FRotator OutRotation;
     CharMesh->TransformToBoneSpace(

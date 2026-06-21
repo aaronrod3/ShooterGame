@@ -73,9 +73,13 @@ public:
 
 	/** Exit combat state immediately. Call on sprint start. */
 	void ExitCombatState();
+	
+	void ToggleHighReady();
+	void SetHighReady(bool bNewHighReady);
 
 	/** Read by UShooterAnimInstanceBase::UpdateCombatData via GetInCombatState(). */
 	FORCEINLINE bool GetInCombatState() const { return bInCombatState; }
+	FORCEINLINE bool GetHighReady() const { return bHighReady; }
 
 	FORCEINLINE const FReticleState&	GetReticleState()				const { return ReticleState; }
 	FORCEINLINE FVector					GetReticleWorldPosition()		const { return ReticleWorldPosition; }
@@ -246,6 +250,12 @@ private:
 	 * Exited:  sprint start (immediate) or CombatStateInactivityTimer fires.
 	 */
 	bool bInCombatState = false;
+	
+	UPROPERTY(ReplicatedUsing = OnRep_HighReady)
+	bool bHighReady = false;
+
+	UFUNCTION()
+	void OnRep_HighReady();
 
 	/** Handle for the 3-second inactivity timer that clears bInCombatState. */
 	FTimerHandle CombatStateInactivityTimerHandle;

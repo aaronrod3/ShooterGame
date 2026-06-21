@@ -180,6 +180,9 @@ protected:
     
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
     bool bInCombatState = false;
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
+    bool bHighReady = false;
 
     // -----------------------------------------------------------------------
     // Left-hand IK inputs
