@@ -3,8 +3,7 @@
 
 FPrimaryAssetId UWeaponConfig::GetPrimaryAssetId() const
 {
-	// Asset type label used by the Asset Manager when registering
-	// config assets.  Match this string in DefaultGame.ini under
-	// [/Script/Engine.AssetManagerSettings] PrimaryAssetTypesToScan.
-	return FPrimaryAssetId(FName("WeaponConfig"), GetFName());
+	// "WeaponConfig" must match the PrimaryAssetType string registered
+	// in DefaultGame.ini under [/Script/Engine.AssetManagerSettings].
+	return FPrimaryAssetId(FName(TEXT("WeaponConfig")), GetFName());
 }

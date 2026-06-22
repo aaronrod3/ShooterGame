@@ -1164,9 +1164,9 @@ void AShooterGameCharacter::PlayReloadMontage()
 	{
 		switch (Combat->GetReloadType())
 		{
-		case EReloadType::Empty:  MontageToPlay = Cfg->TPReloadEmpty; break;
-		case EReloadType::Quick:  MontageToPlay = Cfg->TPReloadQuick; break;
-		default:                  MontageToPlay = Cfg->TPReload;      break;
+		case EReloadType::Empty:  MontageToPlay = Cfg->TPReloadEmpty.LoadSynchronous(); break;
+		case EReloadType::Quick:  MontageToPlay = Cfg->TPReloadQuick.LoadSynchronous(); break;
+		default:                  MontageToPlay = Cfg->TPReload.LoadSynchronous();      break;
 		}
 	}
 
@@ -1276,9 +1276,9 @@ bool AShooterGameCharacter::IsReloadAnimationPlaying() const
 	// Check config montages first
 	if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(const_cast<AShooterGameCharacter*>(this)))
 	{
-		if ((Cfg->TPReload      && AnimInstance->Montage_IsPlaying(Cfg->TPReload))
-		 || (Cfg->TPReloadEmpty && AnimInstance->Montage_IsPlaying(Cfg->TPReloadEmpty))
-		 || (Cfg->TPReloadQuick && AnimInstance->Montage_IsPlaying(Cfg->TPReloadQuick)))
+		if ((!Cfg->TPReload.IsNull()      && AnimInstance->Montage_IsPlaying(Cfg->TPReload.Get()))
+		|| (!Cfg->TPReloadEmpty.IsNull() && AnimInstance->Montage_IsPlaying(Cfg->TPReloadEmpty.Get()))
+		|| (!Cfg->TPReloadQuick.IsNull() && AnimInstance->Montage_IsPlaying(Cfg->TPReloadQuick.Get())))
 		{
 			return true;
 		}
@@ -1307,7 +1307,7 @@ void AShooterGameCharacter::PlayEquipMontage()
     UAnimMontage* MontageToPlay = nullptr;
     if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
     {
-        MontageToPlay = Cfg->TPEquip;
+    	MontageToPlay = Cfg->TPEquip.LoadSynchronous();
     }
 
     if (MontageToPlay && !AnimInstance->Montage_IsPlaying(MontageToPlay))
@@ -1326,7 +1326,7 @@ void AShooterGameCharacter::PlayFireModeMontage()
     UAnimMontage* MontageToPlay = nullptr;
     if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
     {
-        MontageToPlay = Cfg->TPFireMode;
+    	MontageToPlay = Cfg->TPFireMode.LoadSynchronous();
     }
 
     // Fallback to legacy property
@@ -1353,7 +1353,7 @@ void AShooterGameCharacter::PlayMagCheckMontage()
     UAnimMontage* MontageToPlay = nullptr;
     if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
     {
-        MontageToPlay = Cfg->TPMagCheck;
+    	MontageToPlay = Cfg->TPMagCheck.LoadSynchronous();
     }
 
     // Fallback to legacy property
@@ -1380,9 +1380,9 @@ void AShooterGameCharacter::PlayInspectMontage()
     UAnimMontage* MontageToPlay = nullptr;
     if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
     {
-        MontageToPlay = bMagEmpty ? Cfg->TPInspectEmpty : Cfg->TPInspect;
-        // If InspectEmpty is not set, fall back to Inspect regardless of mag state
-        if (!MontageToPlay) MontageToPlay = Cfg->TPInspect;
+    	MontageToPlay = bMagEmpty ? Cfg->TPInspectEmpty.LoadSynchronous() : Cfg->TPInspect.LoadSynchronous();
+    	// If InspectEmpty is not set, fall back to Inspect regardless of mag state
+    	if (!MontageToPlay) MontageToPlay = Cfg->TPInspect.LoadSynchronous();
     }
 
     if (MontageToPlay && !AnimInstance->Montage_IsPlaying(MontageToPlay))
@@ -1405,11 +1405,11 @@ void AShooterGameCharacter::PlayFireMontage(bool bAiming)
 	if (const UWeaponConfig* Cfg = GetConfigForEquippedWeapon(this))
 	{
 		if (bMagEmpty)
-			MontageToPlay = Cfg->TPFireEmpty;
-		else if (bAiming && Cfg->TPFireADS)
-			MontageToPlay = Cfg->TPFireADS;
+			MontageToPlay = Cfg->TPFireEmpty.LoadSynchronous();
+		else if (bAiming && !Cfg->TPFireADS.IsNull())
+			MontageToPlay = Cfg->TPFireADS.LoadSynchronous();
 		else
-			MontageToPlay = Cfg->TPFire;
+			MontageToPlay = Cfg->TPFire.LoadSynchronous();
 	}
 
 	// Fallback to legacy character properties if config slot is not yet assigned

@@ -42,6 +42,7 @@ void UShooterAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
     UpdateAimData();
     UpdateCombatData();
     UpdateIKData();
+    UpdateWeaponConfigData();
 }
 
 
@@ -166,7 +167,7 @@ void UShooterAnimInstanceBase::UpdateCombatData()
     bIsInteracting      = (CurrentAction == ECombatAction::Interacting) || ShooterGameCharacter->IsInteractionAnimationRequested();
 
     
-    const float GripTarget       = (CurrentGrip != EWeaponGrip::Default) ? 1.f : 0.f;
+    const float GripTarget       = (CurrentGrip != EWeaponGrip::None) ? 1.f : 0.f;
     const float ActiveBlendSpeed = (GripBlendSpeedOverride > 0.f) ? GripBlendSpeedOverride : GripInterpSpeed;
     CurrentGripAlpha = FMath::FInterpTo(
         CurrentGripAlpha,
@@ -260,4 +261,13 @@ void UShooterAnimInstanceBase::UpdateIKData()
         (int32)bLeftHandOnWeapon,
         (int32)bGripOverrideActive
     );
+}
+
+void UShooterAnimInstanceBase::UpdateWeaponConfigData()
+{
+    if (ShooterGameCharacter)
+    {
+        const AWeapon* Weapon = ShooterGameCharacter->GetEquippedWeapon();
+        WeaponConfig = Weapon ? Weapon->GetWeaponConfig() : nullptr;
+    }
 }

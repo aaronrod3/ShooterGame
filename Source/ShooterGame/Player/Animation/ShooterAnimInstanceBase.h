@@ -6,6 +6,7 @@
 #include "ShooterGame/Types/PlayerWeaponStance.h"
 #include "ShooterGame/Types/TurningInPlace.h"
 #include "ShooterGame/Player/Animation/ShooterAnimStateInterface.h"
+#include "ShooterGame/Items/Weapon/WeaponConfig.h"
 #include "ShooterAnimInstanceBase.generated.h"
 
 class AShooterGameCharacter;
@@ -47,6 +48,11 @@ public:
         bGripOverrideActive    = false;
         GripBlendSpeedOverride = 0.f;
     }
+    
+    
+    UPROPERTY(BlueprintReadWrite, Category = "Weapon")
+    TObjectPtr<UWeaponConfig> WeaponConfig;
+    
 
 protected:
     // -----------------------------------------------------------------------
@@ -158,7 +164,7 @@ protected:
     EReloadType CurrentReloadType = EReloadType::None;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
-    EWeaponGrip CurrentGrip = EWeaponGrip::Default;
+    EWeaponGrip CurrentGrip = EWeaponGrip::None;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|Combat")
     EPlayerWeaponStance WeaponStance = EPlayerWeaponStance::EPWS_Unarmed;
@@ -253,4 +259,5 @@ private:
     void UpdateAimData();
     void UpdateCombatData();
     void UpdateIKData();
+    void UpdateWeaponConfigData();
 };

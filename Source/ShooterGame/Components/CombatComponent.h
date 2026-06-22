@@ -103,7 +103,7 @@ public:
 	
 	/** Current left-hand grip. Drives grip-blend in the anim instance. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|State")
-	EWeaponGrip CurrentGrip = EWeaponGrip::Default;
+	EWeaponGrip CurrentGrip = EWeaponGrip::None;
 
 	/**
 	 * True when any action is running that should block new inputs

@@ -86,14 +86,14 @@ void AWeapon::InitFromConfig(UWeaponConfig* InConfig)
 	// -----------------------------------------------------------------------
 	// Receiver mesh + AnimBP
 	// -----------------------------------------------------------------------
-	if (InConfig->MeshReceiver && WeaponMesh)
+	if (USkeletalMesh* ReceiverMesh = InConfig->MeshReceiver.LoadSynchronous())
 	{
-		WeaponMesh->SetSkeletalMesh(InConfig->MeshReceiver);
+		WeaponMesh->SetSkeletalMesh(ReceiverMesh);
 	}
 
-	if (InConfig->ABPWeapon && WeaponMesh)
+	if (InConfig->ABP_Weapon && WeaponMesh)
 	{
-		WeaponMesh->SetAnimInstanceClass(InConfig->ABPWeapon);
+		WeaponMesh->SetAnimInstanceClass(InConfig->ABP_Weapon);
 	}
 
 	// -----------------------------------------------------------------------
@@ -112,35 +112,34 @@ void AWeapon::InitFromConfig(UWeaponConfig* InConfig)
 }
 
 
-UStaticMeshComponent* AWeapon::AttachStaticMeshFromConfig(UStaticMesh* Mesh, FName Socket)
+UStaticMeshComponent* AWeapon::AttachStaticMeshFromConfig(const TSoftObjectPtr<UStaticMesh>& Mesh, FName Socket)
 {
-	if (!Mesh || Socket == NAME_None)
+	if (!WeaponMesh || Socket.IsNone())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Weapon] AttachStaticMesh — SKIP: Mesh=%d, Socket=%s"),
-			Mesh != nullptr, *Socket.ToString());
 		return nullptr;
 	}
 
-	if (WeaponMesh && !WeaponMesh->DoesSocketExist(Socket))
+	UStaticMesh* LoadedMesh = Mesh.LoadSynchronous();
+	if (!LoadedMesh)
 	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("[Weapon] AttachStaticMesh — socket '%s' not found on %s. Skipping."),
-			*Socket.ToString(), *GetName());
 		return nullptr;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[Weapon] AttachStaticMesh — attaching mesh to socket '%s'"),
-		*Socket.ToString());
+	UStaticMeshComponent* MeshComp = NewObject<UStaticMeshComponent>(this);
+	if (!MeshComp)
+	{
+		return nullptr;
+	}
 
-	UStaticMeshComponent* NewComp = NewObject<UStaticMeshComponent>(this);
-	NewComp->SetStaticMesh(Mesh);
-	NewComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	NewComp->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	NewComp->SetupAttachment(WeaponMesh, Socket);
-	NewComp->RegisterComponent();
+	MeshComp->SetStaticMesh(LoadedMesh);
+	MeshComp->SetupAttachment(WeaponMesh, Socket);
+	MeshComp->RegisterComponent();
+	MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	MeshComp->SetGenerateOverlapEvents(false);
 
-	return NewComp;
+	return MeshComp;
 }
+
 
 
 

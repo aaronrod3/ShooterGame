@@ -408,7 +408,7 @@ private:
 	
 	// Creates, registers, and attaches a static mesh component to WeaponMesh
 	// at the given socket. Returns null if either argument is invalid.
-	UStaticMeshComponent* AttachStaticMeshFromConfig(UStaticMesh* Mesh, FName Socket);
+	UStaticMeshComponent* AttachStaticMeshFromConfig(const TSoftObjectPtr<UStaticMesh>& Mesh, FName Socket);
 
 	void DecaySpread(float DeltaTime);
 	

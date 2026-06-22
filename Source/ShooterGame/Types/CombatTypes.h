@@ -47,7 +47,7 @@ enum class EReloadType : uint8
 UENUM(BlueprintType)
 enum class EWeaponGrip : uint8
 {
-    Default         UMETA(DisplayName = "Default"),
+    None            UMETA(DisplayName = "None"),
     GripVertical    UMETA(DisplayName = "Vertical Foregrip"),
     GripAngled      UMETA(DisplayName = "Angled Foregrip"),
 };

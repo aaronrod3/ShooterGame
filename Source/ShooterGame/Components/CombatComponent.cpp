@@ -103,7 +103,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 	}
 	else
 	{
-		CurrentGrip = EWeaponGrip::Default;
+		CurrentGrip = EWeaponGrip::None;
 	}
 	UE_LOG(LogTemp, Log, TEXT("[Combat] EquipWeapon — grip set to %d"), (int32)CurrentGrip);
 
