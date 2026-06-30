@@ -1,5 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: Game Design Document
-    url: https://github.com/aaronrod3/ShooterGame/blob/master/Docs/GameplayPlan.md
-    about: Reference the Wave Mission Mode design doc before opening issues.
