@@ -1,0 +1,91 @@
+name: "Feature / System Task"
+description: "New gameplay feature or engine system implementation"
+title: "[FEATURE] "
+labels: ["feature"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Game Area"
+      options:
+        - Mission Flow
+        - Wave Spawning
+        - Combat / Damage
+        - Health / Player State
+        - Weapon / Loadout
+        - Character Customization
+        - Player Input
+        - Economy / Points
+        - Call-Ins
+        - Extraction
+        - AI / Enemy
+        - Temporary Squad Member
+        - UI / HUD
+        - Audio
+        - Animation
+        - Networking / Multiplayer
+        - Island Base
+        - Polish
+        - Tech Debt
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: "Target Milestone"
+      options:
+        - Pre-Production Refresh
+        - First Playable Wave Loop
+        - Core Mission Systems
+        - Alpha - Feature Complete
+        - Beta - Content and Balance
+        - Release Candidate
+    validations:
+      required: true
+  - type: dropdown
+    id: effort
+    attributes:
+      label: "Effort Estimate"
+      options:
+        - "XS — a few hours"
+        - "S — half a day to 1 day"
+        - "M — 2-3 days"
+        - "L — 1 week"
+        - "XL — multiple weeks"
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: "Priority"
+      options:
+        - "P0 — Blocking / Critical path"
+        - "P1 — High"
+        - "P2 — Medium"
+        - "P3 — Low / Nice to have"
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: "Goal"
+      description: "What does this implement or enable?"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: "Acceptance Criteria"
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: "Risks / Dependencies"
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Design Notes"

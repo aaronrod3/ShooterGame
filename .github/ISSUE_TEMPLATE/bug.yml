@@ -1,0 +1,75 @@
+name: "Bug Report"
+description: "Something broke or behaves incorrectly"
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: "Severity"
+      options:
+        - "P0 — Crash / Data loss / Unplayable"
+        - "P1 — Major — breaks core loop"
+        - "P2 — Minor — workaround exists"
+        - "P3 — Cosmetic / Polish"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Game Area"
+      options:
+        - Mission Flow
+        - Wave Spawning
+        - Combat / Damage
+        - Health / Player State
+        - Weapon / Loadout
+        - Character Customization
+        - Player Input
+        - Economy / Points
+        - Call-Ins
+        - Extraction
+        - AI / Enemy
+        - Temporary Squad Member
+        - UI / HUD
+        - Audio
+        - Animation
+        - Networking / Multiplayer
+        - Island Base
+        - Physics / Movement
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: "Build / Branch"
+      placeholder: "e.g. master @ abc123"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected Behavior"
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: "Actual Behavior"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to Reproduce"
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: extras
+    attributes:
+      label: "Logs / Screenshots / Video"

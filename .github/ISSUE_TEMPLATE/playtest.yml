@@ -1,0 +1,41 @@
+name: "Playtest Report"
+description: "Session feedback, tuning notes, and follow-up tasks from a playtest"
+title: "[PLAYTEST] "
+labels: ["playtest", "needs-design"]
+body:
+  - type: input
+    id: build
+    attributes:
+      label: "Build / Branch Tested"
+    validations:
+      required: true
+  - type: input
+    id: scenario
+    attributes:
+      label: "Scenario Tested"
+      placeholder: "e.g. Phase 1-2 loop, extraction timing, resupply window pacing"
+    validations:
+      required: true
+  - type: textarea
+    id: worked
+    attributes:
+      label: "What Worked"
+    validations:
+      required: true
+  - type: textarea
+    id: broke
+    attributes:
+      label: "What Broke / Felt Wrong"
+    validations:
+      required: true
+  - type: textarea
+    id: tuning
+    attributes:
+      label: "Tuning Notes"
+  - type: textarea
+    id: followup
+    attributes:
+      label: "Follow-Up Issues to Create"
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
