@@ -105,5 +105,35 @@
 - \[ ] ANS\_TFA\_LeftHandGrip: BlendOutSpeed = 15.0, BlendReturnSpeed = 15.0 \[file:3].
 ```
 
+## 4. UE5.7 IK Retargeter Workflow (FP Upper-Body → TP Skeleton)
 
+### Why This Matters for the Infima Pack
+- [ ] Infima's FP animations are authored as mesh-space additive layers on top of a FABRIK hand-pinned base, and the TP skeleton uses its own FABRIK chain (clavicle_l/r → hand_l/r → ik_hand_l/r). Retargeting FP clips directly onto the TP skeleton without correcting IK settings will desync the hand from the weapon grip the moment additive layers stack [file:2].
+
+### IK Rig Setup (per skeleton)
+- [ ] Create two IK Rig assets: one for SKEL_TFA_Mannequin (or FP skeleton variant) and one for your TP character skeleton, via Content Browser → right-click → Animation > IK Rig [web:19].
+- [ ] Set the Retarget Root to pelvis on both rigs [web:19].
+- [ ] Define matching bone chains on both rigs for: Spine, Head, Arm_L, Arm_R, Leg_L, Leg_R — chain names must match between source and target rigs for auto-mapping to work [web:19][web:16].
+- [ ] On the Arm_L / Arm_R chains, explicitly set the IK Goal to the ik_hand_l / ik_hand_r bones (not hand_l/hand_r), since these are the effector bones the Infima FABRIK nodes read at runtime [file:2].
+
+### IK Retargeter Asset Setup
+- [ ] Create the IK Retargeter asset, assign the FP IK Rig as Source and the TP IK Rig as Target [web:19].
+- [ ] In UE5.7, use the overhauled Chain Mapping tab — drag-and-drop or auto-detect common chains, then manually verify Arm_L/Arm_R and Spine mappings rather than trusting full auto-detection, since auto-detect can mismatch clavicle vs. shoulder roots on military-rig skeletons [web:8].
+- [ ] Set the Retarget Pose on both source and target to match the actual bind/reference pose used by the Infima rig (not just a generic A-pose), to avoid arm-twist artifacts during retarget preview [web:19].
+
+### Preventing Hand-to-Weapon IK Breakage
+- [ ] Select the Arm_L and Arm_R chains in the Chain Mapping tab, then in the Details panel under IK Adjustments, set Blend To Source to 1.0. This forces the retargeted hand position to match the source (FP) animation's exact hand placement rather than an interpolated/scaled position — critical for keeping ik_hand_l/ik_hand_r aligned with weapon grip sockets [web:7].
+- [ ] Use the Static Offset field under IK Adjustments to nudge residual clipping (e.g., trigger-finger or grip clipping) after Blend To Source is applied, rather than re-editing the source animation [web:7].
+- [ ] Reset Blend To Source back to 0 for any retargeted clips that are pure locomotion or non-weapon poses — leaving it at 1 on non-grip animations can produce unnatural hand placement [web:7].
+- [ ] After retargeting, re-verify in the ABP_TFA_TP_BaseCharacter AnimGraph that the FABRIK node's effector target still resolves to ik_hand_l / ik_hand_r in Bone Space, since a retarget pass can occasionally reset effector transform space to World if the retargeter output pose changed root scale [file:2].
+- [ ] Test retargeted upper-body clips specifically during ADS and recoil additive stacking (not just idle), since Blend To Source errors typically only become visible once mesh-space additive layers are applied on top of the retargeted base pose [file:2][web:8].
+
+### UE5.7-Specific Improvements to Leverage
+- [ ] Enable the new Pose Correction Layer (introduced in UE5.7) to automatically reduce shoulder collapse and elbow hyperextension artifacts that are common when retargeting narrow FP-mannequin proportions onto a bulkier military-style TP skeleton [web:8].
+- [ ] Take advantage of UE5.7's faster runtime retargeting (~30-40% faster than UE5.4) if you plan to retarget at runtime for multiple TP character variants sharing the same FP animation set, rather than baking out per-character retargeted sequences [web:8].
+
+### Troubleshooting
+- [ ] Hands not following source position after retarget → confirm Retarget IK is enabled on the chain and Blend To Source is not left at 0 [web:7].
+- [ ] IK bones not following source at all → verify the IK Goal on the Arm chain is bound to ik_hand_l/ik_hand_r and not an unrelated bone; this is a common cause of retargeted IK simply not moving [web:18].
+- [ ] Jello/broken elbow or shoulder poses post-retarget → check joint constraints on the IK Rig's arm chain and confirm the Retarget Pose matches the actual bind pose, not a generic T/A-pose [web:19][web:8].
 
