@@ -111,7 +111,7 @@
 - [ ] Infima's FP animations are authored as mesh-space additive layers on top of a FABRIK hand-pinned base, and the TP skeleton uses its own FABRIK chain (clavicle_l/r → hand_l/r → ik_hand_l/r). Retargeting FP clips directly onto the TP skeleton without correcting IK settings will desync the hand from the weapon grip the moment additive layers stack [file:2].
 
 ### IK Rig Setup (per skeleton)
-- [ ] Create two IK Rig assets: one for SKEL_TFA_Mannequin (or FP skeleton variant) and one for your TP character skeleton, via Content Browser → right-click → Animation > IK Rig [web:19].
+- [ ] Create two IK Rig assets: one for SK_Mannequin (or FP skeleton variant) and one for your TP character skeleton, via Content Browser → right-click → Animation > IK Rig [web:19].
 - [ ] Set the Retarget Root to pelvis on both rigs [web:19].
 - [ ] Define matching bone chains on both rigs for: Spine, Head, Arm_L, Arm_R, Leg_L, Leg_R — chain names must match between source and target rigs for auto-mapping to work [web:19][web:16].
 - [ ] On the Arm_L / Arm_R chains, explicitly set the IK Goal to the ik_hand_l / ik_hand_r bones (not hand_l/hand_r), since these are the effector bones the Infima FABRIK nodes read at runtime [file:2].
