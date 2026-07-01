@@ -222,18 +222,20 @@ void UShooterAnimInstanceBase::UpdateIKData()
         return;
     }
 
-    static const FName GripSocketName = FName("SOCKET_Grip");
-    static const FName RightBoneName  = FName("hand_r");
+    static const FName LeftGripSocketName  = FName("SOCKET_Grip");
+    static const FName RightGripSocketName = FName("SOCKET_Grip_R");
+    static const FName LeftBoneName  = FName("hand_l");
+    static const FName RightBoneName = FName("hand_r");
 
     USkeletalMeshComponent* CharMesh = ShooterGameCharacter->GetMesh();
-    if (!CharMesh || !Weapon->GetWeaponMesh()->DoesSocketExist(GripSocketName))
+    if (!CharMesh || !Weapon->GetWeaponMesh()->DoesSocketExist(LeftGripSocketName))
     {
         bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : false;
         return;
     }
 
     FTransform SocketTransform = Weapon->GetWeaponMesh()->GetSocketTransform(
-        GripSocketName, RTS_World
+        LeftGripSocketName, RTS_World
     );
 
     FVector OutPosition;
@@ -261,6 +263,37 @@ void UShooterAnimInstanceBase::UpdateIKData()
         (int32)bLeftHandOnWeapon,
         (int32)bGripOverrideActive
     );
+
+    // -----------------------------------------------------------------------
+    // Right hand — mirrors the left-hand computation above, but reads
+    // SOCKET_Grip_R and expresses the result in hand_l's bone space.
+    // hand_l is unaffected by the right arm's own FABRIK chain
+    // (clavicle_r -> hand_r -> ik_hand_r), so it's a safe, non-circular
+    // reference — exactly how hand_r serves as the left hand's reference.
+    // No bRightHandOnWeapon flag: the AnimGraph gates the right-arm FABRIK
+    // alpha with bWeaponEquipped directly, since the right hand never
+    // detaches from the weapon mid-montage.
+    // -----------------------------------------------------------------------
+    if (Weapon->GetWeaponMesh()->DoesSocketExist(RightGripSocketName))
+    {
+        FTransform RightSocketTransform = Weapon->GetWeaponMesh()->GetSocketTransform(
+            RightGripSocketName, RTS_World
+        );
+
+        FVector RightOutPosition;
+        FRotator RightOutRotation;
+        CharMesh->TransformToBoneSpace(
+            LeftBoneName,
+            RightSocketTransform.GetLocation(),
+            RightSocketTransform.Rotator(),
+            RightOutPosition,
+            RightOutRotation
+        );
+
+        RightHandTransform.SetLocation(RightOutPosition);
+        RightHandTransform.SetRotation(FQuat(RightOutRotation));
+        RightHandTransform.SetScale3D(FVector::OneVector);
+    }
 }
 
 void UShooterAnimInstanceBase::UpdateWeaponConfigData()

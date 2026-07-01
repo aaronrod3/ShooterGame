@@ -191,14 +191,28 @@ protected:
     bool bHighReady = false;
 
     // -----------------------------------------------------------------------
-    // Left-hand IK inputs
+    // Hand IK inputs — bone-space effector targets for the FABRIK nodes in
+    // ABP_FP_Default / ABP_TP_Default (infima_integration_plan.md section 2).
+    // Each transform is computed in UpdateIKData() as the owning weapon's grip
+    // socket expressed in the corresponding arm's bone space, then fed to a
+    // Transform (Modify) Bone node on ik_hand_l / ik_hand_r ahead of FABRIK.
     // -----------------------------------------------------------------------
 
+    // Left hand's target — the weapon's foregrip socket. Can be temporarily
+    // overridden away from the weapon (see bLeftHandOnWeaponOverride below)
+    // during reload/mag-check montages via ANS_LeftHandGrip.
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|IK")
     FTransform LeftHandTransform = FTransform::Identity;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|IK")
     bool bLeftHandOnWeapon = false;
+
+    // Right hand's target — the weapon's primary grip socket. Unlike the left
+    // hand, the right hand never detaches mid-montage, so there is no
+    // override/on-weapon bool here: the AnimGraph should gate the right-arm
+    // FABRIK alpha with bWeaponEquipped directly.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Anim|IK")
+    FTransform RightHandTransform = FTransform::Identity;
 
     // -----------------------------------------------------------------------
     // Procedural transform contract — Phase 1 Infima bridge
