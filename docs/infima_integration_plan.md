@@ -18,7 +18,7 @@
 
 ### Shared AnimBP Dependencies (FP and TP)
 - [ ] Owning pawn must be `BP_PlayerCharacter` (your equivalent of `BP_TFA_BaseCharacter`). **[VERIFY]**
-- [ ] AnimBP should implement an Animation State interface. You currently have no equivalent to `BPI_TFA_AnimationState` — either reuse the Infima interface directly, or recreate a minimal version with a single `UpdateLeftHandGrip(bool IsLeftHandOnWeapon, float BlendSpeed)` function. **[CREATE or REUSE]**
+- [x] AnimBP Animation State interface exists as `IShooterAnimStateInterface` (`Source/ShooterGame/Player/Animation/ShooterAnimStateInterface.h`), implemented by `UShooterAnimInstanceBase`. Exposes `UpdateLeftHandGrip(bool, float)` plus two extra hooks (`SetAimingBlocked`, `OnAnimStateMessage`) not originally in this checklist. **[DONE]**
 - [ ] Skeleton must include FABRIK chain bones: `ik_hand_r`, `hand_r`, `clavicle_r`, `ik_hand_l`, `hand_l`, `clavicle_l`. Since you're on standard `SK_Mannequin`, these should already exist. **[VERIFY]**
 
 ### ABP_FP_Default (First-Person — your equivalent of ABP_TFA_FP_BaseCharacter)
@@ -28,8 +28,9 @@
   1. Build locomotion base pose (driven by InputMoveVector, bIsWalking/bIsRunning/bIsSprinting, Stance) — cache with UseCachedPose
   2. Apply mesh-space additive layers for ADS, recoil, crouch (Additive Type: Mesh Space, Base Pose: Reference Pose, Root Motion disabled)
   3. Run FABRIK hand IK node on both arms (Effector Transform Space: Bone Space, expose LODThreshold)
+     - C++ inputs for this step are ready: `UShooterAnimInstanceBase` exposes `LeftHandTransform` and `RightHandTransform` (both bone-space effector targets, computed each tick in `UpdateIKData()`), plus `bLeftHandOnWeapon` and `bWeaponEquipped` to gate each arm's blend-in alpha. Left hand feeds off `SOCKET_Grip` (existing), right hand off the new `SOCKET_Grip_R` (see Section 5 — not yet added to any weapon mesh). The actual Transform (Modify) Bone + FABRIK nodes in the AnimGraph still need to be built. **[C++ DONE / AnimGraph CREATE]**
   4. Optionally blend camera/head motion via LayeredBoneBlend node on the head branch, controlled by bAnimateCamera **[CREATE — needs to be built in ABP_FP_Default]**
-- [ ] Grip overlay nodes: CurrentGrip selects grip pose, CurrentGripAlpha (driven by FInterpTo using GripBlendSpeed) controls overlay blend weight. **[CREATE]**
+- [ ] Grip overlay nodes: CurrentGrip selects grip pose, CurrentGripAlpha (driven by FInterpTo using GripBlendSpeed) controls overlay blend weight. C++ side is done — `CurrentGripAlpha` is computed every tick in `UShooterAnimInstanceBase::UpdateCombatData()`. AnimGraph overlay nodes themselves still need to be built. **[C++ DONE / AnimGraph CREATE]**
 - [ ] Notify hook: implement an Unlock Actions notify that fires `CharacterBP.bIsBusy = false`. Can reuse Infima's `AN_TFA_UnlockActions` logic pattern or recreate as your own notify class. **[CREATE or REUSE]**
 - [ ] Integration checklist:
   - Mesh's Anim Class = `ABP_FP_Default`
@@ -61,8 +62,8 @@
 - [ ] Magazine AnimBP (the `ABPMagazine` field): same situation — none exists yet. Reuse or recreate, then assign. **[CREATE]**
 
 ### Left Hand Grip Flow (both AnimBPs)
-- [ ] A Left Hand Grip notify-state should call `UpdateLeftHandGrip(bool IsLeftHandOnWeapon, float BlendSpeed)` on the active anim instance through your Animation State interface. **[CREATE — pattern from Infima's ANS_TFA_LeftHandGrip]**
-- [ ] AnimBP stores incoming values into bIsLeftHandOnWeapon / GripBlendSpeed, then smooths CurrentGripAlpha toward 1.0 or 0.0 using FInterpTo and GetWorldDeltaSeconds. **[CREATE]**
+- [x] `UANS_LeftHandGrip` (`Source/ShooterGame/Player/Animation/ANS_LeftHandGrip.h/.cpp`) calls `UpdateLeftHandGrip(bool IsLeftHandOnWeapon, float BlendSpeed)` through the interface on NotifyBegin/NotifyEnd. **[DONE]**
+- [x] `UShooterAnimInstanceBase` stores the override into `bLeftHandOnWeaponOverride` / `GripBlendSpeedOverride` and smooths `CurrentGripAlpha` toward 1.0/0.0 via `FInterpTo` inside `UpdateCombatData()`. **[DONE]**
 
 ## 3. Notify and Notify-State Wiring
 
@@ -70,25 +71,25 @@ All notify and notify-state classes below can be **recreated as your own classes
 
 ### AnimNotify (One-Shot) Classes — recreate as your own
 
-| Suggested Name | What It Should Do | Calls Into |
-|---|---|---|
-| `AN_DropMagazine` | Casts owner to weapon, calls Weapon.SpawnDroppedMagazine(ImpulseForce, RotationForce) at the release frame; weapon spawns a physics magazine actor with linear/angular impulse | `BP_Rifle` |
-| `AN_EjectCasing` | Casts owner to weapon, builds randomized RotationOffset, calls Weapon.EjectCasing(RotationOffset, MinEjectForce, MaxEjectForce, RotationSpeed) | `BP_Rifle` |
-| `AN_SpawnObjectAttached` | Casts owner to character, spawns and attaches a prop tagged DisposableItem (default socket ik_hand_l) | `BP_PlayerCharacter` |
-| `AN_ThrowPhysicsObject` | Casts owner to character, applies linear/angular impulse and optionally clears DisposableItem-tagged actors | `BP_PlayerCharacter` |
-| `AN_UnlockActions` | Casts owner to character, sets Character.bIsBusy = false, reopening gameplay input | `BP_PlayerCharacter` |
+| Suggested Name | What It Should Do | Calls Into | Status |
+|---|---|---|---|
+| `AN_DropMagazine` | Casts owner to weapon, calls Weapon.SpawnDroppedMagazine(ImpulseForce, RotationForce) at the release frame; weapon spawns a physics magazine actor with linear/angular impulse | `BP_Rifle` | [CREATE] |
+| `AN_EjectCasing` | Casts owner to weapon, builds randomized RotationOffset, calls Weapon.EjectCasing(RotationOffset, MinEjectForce, MaxEjectForce, RotationSpeed) | `BP_Rifle` | [CREATE] |
+| `AN_SpawnObjectAttached` | Casts owner to character, spawns and attaches a prop tagged DisposableItem (default socket ik_hand_l) | `BP_PlayerCharacter` | [CREATE] |
+| `AN_ThrowPhysicsObject` | Casts owner to character, applies linear/angular impulse and optionally clears DisposableItem-tagged actors | `BP_PlayerCharacter` | [CREATE] |
+| `AN_UnlockActions` | Casts owner to character, sets Character.bIsBusy = false, reopening gameplay input | `BP_PlayerCharacter` | [CREATE] |
 
 ### AnimNotifyState (Time-Window) Classes — recreate as your own
 
-| Suggested Name | What It Should Do | Calls Into |
-|---|---|---|
-| `ANS_BlockADS` | Begin: casts to character, sets bIsAimingBlocked = true, calls ForceStopAiming(). End: sets bIsAimingBlocked = false | `BP_PlayerCharacter` |
-| `ANS_HideMainMag` | Begin: casts to weapon, hides main magazine mesh. End: shows it again | `BP_Rifle` |
-| `ANS_ShowReserveMag` | Begin: casts to weapon, shows reserve magazine mesh. End: hides it | `BP_Rifle` |
-| `ANS_LeftHandGrip` | Begin: sets IsLeftHandOnWeapon=false via your Animation State interface. End: sets it back to true | Your Animation State interface (implemented on `ABP_FP_Default` / `ABP_TP_Default`) |
+| Suggested Name | What It Should Do | Calls Into | Status |
+|---|---|---|---|
+| `ANS_BlockADS` | Begin: casts to character, sets bIsAimingBlocked = true, calls ForceStopAiming(). End: sets bIsAimingBlocked = false | `BP_PlayerCharacter` | **[DONE]** — implemented (`ANS_BlockADS.h/.cpp`), calls `SetAimingBlocked` via the interface. The character-side `ForceStopAiming()` hookup still deserves a live [VERIFY] pass |
+| `ANS_HideMainMag` | Begin: casts to weapon, hides main magazine mesh. End: shows it again | `BP_Rifle` | [CREATE] |
+| `ANS_ShowReserveMag` | Begin: casts to weapon, shows reserve magazine mesh. End: hides it | `BP_Rifle` | [CREATE] |
+| `ANS_LeftHandGrip` | Begin: sets IsLeftHandOnWeapon=false via your Animation State interface. End: sets it back to true | Your Animation State interface (implemented on `ABP_FP_Default` / `ABP_TP_Default`) | **[DONE]** — implemented (`ANS_LeftHandGrip.h/.cpp`) |
 
 ### Interface
-- [ ] Create your own Animation State interface (equivalent to `BPI_TFA_AnimationState`) with a single function `UpdateLeftHandGrip(bool IsLeftHandOnWeapon, float BlendSpeed)`. Implement it on both `ABP_FP_Default` and `ABP_TP_Default`. **[CREATE]**
+- [x] Animation State interface exists as `IShooterAnimStateInterface`, implemented in C++ on `UShooterAnimInstanceBase` (the shared base both `UShooterFPAnimInstance`/`ABP_FP_Default` and `UShooterTPAnimInstance`/`ABP_TP_Default` derive from) — no need to reimplement per-AnimBP. **[DONE]**
 
 ### Owner Requirements (apply same logic to your recreated notifies)
 - [ ] `AN_DropMagazine`, `AN_EjectCasing`, `ANS_HideMainMag`, `ANS_ShowReserveMag` — should only function on montages playing on a mesh owned by `BP_Rifle`.
@@ -118,6 +119,9 @@ When migrating, use Unreal's **Migrate** tool (right-click asset → Asset Actio
 
 - [x] All bones match standard UE5 Manny (`SK_Mannequin`) — no bone remapping needed. **[VERIFIED BY USER]**
 - [ ] Sockets referenced throughout this checklist (`SocketMagazineAttachment`, `SocketMagazineReserveAttachment`, `SocketCasingEject`, `SocketGripAttachment`, `SocketLaserAttachment`, `SocketGunAttachment`, `SocketGunCamera`, `SocketHelmetCamera`, `SocketChestCamera`, `SocketMuzzle`) either already exist on your rifle/character mesh or need to be added via the Skeleton/Skeletal Mesh Editor socket tools. **[VERIFY or CREATE per-socket]**
+- [ ] Hand-IK grip sockets on the **weapon skeletal mesh**, read directly in `UShooterAnimInstanceBase::UpdateIKData()` (hardcoded there, not sourced from `WeaponConfig` like the sockets above):
+  - `SOCKET_Grip` — left-hand (foregrip) target, transformed into `hand_r`'s bone space to produce `LeftHandTransform`. Already relied upon by the existing left-hand IK code. **[VERIFY exists on every weapon mesh]**
+  - `SOCKET_Grip_R` — right-hand (primary grip) target, transformed into `hand_l`'s bone space to produce `RightHandTransform`. Added 2026-06-30 on the C++ side (`UShooterAnimInstanceBase.h`/`.cpp`) but does not exist on any weapon mesh yet — until it's added, `RightHandTransform` silently stays at its last computed value (identity by default) and the right-arm FABRIK target never moves. **[CREATE per weapon mesh]**
 - [ ] Every AnimGraph node referenced in Section 2 (FABRIK hand IK, Layered Blend Per Bone, additive stack, state machines, montage slots) needs to be manually built and verified inside `ABP_FP_Default` and `ABP_TP_Default`, since these are new AnimBPs rather than the Infima originals. **[CREATE + VERIFY]**
 
 ## 6. UE5.7 IK Retargeter Workflow (Reference Only — Likely Not Needed)
