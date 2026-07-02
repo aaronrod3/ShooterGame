@@ -12,6 +12,7 @@
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Items/Weapon/CaseEject.h"
 #include "ShooterGame/Items/Weapon/WeaponConfig.h"
+#include "ShooterGame/Framework/ShooterGame.h"
 
 AWeapon::AWeapon()
 {
@@ -403,6 +404,21 @@ void AWeapon::ChamberRound()
 		bRoundChambered = true;
 		SyncReplicatedLoadState();
 	}
+}
+
+void AWeapon::SpawnDroppedMagazine(float ImpulseForce, float RotationForce)
+{
+	UE_LOG(LogShooterGame, Warning, TEXT("AWeapon::SpawnDroppedMagazine — not yet implemented (stub called on %s)"), *GetName());
+}
+
+void AWeapon::EjectCasing(FRotator RotationOffset, float MinEjectForce, float MaxEjectForce, float RotationSpeed)
+{
+	UE_LOG(LogShooterGame, Warning, TEXT("AWeapon::EjectCasing — not yet implemented (stub called on %s)"), *GetName());
+}
+
+void AWeapon::SetMagazineVisibility(bool bVisible, bool bReserve)
+{
+	UE_LOG(LogShooterGame, Warning, TEXT("AWeapon::SetMagazineVisibility — not yet implemented (stub called on %s)"), *GetName());
 }
 
 void AWeapon::SyncReplicatedLoadState()

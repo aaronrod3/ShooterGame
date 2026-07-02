@@ -155,6 +155,23 @@ public:
 	void ChamberRound();
 
 	// -----------------------------------------------------------------------
+	// Notify-driven stubs (infima_integration_plan.md Section 3) — bodies not
+	// yet implemented, log a warning until a design pass wires them up.
+	// -----------------------------------------------------------------------
+
+	/** Called by AN_DropMagazine at the release frame of a reload montage. */
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Magazine")
+	virtual void SpawnDroppedMagazine(float ImpulseForce, float RotationForce);
+
+	/** Called by AN_EjectCasing at the case-eject frame of a fire montage. */
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Magazine")
+	virtual void EjectCasing(FRotator RotationOffset, float MinEjectForce, float MaxEjectForce, float RotationSpeed);
+
+	/** Called by ANS_HideMainMag / ANS_ShowReserveMag to toggle magazine mesh visibility. */
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Magazine")
+	virtual void SetMagazineVisibility(bool bVisible, bool bReserve);
+
+	// -----------------------------------------------------------------------
 	// Accessors
 	// -----------------------------------------------------------------------
 

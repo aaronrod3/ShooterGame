@@ -1262,6 +1262,16 @@ void AShooterGameCharacter::ClientPlayInteractionMontage_Implementation()
 	PlayInteractionMontage();
 }
 
+void AShooterGameCharacter::SpawnObjectAttached(TSubclassOf<AActor> ObjectToSpawn, FName SocketName, FVector LocationOffset, FRotator RotationOffset, float VisibilityDelay)
+{
+	UE_LOG(LogShooterGame, Warning, TEXT("AShooterGameCharacter::SpawnObjectAttached — not yet implemented (stub called on %s)"), *GetName());
+}
+
+void AShooterGameCharacter::ThrowPhysicsObject(TSubclassOf<AActor> ObjectToSpawn, FName SocketName, FVector LocationOffset, FRotator RotationOffset, float ThrowForce, float ThrowRotationForce, bool bDestroySocketItem)
+{
+	UE_LOG(LogShooterGame, Warning, TEXT("AShooterGameCharacter::ThrowPhysicsObject — not yet implemented (stub called on %s)"), *GetName());
+}
+
 void AShooterGameCharacter::SetInteractionAnimationRequested(bool bRequested)
 {
 	bInteractionAnimationRequested = bRequested;

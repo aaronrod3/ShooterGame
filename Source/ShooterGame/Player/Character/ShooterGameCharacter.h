@@ -70,6 +70,19 @@ public:
 	void StartInteractionAnimation();
 	void StopInteractionAnimation();
 
+	// -----------------------------------------------------------------------
+	// Notify-driven stubs (infima_integration_plan.md Section 3) — bodies not
+	// yet implemented, log a warning until a design pass wires them up.
+	// -----------------------------------------------------------------------
+
+	/** Called by AN_SpawnObjectAttached to spawn and attach a prop to a socket. */
+	UFUNCTION(BlueprintCallable, Category = "Anim|Notify")
+	virtual void SpawnObjectAttached(TSubclassOf<AActor> ObjectToSpawn, FName SocketName, FVector LocationOffset, FRotator RotationOffset, float VisibilityDelay);
+
+	/** Called by AN_ThrowPhysicsObject to detach and throw a socket-attached prop. */
+	UFUNCTION(BlueprintCallable, Category = "Anim|Notify")
+	virtual void ThrowPhysicsObject(TSubclassOf<AActor> ObjectToSpawn, FName SocketName, FVector LocationOffset, FRotator RotationOffset, float ThrowForce, float ThrowRotationForce, bool bDestroySocketItem);
+
 	UFUNCTION(Client, Reliable)
 	void ClientPlayInteractionMontage();
 	
