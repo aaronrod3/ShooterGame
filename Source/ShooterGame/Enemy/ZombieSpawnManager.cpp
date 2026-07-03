@@ -133,7 +133,7 @@ void AZombieSpawnManager::FireObjectiveSpawnEvent(AZombieObjectiveArea* TargetAr
     {
         GetWorldTimerManager().SetTimer(
             ObjectiveSpawnDelayHandle,
-            FTimerDelegate::CreateWeakLambda(this, [this, Count]()
+            FTimerDelegate::CreateWeakLambda(this, [this, Count]
             {
                 if (!IsValid(PendingObjectiveArea))
                 {
@@ -300,7 +300,7 @@ int32 AZombieSpawnManager::GetAliveZombieCount()
 
 void AZombieSpawnManager::PurgeDeadZombies()
 {
-    SpawnedZombies.RemoveAll([](AZombieCharacter* Zombie)
+    SpawnedZombies.RemoveAll([](const AZombieCharacter* Zombie)
     {
         // Remove if the pointer is invalid or the zombie has reached the Dead state
         return !IsValid(Zombie) || Zombie->GetZombieState() == EZombieState::EZS_Dead;
@@ -313,14 +313,11 @@ void AZombieSpawnManager::PurgeDeadZombies()
 
 bool AZombieSpawnManager::GetValidSpawnLocation(FVector& OutLocation) const
 {
-    const UNavigationSystemV1* NavSystem = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
-
-    if (NavSystem)
+    if (const UNavigationSystemV1* NavSystem = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld()))
     {
         FNavLocation NavLocation;
-        const bool bFound = NavSystem->GetRandomReachablePointInRadius(GetActorLocation(), SpawnRadius, NavLocation);
 
-        if (bFound)
+        if (const bool bFound = NavSystem->GetRandomReachablePointInRadius(GetActorLocation(), SpawnRadius, NavLocation))
         {
             OutLocation = NavLocation.Location;
             return true;
@@ -419,7 +416,7 @@ void AZombieSpawnManager::RouteZombiesToObjective(
             FTimerHandle RetryHandle;
             GetWorldTimerManager().SetTimer(
                 RetryHandle,
-                FTimerDelegate::CreateWeakLambda(this, [this, Zombie, TargetArea]()
+                FTimerDelegate::CreateWeakLambda(this, [this, Zombie, TargetArea]
                 {
                     if (!IsValid(Zombie) || !IsValid(TargetArea)) return;
 

@@ -270,12 +270,12 @@ const FItemInstance* UEquippedStateComponent::GetEquippedItemInternal(EEquipment
 	}
 }
 
-bool UEquippedStateComponent::IsValidEquipmentSlot(EEquipmentSlot Slot) const
+bool UEquippedStateComponent::IsValidEquipmentSlot(EEquipmentSlot Slot)
 {
 	return Slot != EEquipmentSlot::MAX;
 }
 
-bool UEquippedStateComponent::IsSingleItemSlot(EEquipmentSlot Slot) const
+bool UEquippedStateComponent::IsSingleItemSlot(EEquipmentSlot Slot)
 {
 	switch (Slot)
 	{
@@ -290,7 +290,7 @@ bool UEquippedStateComponent::IsSingleItemSlot(EEquipmentSlot Slot) const
 	}
 }
 
-float UEquippedStateComponent::GetItemWeight(const FItemInstance& Item) const
+float UEquippedStateComponent::GetItemWeight(const FItemInstance& Item)
 {
 	if (Item.Definition == nullptr)
 	{

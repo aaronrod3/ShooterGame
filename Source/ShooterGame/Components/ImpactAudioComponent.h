@@ -6,6 +6,8 @@
 #include "Sound/SoundCue.h"
 #include "ImpactAudioComponent.generated.h"
 
+struct FVector_NetQuantize;
+
 UCLASS(ClassGroup=(Audio), meta=(BlueprintSpawnableComponent))
 class SHOOTERGAME_API UImpactAudioComponent : public UActorComponent
 {

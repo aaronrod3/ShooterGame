@@ -4,7 +4,6 @@
 #include "TimerManager.h"
 #include "Engine/World.h"
 #include "Engine/OverlapResult.h"
-#include "DrawDebugHelpers.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Components/DownedComponent.h"
 
@@ -54,9 +53,7 @@ void UReviveComponent::RevivePressed()
 	if (!CanRevive()) return;
 
 	// Look for a nearby downed teammate first
-	AShooterGameCharacter* NearestDowned = FindNearestDownedTeammate();
-
-	if (NearestDowned)
+	if (AShooterGameCharacter* NearestDowned = FindNearestDownedTeammate())
 	{
 		StartRevive(NearestDowned);
 	}
@@ -95,7 +92,7 @@ AShooterGameCharacter* UReviveComponent::FindNearestDownedTeammate() const
 		Overlaps,
 		Character->GetActorLocation(),
 		FQuat::Identity,
-		ECollisionChannel::ECC_Pawn,
+		ECC_Pawn,
 		Sphere,
 		Params
 	);
@@ -142,8 +139,7 @@ void UReviveComponent::StartRevive(AShooterGameCharacter* Target)
 	ReviveElapsed = 0.f;
 
 	// Pause the target's bleedout while being revived
-	UDownedComponent* TargetDowned = Target->GetDownedComponent();
-	if (TargetDowned)
+	if (UDownedComponent* TargetDowned = Target->GetDownedComponent())
 	{
 		TargetDowned->PauseBleedout();
 	}
@@ -178,8 +174,7 @@ void UReviveComponent::CancelRevive()
 	// Resume bleedout on target
 	if (ReviveTarget)
 	{
-		UDownedComponent* TargetDowned = ReviveTarget->GetDownedComponent();
-		if (TargetDowned)
+		if (UDownedComponent* TargetDowned = ReviveTarget->GetDownedComponent())
 		{
 			// Only resume if not being revived by someone else
 			TargetDowned->ResumeBleedout();
@@ -204,8 +199,7 @@ void UReviveComponent::OnReviveComplete()
 {
 	if (!ReviveTarget) return;
 
-	UDownedComponent* TargetDowned = ReviveTarget->GetDownedComponent();
-	if (TargetDowned)
+	if (UDownedComponent* TargetDowned = ReviveTarget->GetDownedComponent())
 	{
 		TargetDowned->ServerCompleteRevive(ReviveHealth);
 	}
@@ -226,11 +220,11 @@ void UReviveComponent::OnReviveComplete()
 // -----------------------------------------------------------------------
 
 void UReviveComponent::OnReviverTakeDamage(
-	AActor* DamagedActor,
+	AActor* /*DamagedActor*/,
 	float Damage,
-	const UDamageType* DamageType,
-	AController* InstigatedBy,
-	AActor* DamageCauser)
+	const UDamageType* /*DamageType*/,
+	AController* /*InstigatedBy*/,
+	AActor* /*DamageCauser*/)
 {
 	if (!bReviveInProgress) return;
 

@@ -8,7 +8,7 @@ public class ShooterGame : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicDependencyModuleNames.AddRange(new string[] {
+		PublicDependencyModuleNames.AddRange([
 			"Core",
 			"CoreUObject",
 			"Engine",
@@ -21,18 +21,18 @@ public class ShooterGame : ModuleRules
 			"Slate",
 			"SlateCore",
 			"Niagara",
-			"NavigationSystem",   
+			"NavigationSystem",
 			"GameplayTasks",
 			"GameplayTags",
 			"AudioMixer",
 			"PhysicsCore"
-		});
+		]);
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "AnimGraphRuntime", "OnlineServicesInterface" });
+		PrivateDependencyModuleNames.AddRange(["AnimGraphRuntime", "OnlineServicesInterface"]);
 
-		PublicIncludePaths.AddRange(new string[] {
+		PublicIncludePaths.AddRange([
 			"ShooterGame"
-		});
+		]);
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

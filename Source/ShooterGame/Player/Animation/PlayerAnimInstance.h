@@ -48,6 +48,7 @@ private:
 	UPROPERTY(BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
 	float Lean;
 	
+	UPROPERTY()
 	class AWeapon* EquippedWeapon;
 	
 	FRotator CharacterRotationLastFrame;

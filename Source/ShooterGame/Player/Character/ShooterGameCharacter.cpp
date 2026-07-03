@@ -3,38 +3,29 @@
 #include "ShooterGameCharacter.h"
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
 #include "Perception/AISense_Hearing.h"
-#include "ShooterGame/Player/Animation/PlayerAnimInstance.h"
+#include "Engine/World.h"
+#include "Engine/HitResult.h"
+#include "CollisionQueryParams.h"
 #include "ShooterGame/Types/PlayerWeaponStance.h"
 #include "ShooterGame/Types/CombatTypes.h"
 #include "ShooterGame/Items/Ammo/AmmoPickup.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
 #include "ShooterGame/Framework/PlayerState/ShooterPlayerState.h"
-#include "ShooterGame/Types/VendorTypes.h"
-#include "ShooterGame/Inventory/ItemDefinition.h"
-#include "ShooterGame/Framework/Subsystems/QuestTrackerSubsystem.h"
 #include "ShooterGame/Interaction/Interactable.h"
 #include "ShooterGame/Interaction/Highlightable.h"
-#include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "GameFramework/Controller.h"
 #include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Framework/ShooterGame.h"
-#include "Framework/Subsystems/ShooterSaveGameSubsystem.h"
 #include "Inventory/InventoryComponent.h"
 #include "Inventory/EquippedStateComponent.h"
-#include "Engine/GameInstance.h"
 #include "Net/UnrealNetwork.h"
-#include "Blueprint/UserWidget.h"
-#include "Blueprint/WidgetBlueprintLibrary.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "DrawDebugHelpers.h"
-
+#include "Engine/Engine.h"
 
 
 DEFINE_LOG_CATEGORY(LogShooterGameCharacter);
@@ -183,16 +174,16 @@ void AShooterGameCharacter::BeginPlay()
         }
 
         UE_LOG(LogTemp, Warning, TEXT("[AnimDiag] TP Mesh visible:%d hiddenInGame:%d"),
-            (int32)GetMesh()->IsVisible(),
-            (int32)GetMesh()->bHiddenInGame);
+            static_cast<int32>(GetMesh()->IsVisible()),
+            static_cast<int32>(GetMesh()->bHiddenInGame));
 
         if (GEngine)
         {
             GEngine->AddOnScreenDebugMessage(
                 42, 10.f, FColor::Orange,
                 FString::Printf(TEXT("[AnimDiag] TP Mesh visible:%d hiddenInGame:%d"),
-                    (int32)GetMesh()->IsVisible(),
-                    (int32)GetMesh()->bHiddenInGame)
+                    static_cast<int32>(GetMesh()->IsVisible()),
+                    static_cast<int32>(GetMesh()->bHiddenInGame))
             );
         }
     }
@@ -205,8 +196,8 @@ void AShooterGameCharacter::BeginPlay()
         UE_LOG(LogTemp, Warning, TEXT("[AnimDiag] MeshComp: %s — AnimBP: %s — visible:%d hiddenInGame:%d"),
             *MeshComp->GetName(),
             MeshInst ? *MeshInst->GetClass()->GetName() : TEXT("NULL"),
-            (int32)MeshComp->IsVisible(),
-            (int32)MeshComp->bHiddenInGame);
+            static_cast<int32>(MeshComp->IsVisible()),
+            static_cast<int32>(MeshComp->bHiddenInGame));
     }
 }
 
@@ -216,7 +207,7 @@ void AShooterGameCharacter::Tick(float DeltaTime)
 
     if (!CameraBoom || !FollowCamera) return;
 
-    const bool bShouldADS = (Combat && Combat->bAiming);
+    const bool bShouldADS = Combat && Combat->bAiming;
 
     // Keep target shoulder offset Y in sync with aim state changes
     if (bShouldADS)
@@ -577,7 +568,7 @@ void AShooterGameCharacter::ServerSetFacingYaw_Implementation(float Yaw)
 }
 
 
-void AShooterGameCharacter::TurnInPlace(float DeltaTime)
+void AShooterGameCharacter::TurnInPlace(float /*DeltaTime*/)
 {
 	if (AimOffset_Yaw > 90.f) // may narrow down later
 	{
@@ -873,7 +864,7 @@ void AShooterGameCharacter::ServerCollectAmmo_Implementation()
 
 	UE_LOG(LogTemp, Warning,
 		TEXT("ServerCollectAmmo — Granting mag: %d rounds, AmmoType: %d"),
-		GrantedMag.CurrentRounds, (int32)GrantedMag.AmmoType);
+		GrantedMag.CurrentRounds, static_cast<int32>(GrantedMag.AmmoType));
 
 	CombatComp->PickupMagazine(GrantedMag);
 	OverlappingAmmoPickup->Destroy();
@@ -887,12 +878,12 @@ void AShooterGameCharacter::ServerCollectAmmo_Implementation()
 	}
 }
 
-bool AShooterGameCharacter::IsWeaponEquipped()
+bool AShooterGameCharacter::IsWeaponEquipped() const
 {
-	return (Combat && Combat->EquippedWeapon);
+	return Combat && Combat->EquippedWeapon;
 }
 
-AWeapon* AShooterGameCharacter::GetEquippedWeapon()
+AWeapon* AShooterGameCharacter::GetEquippedWeapon() const
 {
 	if (Combat == nullptr) return nullptr;
 
@@ -914,9 +905,7 @@ void AShooterGameCharacter::ServerPrimaryInteract_Implementation()
 
 	// --- Try focused general interactable first ---
 	FHitResult HitResult;
-	AActor* InteractTarget = FindBestInteractableInView(HitResult);
-
-	if (InteractTarget)
+	if (AActor* InteractTarget = FindBestInteractableInView(HitResult))
 	{
 		UE_LOG(LogTemp, Warning,
 			TEXT("[ServerPrimaryInteract] Trace hit: %s"), *InteractTarget->GetName());
@@ -970,9 +959,9 @@ void AShooterGameCharacter::AnimNotify_InteractionFinished()
 
 
 
-bool AShooterGameCharacter::IsAiming()
+bool AShooterGameCharacter::IsAiming() const
 {
-	return (Combat && Combat->bAiming);
+	return Combat && Combat->bAiming;
 }
 
 void AShooterGameCharacter::ToggleAim()
@@ -1006,7 +995,7 @@ void AShooterGameCharacter::SwapShoulder()
 	bRightShoulder = !bRightShoulder;
 
 	// Choose the correct target Y offset based on shoulder and aim state
-	const bool bCurrentlyAiming = (Combat && Combat->bAiming);
+	const bool bCurrentlyAiming = Combat && Combat->bAiming;
 
 	if (bRightShoulder)
 	{
@@ -1121,7 +1110,7 @@ void AShooterGameCharacter::HighReadyButtonPressed()
 	}
 }
 
-void AShooterGameCharacter::ToggleSuppressor_Input(const FInputActionValue& Value)
+void AShooterGameCharacter::ToggleSuppressor_Input(const FInputActionValue& /*Value*/)
 {
 	if (!Combat) return;
 
@@ -1141,7 +1130,7 @@ void AShooterGameCharacter::ToggleSuppressor_Input(const FInputActionValue& Valu
 		FTimerHandle SuppressorToggleTimer;
 		GetWorldTimerManager().SetTimer(
 			SuppressorToggleTimer,
-			[this]() { if (Combat) Combat->ToggleSuppressor(); },
+			[this] { if (Combat) Combat->ToggleSuppressor(); },
 			ToggleDelay,
 			false
 		);
@@ -1183,7 +1172,7 @@ void AShooterGameCharacter::PlayReloadMontage()
 
 	UE_LOG(LogTemp, Warning,
 		TEXT("[Reload] PlayReloadMontage — AnimInst: %d, MontageToPlay: %d, ReloadType: %d"),
-		AnimInstance != nullptr, MontageToPlay != nullptr, (int32)Combat->GetReloadType());
+		AnimInstance != nullptr, MontageToPlay != nullptr, static_cast<int32>(Combat->GetReloadType()));
 
 	if (MontageToPlay && !AnimInstance->Montage_IsPlaying(MontageToPlay))
 	{
@@ -1297,7 +1286,7 @@ bool AShooterGameCharacter::IsReloadAnimationPlaying() const
 	// Legacy fallback properties
 	return (Montage_Reload      && AnimInstance->Montage_IsPlaying(Montage_Reload))
 		|| (Montage_Reload_Empty && AnimInstance->Montage_IsPlaying(Montage_Reload_Empty))
-		|| (Montage_Reload_Quick && AnimInstance->Montage_IsPlaying(Montage_Reload_Quick));
+		|| (Montage_Reload_Quick && AnimInstance->Montage_IsPlaying(Montage_Reload_Quick)); // parens kept: visual grouping across multi-line ||
 }
 
 bool AShooterGameCharacter::IsInteractionAnimationPlaying() const

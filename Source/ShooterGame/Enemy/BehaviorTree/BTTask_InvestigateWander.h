@@ -19,9 +19,9 @@ public:
 	UBTTask_InvestigateWander();
 
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
-	virtual void OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) override;
 
 protected:
+	virtual void OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) override;
 	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 
 private:
@@ -29,7 +29,9 @@ private:
 
 	// Cached refs for use inside the path following delegate
 	TWeakObjectPtr<AAIController> OwnerController;
-	UBehaviorTreeComponent* BTCompRef = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<UBehaviorTreeComponent> BTCompRef = nullptr;
 
 	void OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result);
 };

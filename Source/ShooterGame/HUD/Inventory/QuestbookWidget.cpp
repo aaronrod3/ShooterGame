@@ -110,7 +110,7 @@ void UQuestbookWidget::HandleQuestProgressUpdated(const FQuestState& UpdatedStat
     }
 }
 
-void UQuestbookWidget::HandleQuestStatusChanged(const FQuestState& UpdatedState)
+void UQuestbookWidget::HandleQuestStatusChanged(const FQuestState& /*UpdatedState*/)
 {
     // Any status change (accepted, completed, pending turn-in) warrants
     // a full list rebuild since the quest may have moved between tabs.

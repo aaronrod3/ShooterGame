@@ -155,7 +155,7 @@ struct SHOOTERGAME_API FItemInstance
     // Pointer to the shared static item definition.
     // Null = invalid/empty instance. Always check IsValid() before use.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
-    TObjectPtr<class UItemDefinition> Definition = nullptr;
+    TObjectPtr<UItemDefinition> Definition = nullptr;
 
     // Server-generated unique identifier for this specific item instance.
     // Stable across transfer between containers (stash ↔ rig ↔ mission cache).

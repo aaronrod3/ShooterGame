@@ -30,5 +30,5 @@ public:
 	virtual FString GetNotifyName_Implementation() const override;
 
 private:
-	static void PushBlockState(USkeletalMeshComponent* MeshComp, bool bBlocked);
+	static void PushBlockState(const USkeletalMeshComponent* MeshComp, bool bBlocked);
 };

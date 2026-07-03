@@ -5,6 +5,8 @@
 #include "UObject/Interface.h"
 #include "Interactable.generated.h"
 
+class ACharacter;
+
 UINTERFACE()
 class UInteractable : public UInterface
 {

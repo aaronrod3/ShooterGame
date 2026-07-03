@@ -60,7 +60,7 @@ private:
 	UNiagaraSystem* ImpactParticles;
 
 	UPROPERTY(EditAnywhere)
-	class USoundCue* ImpactSound;
+	USoundCue* ImpactSound;
 
 	/**
 	 * Ammo data asset assigned at spawn by AProjectileWeapon::Fire().

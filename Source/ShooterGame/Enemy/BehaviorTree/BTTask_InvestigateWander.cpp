@@ -82,8 +82,7 @@ EBTNodeResult::Type UBTTask_InvestigateWander::ExecuteTask(UBehaviorTreeComponen
     OwnerController = ZombieController;
     BTCompRef = &OwnerComp;
 
-    UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent();
-    if (PathComp)
+    if (UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent())
     {
         PathComp->OnRequestFinished.AddUObject(this, &UBTTask_InvestigateWander::OnMoveCompleted);
         UE_LOG(LogTemp, Warning, TEXT("[INVESTWANDER] Moving to %s | Radius: %.0f"),
@@ -99,8 +98,7 @@ void UBTTask_InvestigateWander::OnMoveCompleted(FAIRequestID RequestID, const FP
 
     if (OwnerController.IsValid())
     {
-        UPathFollowingComponent* PathComp = OwnerController->GetPathFollowingComponent();
-        if (PathComp)
+        if (UPathFollowingComponent* PathComp = OwnerController->GetPathFollowingComponent())
         {
             PathComp->OnRequestFinished.RemoveAll(this);
         }
@@ -122,11 +120,9 @@ void UBTTask_InvestigateWander::OnMoveCompleted(FAIRequestID RequestID, const FP
 void UBTTask_InvestigateWander::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
 {
     // Clean up delegate on any exit path
-    AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerComp.GetAIOwner());
-    if (ZombieController)
+    if (AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerComp.GetAIOwner()))
     {
-        UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent();
-        if (PathComp)
+        if (UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent())
         {
             PathComp->OnRequestFinished.RemoveAll(this);
         }
@@ -137,11 +133,9 @@ void UBTTask_InvestigateWander::OnTaskFinished(UBehaviorTreeComponent& OwnerComp
 
 EBTNodeResult::Type UBTTask_InvestigateWander::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-    AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerComp.GetAIOwner());
-    if (ZombieController)
+    if (AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerComp.GetAIOwner()))
     {
-        UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent();
-        if (PathComp)
+        if (UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent())
         {
             PathComp->OnRequestFinished.RemoveAll(this);
         }

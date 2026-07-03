@@ -182,8 +182,7 @@ void AShooterPlayerState::NotifySaveSubsystem()
     UGameInstance* GI = GetGameInstance();
     if (!GI) return;
 
-    UShooterSaveGameSubsystem* SaveSys = GI->GetSubsystem<UShooterSaveGameSubsystem>();
-    if (SaveSys)
+    if (UShooterSaveGameSubsystem* SaveSys = GI->GetSubsystem<UShooterSaveGameSubsystem>())
     {
         SaveSys->SaveLoadout(SavedLoadout, SavedAppearance);
     }

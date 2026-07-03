@@ -21,7 +21,7 @@ class SHOOTERGAME_API UShooterGameGameInstance : public UGameInstance
 	
 public:
 	// Called to get initialize game instance object
-	UShooterGameGameInstance(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	explicit UShooterGameGameInstance(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	
 	// called to retrieve the primary player controller
 	AShooterGamePlayerController* GetPrimaryPlayerController() const;

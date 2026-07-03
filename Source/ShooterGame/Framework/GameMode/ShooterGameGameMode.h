@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "ShooterGame/HUD/ShooterHUD.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGameGameMode.generated.h"
 

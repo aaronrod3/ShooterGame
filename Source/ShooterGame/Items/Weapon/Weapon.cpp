@@ -22,16 +22,16 @@ AWeapon::AWeapon()
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	SetRootComponent(WeaponMesh);
 
-	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
-	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+	WeaponMesh->SetCollisionResponseToAllChannels(ECR_Block);
+	WeaponMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
 	CollisionSphere->SetupAttachment(RootComponent);
 	CollisionSphere->SetSphereRadius(96.f);
 	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	CollisionSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	CollisionSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	CollisionSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+	CollisionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 
 	PickupWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("PickupWidget"));
 	PickupWidget->SetupAttachment(RootComponent);
@@ -62,7 +62,7 @@ void AWeapon::Tick(float DeltaTime)
 	DecaySpread(DeltaTime);
 }
 
-void AWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
@@ -148,21 +148,19 @@ UStaticMeshComponent* AWeapon::AttachStaticMeshFromConfig(const TSoftObjectPtr<U
 // Overlap / Pickup Widget
 // -----------------------------------------------------------------------
 
-void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AWeapon::OnSphereOverlap(UPrimitiveComponent* /*OverlappedComponent*/, AActor* OtherActor,
+	UPrimitiveComponent* /*OtherComp*/, int32 /*OtherBodyIndex*/, bool /*bFromSweep*/, const FHitResult& /*SweepResult*/)
 {
-	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor);
-	if (ShooterCharacter)
+	if (AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor))
 	{
 		ShooterCharacter->SetOverlappingWeapon(this);
 	}
 }
 
-void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* /*OverlappedComponent*/, AActor* OtherActor,
+	UPrimitiveComponent* /*OtherComp*/, int32 /*OtherBodyIndex*/)
 {
-	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor);
-	if (ShooterCharacter)
+	if (AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor))
 	{
 		ShooterCharacter->SetOverlappingWeapon(nullptr);
 	}
@@ -240,8 +238,7 @@ void AWeapon::Fire(const FVector& HitTarget)
 	// Spawn case eject
 	if (CasingClass)
 	{
-		const USkeletalMeshSocket* CaseSocket = WeaponMesh->GetSocketByName(FName("CaseEject"));
-		if (CaseSocket)
+		if (const USkeletalMeshSocket* CaseSocket = WeaponMesh->GetSocketByName(FName("CaseEject")))
 		{
 			FTransform SocketTransform = CaseSocket->GetSocketTransform(WeaponMesh);
 			if (UWorld* World = GetWorld())

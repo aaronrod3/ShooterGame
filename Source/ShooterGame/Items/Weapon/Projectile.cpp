@@ -12,7 +12,6 @@
 #include "NiagaraSystem.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
-#include "Sound/SoundCue.h"
 
 AProjectile::AProjectile()
 {
@@ -21,12 +20,12 @@ AProjectile::AProjectile()
 
 	CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionBox"));
 	SetRootComponent(CollisionBox);
-	CollisionBox->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	CollisionBox->SetCollisionObjectType(ECC_WorldDynamic);
 	CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	CollisionBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
-	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
-	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Block);
+	CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
+	CollisionBox->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+	CollisionBox->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+	CollisionBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
 
 	ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Projectile Movement Component"));
 	ProjectileMovementComponent->bRotationFollowsVelocity = true;
@@ -63,7 +62,7 @@ void AProjectile::Tick(float DeltaTime)
 }
 
 void AProjectile::OnHit(
-    UPrimitiveComponent* HitComponent,
+    UPrimitiveComponent* HitComp,
     AActor* OtherActor,
     UPrimitiveComponent* OtherComp,
     FVector NormalImpulse,
@@ -100,17 +99,8 @@ void AProjectile::OnHit(
 
             if (GameMode && !GameMode->IsFriendlyFireEnabled())
             {
-                const bool bSameTeam = false; // TEMP — see original note
-                if (bSameTeam)
-                {
-                    UE_LOG(LogTemp, Log,
-                        TEXT("AProjectile::OnHit — Friendly fire blocked (%s -> %s)"),
-                        *InstigatorCharacter->GetName(),
-                        *OtherActor->GetName());
-
-                    Destroy();
-                    return;
-                }
+                // TODO: team-vs-team comparison not implemented yet — no team system in place.
+                // Once teams exist, block friendly-fire hits here (Destroy(); return;).
             }
         }
 

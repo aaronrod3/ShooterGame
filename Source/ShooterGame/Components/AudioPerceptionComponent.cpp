@@ -3,6 +3,9 @@
 #include "AudioPerceptionComponent.h"
 #include "GameFramework/Character.h"
 #include "Perception/AISense_Hearing.h"
+#include "Engine/World.h"
+#include "Engine/HitResult.h"
+#include "CollisionQueryParams.h"
 
 UAudioPerceptionComponent::UAudioPerceptionComponent()
 {
@@ -23,8 +26,8 @@ void UAudioPerceptionComponent::EmitSoundEvent(float OverrideRadius, float Overr
 {
     if (!GetOwner()) return;
 
-    const float Radius    = (OverrideRadius   > 0.f) ? OverrideRadius   : DefaultEmitRadius;
-    const float InLoudness = (OverrideLoudness > 0.f) ? OverrideLoudness : Loudness;
+    const float Radius    = OverrideRadius   > 0.f ? OverrideRadius   : DefaultEmitRadius;
+    const float InLoudness = OverrideLoudness > 0.f ? OverrideLoudness : Loudness;
 
     // Owning client routes through server RPC to keep AI reactions authoritative
     if (GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)

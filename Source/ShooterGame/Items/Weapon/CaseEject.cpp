@@ -15,7 +15,7 @@ ACaseEject::ACaseEject()
 	
 	CasingMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Casing Mesh"));
 	SetRootComponent(CasingMesh);
-	CasingMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	CasingMesh->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	CasingMesh->SetSimulatePhysics(true);
 	CasingMesh->SetEnableGravity(true);
 	CasingMesh->SetNotifyRigidBodyCollision(true);
@@ -40,9 +40,9 @@ void ACaseEject::BeginPlay()
 	
 	// Build directional impulse with per-axis variation
 	FVector EjectDirection =
-	(GetActorRightVector()   * (EjectRightForce  + FMath::FRandRange(-EjectVariation, EjectVariation))) +
-	(GetActorUpVector()      * (EjectUpForce      + FMath::FRandRange(-EjectVariation, EjectVariation))) +
-	(GetActorForwardVector() * (EjectForwardForce + FMath::FRandRange(-EjectVariation, EjectVariation)));
+	GetActorRightVector()   * (EjectRightForce  + FMath::FRandRange(-EjectVariation, EjectVariation)) +
+	GetActorUpVector()      * (EjectUpForce      + FMath::FRandRange(-EjectVariation, EjectVariation)) +
+	GetActorForwardVector() * (EjectForwardForce + FMath::FRandRange(-EjectVariation, EjectVariation));
 
 	CasingMesh->AddImpulse(EjectDirection);
 
@@ -120,7 +120,7 @@ void ACaseEject::CheckIfAtRest()
 void ACaseEject::EnforceCasingLimit()
 {
 	TArray<AActor*> CasingsInWorld;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACaseEject::StaticClass(), CasingsInWorld);
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), StaticClass(), CasingsInWorld);
 
 	if (CasingsInWorld.Num() > MaxCasingCount)
 	{

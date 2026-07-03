@@ -7,7 +7,6 @@
 #include "ShooterGame/Types/ItemTypes.h"
 #include "ShooterGame/Types/ContainerTypes.h"
 #include "ShooterGame/Types/QuestTypes.h"
-#include "ShooterGame/Types/VendorTypes.h"
 #include "ShooterSaveGame.generated.h"
 
 // ============================================================================

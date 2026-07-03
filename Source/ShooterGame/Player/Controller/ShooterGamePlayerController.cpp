@@ -2,6 +2,8 @@
 
 
 #include "ShooterGamePlayerController.h"
+#include "Engine/World.h"
+#include "Engine/HitResult.h"
 #include "Items/Components/ItemComponent.h"
 #include "ShooterGame/HUD/Widgets/HUDWidget.h"
 #include "Inventory/InventoryComponent.h"
@@ -10,9 +12,7 @@
 #include "Interaction/Highlightable.h"
 #include "Kismet/GameplayStatics.h"
 #include "InputMappingContext.h"
-#include "ShooterGame/Components/CombatComponent.h"
 #include "Blueprint/UserWidget.h"
-#include "Interaction/HighlightableStaticMesh.h"
 #include "ShooterGame/Framework/GameMode/ShooterGameGameMode.h"
 #include "Player/Character/ShooterGameCharacter.h"
 
@@ -66,8 +66,8 @@ void AShooterGamePlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
 
-	UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent);
-	
+	CastChecked<UEnhancedInputComponent>(InputComponent);
+
 }
 
 

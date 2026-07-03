@@ -244,7 +244,7 @@ void UWeaponAudioComponent::PlayGunshotLoop_ForMultiplayer(float InCrossfadeTime
 {
     if (!GetOwner()) return;
     const bool bSuppressed = IsSuppressed();
-    const float FinalCrossfadeTime = (InCrossfadeTime >= 0.f) ? InCrossfadeTime : CrossfadeOneShotLoopTime;
+    const float FinalCrossfadeTime = InCrossfadeTime >= 0.f ? InCrossfadeTime : CrossfadeOneShotLoopTime;
 
     if (GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {
@@ -263,7 +263,7 @@ void UWeaponAudioComponent::StopLoop_ForMultiplayer(float InFadeOutDuration)
 {
     if (!GetOwner()) return;
     const bool bSuppressed = IsSuppressed();
-    const float FinalFadeOutDuration = (InFadeOutDuration >= 0.f) ? InFadeOutDuration : FadeOutDuration;
+    const float FinalFadeOutDuration = InFadeOutDuration >= 0.f ? InFadeOutDuration : FadeOutDuration;
 
     if (GetOwner()->GetLocalRole() == ROLE_AutonomousProxy)
     {

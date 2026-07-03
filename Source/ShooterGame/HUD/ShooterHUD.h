@@ -28,13 +28,13 @@ class SHOOTERGAME_API AShooterHUD : public AHUD
 	GENERATED_BODY()
 
 public:
-	virtual void BeginPlay() override;
 	virtual void DrawHUD() override;
 
 	// ── Weapon binding ──────────────────────────────────────────────────────
 	void BindToWeapon(AWeapon* NewWeapon);
-	
 
+protected:
+	virtual void BeginPlay() override;
 
 private:
 	// ── Crosshair / reticle ─────────────────────────────────────────────────

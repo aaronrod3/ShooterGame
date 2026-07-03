@@ -1,6 +1,5 @@
 ﻿#include "ShooterAnimInstanceBase.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
-#include "ShooterAnimStateInterface.h"
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -64,7 +63,7 @@ void UShooterAnimInstanceBase::UpdateLeftHandGrip_Implementation(
 {
     bGripOverrideActive         = true;
     bLeftHandOnWeaponOverride   = bIsLeftHandOnWeapon;
-    GripBlendSpeedOverride      = (BlendSpeed > 0.f) ? BlendSpeed : GripInterpSpeed;
+    GripBlendSpeedOverride      = BlendSpeed > 0.f ? BlendSpeed : GripInterpSpeed;
 
     UE_LOG(LogShooterGame, Verbose,
         TEXT("UShooterAnimInstanceBase::UpdateLeftHandGrip — OnWeapon=%d BlendSpeed=%.1f"),
@@ -105,7 +104,7 @@ void UShooterAnimInstanceBase::UpdateMovementData()
 
     const float CurrentYaw = ShooterGameCharacter->GetActorRotation().Yaw;
     const float RawYawDelta = FMath::FindDeltaAngleDegrees(LastYaw, CurrentYaw);
-    YawOffset = (GetWorld()->GetDeltaSeconds() > 0.f)
+    YawOffset = GetWorld()->GetDeltaSeconds() > 0.f
         ? RawYawDelta / GetWorld()->GetDeltaSeconds()
         : 0.f;
     Lean      = FMath::FInterpTo(Lean, YawOffset, GetWorld()->GetDeltaSeconds(), 6.f);
@@ -159,16 +158,16 @@ void UShooterAnimInstanceBase::UpdateCombatData()
     WeaponStance        = CombatComponent->GetPlayerWeaponStance();
     bIsBusy             = CombatComponent->IsBusy();
     bIsAimingBlocked    = bIsAimingBlockedLocal || CombatComponent->IsAimingBlocked();
-    bWeaponEquipped     = (ShooterGameCharacter->GetEquippedWeapon() != nullptr);
+    bWeaponEquipped     = ShooterGameCharacter->GetEquippedWeapon() != nullptr;
     bInCombatState      = CombatComponent->GetInCombatState();
     bHighReady          = CombatComponent->GetHighReady();
 
-    bIsReloading        = (CurrentAction == ECombatAction::Reloading)|| CombatComponent->IsReloadPendingLocal();
-    bIsInteracting      = (CurrentAction == ECombatAction::Interacting) || ShooterGameCharacter->IsInteractionAnimationRequested();
+    bIsReloading        = CurrentAction == ECombatAction::Reloading || CombatComponent->IsReloadPendingLocal();
+    bIsInteracting      = CurrentAction == ECombatAction::Interacting || ShooterGameCharacter->IsInteractionAnimationRequested();
 
     
-    const float GripTarget       = (CurrentGrip != EWeaponGrip::None) ? 1.f : 0.f;
-    const float ActiveBlendSpeed = (GripBlendSpeedOverride > 0.f) ? GripBlendSpeedOverride : GripInterpSpeed;
+    const float GripTarget       = CurrentGrip != EWeaponGrip::None ? 1.f : 0.f;
+    const float ActiveBlendSpeed = GripBlendSpeedOverride > 0.f ? GripBlendSpeedOverride : GripInterpSpeed;
     CurrentGripAlpha = FMath::FInterpTo(
         CurrentGripAlpha,
         GripTarget,
@@ -204,8 +203,8 @@ void UShooterAnimInstanceBase::UpdateCombatData()
             MsgKey, 0.f, MsgColor,
             FString::Printf(TEXT("[%s] bHighReady:%d | bInCombatState:%d | State:%s"),
                 bIsTP ? TEXT("TP") : TEXT("FP"),
-                (int32)bHighReady,
-                (int32)bInCombatState,
+                static_cast<int32>(bHighReady),
+                static_cast<int32>(bInCombatState),
                 *StateName.ToString())
         );
     }
@@ -260,8 +259,8 @@ void UShooterAnimInstanceBase::UpdateIKData()
     bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : true;
 
     UE_LOG(LogTemp, Warning, TEXT("[IK] COMPLETE — bLeftHandOnWeapon: %d | bGripOverride: %d"),
-        (int32)bLeftHandOnWeapon,
-        (int32)bGripOverrideActive
+        static_cast<int32>(bLeftHandOnWeapon),
+        static_cast<int32>(bGripOverrideActive)
     );
 
     // -----------------------------------------------------------------------

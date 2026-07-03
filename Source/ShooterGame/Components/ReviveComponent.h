@@ -11,6 +11,8 @@
 
 class AShooterGameCharacter;
 class UDownedComponent;
+class UDamageType;
+class AController;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SHOOTERGAME_API UReviveComponent : public UActorComponent
@@ -122,5 +124,5 @@ private:
 		AActor* DamageCauser);
 
 	// Medical kit stub — always returns true until kit system is implemented
-	bool CanRevive() const { return true; }
+	static bool CanRevive() { return true; }
 };

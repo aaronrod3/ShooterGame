@@ -92,9 +92,9 @@ private:
 	FItemInstance* GetEquippedItemMutable(EEquipmentSlot Slot);
 	const FItemInstance* GetEquippedItemInternal(EEquipmentSlot Slot) const;
 
-	bool IsValidEquipmentSlot(EEquipmentSlot Slot) const;
-	bool IsSingleItemSlot(EEquipmentSlot Slot) const;
-	float GetItemWeight(const FItemInstance& Item) const;
+	static bool IsValidEquipmentSlot(EEquipmentSlot Slot);
+	static bool IsSingleItemSlot(EEquipmentSlot Slot);
+	static float GetItemWeight(const FItemInstance& Item);
 	void BroadcastEquippedStateChanged();
 
 	UFUNCTION()

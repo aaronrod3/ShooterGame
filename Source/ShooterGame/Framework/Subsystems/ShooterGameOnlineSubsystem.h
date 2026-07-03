@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Online/OnlineServices.h"
-#include "Online/OnlineAsyncOpHandle.h"
 #include "Online/TitleFile.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "ShooterGameOnlineSubsystem.generated.h"
@@ -37,7 +36,7 @@ public:
 	TObjectPtr<class UOnlineUserInfo> GetOnlineUserInfo(FPlatformUserId PlatformUserId);
 	
 	// Title file read
-	FString ReadTitleFile(FString Filename, FPlatformUserId PlatformUserId);
+	FString ReadTitleFile(const FString& Filename, FPlatformUserId PlatformUserId);
 	
 protected:
 	
@@ -133,7 +132,7 @@ public:
 	/*** Online User Logging/Debugging Functions ***/
 	
 	// Called to obtain OnlineUserInfo as as string
-	const FString DebugInfoToString();
+	FString DebugInfoToString();
 	
 	friend UShooterGameOnlineSubsystem;
 };

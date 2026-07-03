@@ -38,6 +38,6 @@ public:
 	float BlendOnSpeed = 8.f;
 
 private:
-	static void PushGripState(USkeletalMeshComponent* MeshComp,
+	static void PushGripState(const USkeletalMeshComponent* MeshComp,
 							   bool bOnWeapon, float BlendSpeed);
 };

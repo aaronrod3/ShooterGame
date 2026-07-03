@@ -82,7 +82,7 @@ void AZombieObjectiveArea::Tick(float DeltaTime)
         }
 
         const EZombieState State = Zombie->GetZombieState();
-        const FColor MarkerColor = (State == EZombieState::EZS_Investigating)
+        const FColor MarkerColor = State == EZombieState::EZS_Investigating
             ? FColor::Magenta
             : FColor::Green;
 

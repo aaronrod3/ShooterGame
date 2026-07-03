@@ -8,6 +8,7 @@
 #include "TestInteractableActor.generated.h"
 
 class UStaticMeshComponent;
+class ACharacter;
 
 UCLASS()
 class SHOOTERGAME_API ATestInteractableActor : public AActor, public IInteractable, public IHighlightable

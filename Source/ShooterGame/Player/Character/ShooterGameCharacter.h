@@ -11,8 +11,6 @@
 #include "ShooterGame/Components/CombatComponent.h"
 #include "ShooterGame/Components/LoadoutComponent.h"
 #include "ShooterGame/Components/HitZoneComponent.h"
-#include "ShooterGame/Interaction/Interactable.h"
-#include "ShooterGame/Interaction/Highlightable.h"
 #include "ShooterGame/Types/TurningInPlace.h"
 #include "ShooterGame/HUD/InteractPromptWidget.h"
 #include "Items/Weapon/Weapon.h"
@@ -49,7 +47,7 @@ public:
 	virtual FGenericTeamId GetGenericTeamId() const override { return FGenericTeamId(0); }
 	
 	// Overrides AActor::TakeDamage — called by UGameplayStatics::ApplyPointDamage
-	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	
 	void PlayFireMontage(bool bAiming);
 	void PlayHitReactMontage();
@@ -103,9 +101,9 @@ public:
 	virtual void DoMove(float Right, float Forward);
 
 	/** Returns CameraBoom subobject **/
-	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	/** Returns FollowCamera subobject **/
-	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	
 	FORCEINLINE ETeam GetTeam() const { return Team; }
 	
@@ -207,7 +205,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Team")
 	ETeam Team = ETeam::ET_Players; // all human players share this for now
 	
-	AWeapon* GetEquippedWeapon();
+	AWeapon* GetEquippedWeapon() const;
 	
 	// Default loadout applied on spawn before any save data is pushed.
 	// Set this in BP_PlayerCharacter defaults to give the character a starting weapon and mags.
@@ -217,9 +215,8 @@ public:
 	
 	
 	/* Inputs */
-	void Look(const FInputActionValue& Value);	
+	void Look(const FInputActionValue& Value);
 	void Move(const FInputActionValue& Value);
-	void SetRotationMode(bool bLockToCamera);
 	void EquipButtonPressed();
 	void CrouchButtonPressed();
 	void GoProneButtonPressed();
@@ -242,8 +239,8 @@ public:
 	void PrimaryInteractButtonPressed();
 	
 	
-	bool IsWeaponEquipped();
-	bool IsAiming();
+	bool IsWeaponEquipped() const;
+	bool IsAiming() const;
     
 	UPROPERTY(ReplicatedUsing = OnRep_DesiredYaw)
 	float DesiredYaw = 0.f;
@@ -278,7 +275,7 @@ protected:
 private:
 	/*** COMPONENTS ***/
 	UPROPERTY(VisibleAnywhere)
-	class UCombatComponent* Combat;
+	UCombatComponent* Combat;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UDownedComponent* DownedComp;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
@@ -290,9 +287,9 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UEquippedStateComponent* EquippedStateComp;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
-	class AWeapon* OverlappingWeapon;
+	AWeapon* OverlappingWeapon;
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingAmmoPickup)
-	class AAmmoPickup* OverlappingAmmoPickup;
+	AAmmoPickup* OverlappingAmmoPickup;
 	
 	// --- Interaction Prompt Widget ---
 

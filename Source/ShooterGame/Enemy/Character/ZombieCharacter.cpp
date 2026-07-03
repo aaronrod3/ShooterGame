@@ -6,6 +6,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/DamageEvents.h"
+#include "Engine/World.h"
+#include "CollisionQueryParams.h"
 #include "ZombieAnimInstance.h"
 #include "ShooterGame/Components/HitZoneComponent.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
@@ -185,12 +187,12 @@ void AZombieCharacter::HandleZombieHitZoneDamage(
 // ─────────────────────────────────────────────
 
 void AZombieCharacter::HandleZombieHeadshot(
-    EHitZone HitZone,
+    EHitZone /*HitZone*/,
     FName BoneName,
     float DamageAmount,
-    const FHitResult& HitInfo,
-    AController* EventInstigator,
-    AActor* DamageCauser)
+    const FHitResult& /*HitInfo*/,
+    AController* /*EventInstigator*/,
+    AActor* /*DamageCauser*/)
 {
     if (ZombieState == EZombieState::EZS_Dead || bHeadDestroyed)
     {
@@ -234,7 +236,7 @@ void AZombieCharacter::HandleZombieTorsoHit(float DamageAmount, const FHitResult
         *GetName(), DamageAmount, *HitInfo.BoneName.ToString());
 }
 
-void AZombieCharacter::HandleZombieArmHit(FName BoneName, float DamageAmount, const FHitResult& HitInfo)
+void AZombieCharacter::HandleZombieArmHit(FName BoneName, float DamageAmount, const FHitResult& /*HitInfo*/)
 {
     if (ZombieState == EZombieState::EZS_Dead)
     {
@@ -272,7 +274,7 @@ void AZombieCharacter::HandleZombieArmHit(FName BoneName, float DamageAmount, co
         *GetName(), *BoneName.ToString());
 }
 
-void AZombieCharacter::HandleZombieLegHit(FName BoneName, float DamageAmount, const FHitResult& HitInfo)
+void AZombieCharacter::HandleZombieLegHit(FName BoneName, float DamageAmount, const FHitResult& /*HitInfo*/)
 {
     if (ZombieState == EZombieState::EZS_Dead)
     {
@@ -406,7 +408,7 @@ void AZombieCharacter::PerformMeleeAttack()
         MeleeOrigin,
         MeleeOrigin,
         FQuat::Identity,
-        ECollisionChannel::ECC_Pawn,
+        ECC_Pawn,
         FCollisionShape::MakeSphere(ZombieConfig.MeleeSphereRadius),
         Params
     );
@@ -433,8 +435,7 @@ void AZombieCharacter::Multicast_PlayMeleeAttackMontage_Implementation()
     UE_LOG(LogTemp, Warning, TEXT("Multicast_PlayMeleeAttackMontage fired on: %s | HasAuthority: %s"),
         *GetName(), HasAuthority() ? TEXT("Server") : TEXT("Client"));
 
-    UZombieAnimInstance* ZombieAnim = Cast<UZombieAnimInstance>(GetMesh()->GetAnimInstance());
-    if (ZombieAnim)
+    if (UZombieAnimInstance* ZombieAnim = Cast<UZombieAnimInstance>(GetMesh()->GetAnimInstance()))
     {
         ZombieAnim->SetIsAttacking(true);
     }
@@ -480,21 +481,21 @@ void AZombieCharacter::OnRep_Health()
 // Bone Side Helpers
 // ─────────────────────────────────────────────
 
-bool AZombieCharacter::IsLeftArmBone(FName BoneName) const
+bool AZombieCharacter::IsLeftArmBone(FName BoneName)
 {
     return BoneName == TEXT("upperarm_l")
         || BoneName == TEXT("lowerarm_l")
         || BoneName == TEXT("hand_l");
 }
 
-bool AZombieCharacter::IsRightArmBone(FName BoneName) const
+bool AZombieCharacter::IsRightArmBone(FName BoneName)
 {
     return BoneName == TEXT("upperarm_r")
         || BoneName == TEXT("lowerarm_r")
         || BoneName == TEXT("hand_r");
 }
 
-bool AZombieCharacter::IsLeftLegBone(FName BoneName) const
+bool AZombieCharacter::IsLeftLegBone(FName BoneName)
 {
     return BoneName == TEXT("thigh_l")
         || BoneName == TEXT("calf_l")
@@ -502,7 +503,7 @@ bool AZombieCharacter::IsLeftLegBone(FName BoneName) const
         || BoneName == TEXT("ball_l");
 }
 
-bool AZombieCharacter::IsRightLegBone(FName BoneName) const
+bool AZombieCharacter::IsRightLegBone(FName BoneName)
 {
     return BoneName == TEXT("thigh_r")
         || BoneName == TEXT("calf_r")

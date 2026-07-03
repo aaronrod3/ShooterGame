@@ -5,7 +5,6 @@
 #include "KismetAnimationLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
-#include "GameFramework/PlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "ShooterGame/Items/Weapon/Weapon.h"
 
@@ -38,7 +37,7 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	);
 	
 	
-	bIsAccelerating = ShooterGameCharacter->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f ? true : false;
+	bIsAccelerating = ShooterGameCharacter->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f;
 	bIsCrouched = ShooterGameCharacter->IsCrouched();
 	bWeaponEquipped = ShooterGameCharacter->IsWeaponEquipped();
 	EquippedWeapon = ShooterGameCharacter->GetEquippedWeapon();

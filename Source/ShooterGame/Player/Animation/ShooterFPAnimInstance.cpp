@@ -1,7 +1,6 @@
 ﻿#include "ShooterFPAnimInstance.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
 #include "ShooterGame/Components/CombatComponent.h"
-#include "ShooterGame/Framework/ShooterGame.h"
 
 void UShooterFPAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
@@ -12,7 +11,7 @@ void UShooterFPAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	UpdateFPData(DeltaSeconds);
 }
 
-void UShooterFPAnimInstance::UpdateFPData(float DeltaSeconds)
+void UShooterFPAnimInstance::UpdateFPData(float /*DeltaSeconds*/)
 {
 	if (!CombatComponent) return;
 

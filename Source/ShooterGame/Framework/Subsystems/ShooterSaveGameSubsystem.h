@@ -5,9 +5,6 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "ShooterGame/Types/LoadoutTypes.h"
 #include "ShooterGame/Types/ContainerTypes.h"
-#include "ShooterGame/Types/ItemTypes.h"
-#include "ShooterGame/Types/QuestTypes.h"
-#include "ShooterGame/Types/VendorTypes.h"
 #include "ShooterSaveGameSubsystem.generated.h"
 
 class UInventoryComponent;
@@ -15,6 +12,7 @@ class UStashComponent;
 class UEquippedStateComponent;
 class UShooterSaveGame;
 class AShooterPlayerState;
+class UQuestTrackerSubsystem;
 
 // ============================================================================
 // UShooterSaveGameSubsystem
@@ -136,8 +134,8 @@ public:
     
 private:
 
-    FEquippedStateSnapshot BuildEquippedStateSnapshot(const UEquippedStateComponent* EquippedStateComponent) const;
-    void ApplyEquippedStateSnapshot(UEquippedStateComponent* EquippedStateComponent, const FEquippedStateSnapshot& Snapshot) const;
+    static FEquippedStateSnapshot BuildEquippedStateSnapshot(const UEquippedStateComponent* EquippedStateComponent);
+    static void ApplyEquippedStateSnapshot(UEquippedStateComponent* EquippedStateComponent, const FEquippedStateSnapshot& Snapshot);
     bool WriteCurrentSaveToDisk();
     
     

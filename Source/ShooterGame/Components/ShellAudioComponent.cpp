@@ -21,10 +21,10 @@ USoundCue* UShellAudioComponent::GetCueForSurface(EPhysicalSurface SurfaceType) 
 	// Until then, all casings play Cue_Default.
 	switch (SurfaceType)
 	{
-	case EPhysicalSurface::SurfaceType1: return Cue_Metal;     // PM_Metal
-	case EPhysicalSurface::SurfaceType2: return Cue_Concrete;  // PM_Concrete
-	case EPhysicalSurface::SurfaceType3: return Cue_Wood;      // PM_Wood
-	case EPhysicalSurface::SurfaceType4: return Cue_Dirt;      // PM_Dirt
+	case SurfaceType1: return Cue_Metal;     // PM_Metal
+	case SurfaceType2: return Cue_Concrete;  // PM_Concrete
+	case SurfaceType3: return Cue_Wood;      // PM_Wood
+	case SurfaceType4: return Cue_Dirt;      // PM_Dirt
 	default:                             return Cue_Default;
 	}
 }

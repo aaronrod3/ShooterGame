@@ -141,7 +141,7 @@ TObjectPtr<UOnlineUserInfo> UShooterGameOnlineSubsystem::CreateAndRegisterUserIn
 }
 
 /*** Get Online User Info for provided platform user id ***/
-TObjectPtr<class UOnlineUserInfo> UShooterGameOnlineSubsystem::GetOnlineUserInfo(FPlatformUserId PlatformUserId)
+TObjectPtr<UOnlineUserInfo> UShooterGameOnlineSubsystem::GetOnlineUserInfo(FPlatformUserId PlatformUserId)
 {
 	TObjectPtr<UOnlineUserInfo> OnlineUser = nullptr;
 	if (OnlineUserInfos.Contains(PlatformUserId))
@@ -160,13 +160,11 @@ void UShooterGameOnlineSubsystem::RetrieveTitleFile(FString Filename, FPlatformU
 {
 	using namespace UE::Online;
 	
-	FTitleFileEnumerateFiles::Params EnumerateParams;
-	FAccountId LocalAccountId;
-	TObjectPtr<UOnlineUserInfo> OnlineUser;
 	if (OnlineUserInfos.Contains(PlatformUserId))
 	{
-		OnlineUser = *OnlineUserInfos.Find(PlatformUserId);
-		LocalAccountId = OnlineUser->AccountId;
+		TObjectPtr<UOnlineUserInfo> OnlineUser = *OnlineUserInfos.Find(PlatformUserId);
+		FAccountId LocalAccountId = OnlineUser->AccountId;
+		FTitleFileEnumerateFiles::Params EnumerateParams;
 		EnumerateParams.LocalAccountId = LocalAccountId;
 		
 		if (OnlineServicesInfoInternal && OnlineServicesInfoInternal->TitleFileInterface.IsValid())
@@ -226,7 +224,7 @@ void UShooterGameOnlineSubsystem::HandleEnumerateFiles(const UE::Online::TOnline
 }
 
 /*** Hnadle the asynchronous ReadFile function ***/
-void UShooterGameOnlineSubsystem::HandleReadFile(const UE::Online::TOnlineResult<UE::Online::FTitleFileReadFile>& ReadFileResult, FString Filename)
+void UShooterGameOnlineSubsystem::HandleReadFile(const UE::Online::TOnlineResult<UE::Online::FTitleFileReadFile>& ReadFileResult, FString /*Filename*/)
 {
 	using namespace UE::Online;
 	
@@ -242,7 +240,7 @@ void UShooterGameOnlineSubsystem::HandleReadFile(const UE::Online::TOnlineResult
 }
 
 /*** Obtain title file and read ***/
-FString UShooterGameOnlineSubsystem::ReadTitleFile(FString Filename, FPlatformUserId PlatformUserId)
+FString UShooterGameOnlineSubsystem::ReadTitleFile(const FString& Filename, FPlatformUserId PlatformUserId)
 {
 	using namespace UE::Online;
 	
@@ -262,7 +260,7 @@ UOnlineUserInfo::UOnlineUserInfo()
 
 
 /*** Return debug string for UOnlineUserInfo ***/
-const FString UOnlineUserInfo::DebugInfoToString()
+FString UOnlineUserInfo::DebugInfoToString()
 {
 	int32 UserIndex = this->LocalUserIndex;
 	int32 PlatformId = this->PlatformUserId;

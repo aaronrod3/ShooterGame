@@ -4,6 +4,8 @@
 #include "CoreMinimal.h"
 #include "QuestTypes.generated.h"
 
+class AActor;
+
 // ============================================================================
 // EQuestObjectiveType
 //
@@ -152,7 +154,7 @@ struct SHOOTERGAME_API FQuestState
 
     // Returns true if all objectives are at or above their RequiredCount
     // Requires a resolved (loaded) Definition pointer — check IsNull() first
-    bool AreAllObjectivesComplete(const class UQuestDefinition* ResolvedDef) const;
+    bool AreAllObjectivesComplete(const UQuestDefinition* ResolvedDef) const;
     
     // Equality by Definition pointer — two FQuestStates are the same quest
     // if they point at the same UQuestDefinition asset.

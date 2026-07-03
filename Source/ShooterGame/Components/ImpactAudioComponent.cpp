@@ -36,19 +36,19 @@ USoundCue* UImpactAudioComponent::GetImpactCueForSurface(EPhysicalSurface Surfac
 {
 	switch (SurfaceType)
 	{
-	case EPhysicalSurface::SurfaceType1:
+	case SurfaceType1:
 		return CueImpactMetal;
 
-	case EPhysicalSurface::SurfaceType2:
+	case SurfaceType2:
 		return CueImpactConcrete;
 
-	case EPhysicalSurface::SurfaceType3:
+	case SurfaceType3:
 		return CueImpactWood;
 
-	case EPhysicalSurface::SurfaceType4:
+	case SurfaceType4:
 		return CueImpactDirt;
 
-	case EPhysicalSurface::SurfaceType5:
+	case SurfaceType5:
 		if (CuesImpactFlesh.Num() > 0)
 		{
 			const int32 Index = FMath::RandRange(0, CuesImpactFlesh.Num() - 1);

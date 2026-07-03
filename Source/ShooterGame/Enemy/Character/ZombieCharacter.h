@@ -30,7 +30,7 @@ public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     virtual void PostInitializeComponents() override;
 
-    virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
+    virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
         AController* EventInstigator, AActor* DamageCauser) override;
 
     void PerformMeleeAttack();
@@ -118,10 +118,10 @@ protected:
     void HandleZombieArmHit(FName BoneName, float DamageAmount, const FHitResult& HitInfo);
     void HandleZombieLegHit(FName BoneName, float DamageAmount, const FHitResult& HitInfo);
 
-    bool IsLeftArmBone(FName BoneName)  const;
-    bool IsRightArmBone(FName BoneName) const;
-    bool IsLeftLegBone(FName BoneName)  const;
-    bool IsRightLegBone(FName BoneName) const;
+    static bool IsLeftArmBone(FName BoneName);
+    static bool IsRightArmBone(FName BoneName);
+    static bool IsLeftLegBone(FName BoneName);
+    static bool IsRightLegBone(FName BoneName);
 
     int32 GetCrippledLegCount() const;
     bool  AreBothArmsDisabled() const;

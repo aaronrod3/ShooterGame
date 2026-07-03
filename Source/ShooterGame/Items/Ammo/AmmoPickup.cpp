@@ -4,7 +4,6 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
-#include "ShooterGame/Components/CombatComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Components/TextBlock.h"
 
@@ -23,8 +22,8 @@ AAmmoPickup::AAmmoPickup()
 	PickupSphere->SetupAttachment(RootComponent);
 	PickupSphere->SetSphereRadius(64.f);
 	PickupSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	PickupSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	PickupSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	PickupSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+	PickupSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	
 	PickupWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("PickupWidget"));
 	PickupWidget->SetupAttachment(RootComponent);
@@ -48,28 +47,26 @@ void AAmmoPickup::BeginPlay()
 }
 
 void AAmmoPickup::OnSphereOverlap(
-	UPrimitiveComponent* OverlappedComponent,
+	UPrimitiveComponent* /*OverlappedComponent*/,
 	AActor* OtherActor,
-	UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex,
-	bool bFromSweep,
-	const FHitResult& SweepResult)
+	UPrimitiveComponent* /*OtherComp*/,
+	int32 /*OtherBodyIndex*/,
+	bool /*bFromSweep*/,
+	const FHitResult& /*SweepResult*/)
 {
-	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor);
-	if (ShooterCharacter)
+	if (AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor))
 	{
 		ShooterCharacter->SetOverlappingAmmoPickup(this);
 	}
 }
 
 void AAmmoPickup::OnSphereEndOverlap(
-	UPrimitiveComponent* OverlappedComponent,
+	UPrimitiveComponent* /*OverlappedComponent*/,
 	AActor* OtherActor,
-	UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex)
+	UPrimitiveComponent* /*OtherComp*/,
+	int32 /*OtherBodyIndex*/)
 {
-	AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor);
-	if (ShooterCharacter)
+	if (AShooterGameCharacter* ShooterCharacter = Cast<AShooterGameCharacter>(OtherActor))
 	{
 		ShooterCharacter->SetOverlappingAmmoPickup(nullptr);
 	}

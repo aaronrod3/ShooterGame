@@ -60,7 +60,7 @@ EBTNodeResult::Type UBTTask_WanderToPoint::ExecuteTask(UBehaviorTreeComponent& O
     {
         TArray<AActor*> OverlappedActors;
         TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
-        ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
+        ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
 
         UKismetSystemLibrary::SphereOverlapActors(
             ZombieOwner->GetWorld(),
@@ -108,7 +108,7 @@ EBTNodeResult::Type UBTTask_WanderToPoint::ExecuteTask(UBehaviorTreeComponent& O
         #if ENABLE_DRAW_DEBUG
             if (Config.HordeCohesionRadius > 0.f)
             {
-                const float DebugLifetime = 2.5f;
+                constexpr float DebugLifetime = 2.5f;
 
                 // Cohesion radius ring:
                 //   Green  = cohesion bias fired this tick
@@ -197,12 +197,8 @@ EBTNodeResult::Type UBTTask_WanderToPoint::ExecuteTask(UBehaviorTreeComponent& O
     OwnerController = ZombieController;
     BTCompRef = &OwnerComp;
 
-    UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent();
-    if (PathComp)
+    if (UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent())
     {
-        // Store BT component ref for use inside the lambda
-        UBehaviorTreeComponent* BTComp = &OwnerComp;
-
         PathComp->OnRequestFinished.AddUObject(this, &UBTTask_WanderToPoint::OnMoveCompleted);
         UE_LOG(LogTemp, Warning, TEXT("[WANDER] MoveTo started — destination: %s | Radius: %.0f"),
             *RandomLocation.Location.ToString(), Radius);
@@ -219,16 +215,14 @@ void UBTTask_WanderToPoint::OnMoveCompleted(FAIRequestID RequestID, const FPathF
     // Unbind immediately so we don't double-fire
     if (OwnerController.IsValid())
     {
-        UPathFollowingComponent* PathComp = OwnerController->GetPathFollowingComponent();
-        if (PathComp)
+        if (UPathFollowingComponent* PathComp = OwnerController->GetPathFollowingComponent())
         {
             PathComp->OnRequestFinished.RemoveAll(this);
         }
 
         if (Result.IsSuccess())
         {
-            AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerController.Get());
-            if (ZombieController)
+            if (AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerController.Get()))
             {
                 ZombieController->StartIdleDwell();
                 UE_LOG(LogTemp, Warning, TEXT("[WANDER] Arrived at destination — starting idle dwell"));
@@ -246,11 +240,9 @@ void UBTTask_WanderToPoint::OnMoveCompleted(FAIRequestID RequestID, const FPathF
 void UBTTask_WanderToPoint::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
 {
     // Clean up delegate binding if task was aborted externally
-    AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerComp.GetAIOwner());
-    if (ZombieController)
+    if (AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerComp.GetAIOwner()))
     {
-        UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent();
-        if (PathComp)
+        if (UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent())
         {
             PathComp->OnRequestFinished.RemoveAll(this);
         }
@@ -261,11 +253,9 @@ void UBTTask_WanderToPoint::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, ui
 
 EBTNodeResult::Type UBTTask_WanderToPoint::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-    AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerComp.GetAIOwner());
-    if (ZombieController)
+    if (AZombieAIController* ZombieController = Cast<AZombieAIController>(OwnerComp.GetAIOwner()))
     {
-        UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent();
-        if (PathComp)
+        if (UPathFollowingComponent* PathComp = ZombieController->GetPathFollowingComponent())
         {
             PathComp->OnRequestFinished.RemoveAll(this);
         }

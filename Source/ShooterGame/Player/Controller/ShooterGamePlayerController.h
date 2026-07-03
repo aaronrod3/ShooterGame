@@ -33,7 +33,7 @@ public:
 	// Called by GameMode when alive player list changes
 	void UpdateSpectatorTargets(const TArray<AShooterGameCharacter*>& AlivePlayers);
 
-	FORCEINLINE AShooterGameSpectatorPawn* GetSpectatorPawn() const
+	FORCEINLINE AShooterGameSpectatorPawn* GetActiveSpectatorPawn() const
 	{
 		return ActiveSpectatorPawn;
 	}

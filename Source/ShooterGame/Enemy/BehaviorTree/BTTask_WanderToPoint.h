@@ -14,9 +14,9 @@ public:
 	UBTTask_WanderToPoint();
 
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
-	virtual void OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) override;
 
 protected:
+	virtual void OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) override;
 	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 
 private:
@@ -24,7 +24,9 @@ private:
 
 	// Cached refs needed inside the delegate callback (which has no OwnerComp parameter)
 	TWeakObjectPtr<AAIController> OwnerController;
-	UBehaviorTreeComponent* BTCompRef = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<UBehaviorTreeComponent> BTCompRef = nullptr;
 
 	// Bound to UPathFollowingComponent::OnRequestFinished
 	void OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result);

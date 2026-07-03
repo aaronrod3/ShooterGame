@@ -26,7 +26,7 @@ FString UANS_BlockADS::GetNotifyName_Implementation() const
 	return TEXT("Block ADS");
 }
 
-void UANS_BlockADS::PushBlockState(USkeletalMeshComponent* MeshComp, bool bBlocked)
+void UANS_BlockADS::PushBlockState(const USkeletalMeshComponent* MeshComp, bool bBlocked)
 {
 	if (!MeshComp) return;
 	UAnimInstance* AnimInst = MeshComp->GetAnimInstance();

@@ -33,7 +33,7 @@ FString UANS_LeftHandGrip::GetNotifyName_Implementation() const
 	return FString::Printf(TEXT("LH Grip [Off:%.0f On:%.0f]"), BlendOffSpeed, BlendOnSpeed);
 }
 
-void UANS_LeftHandGrip::PushGripState(USkeletalMeshComponent* MeshComp,
+void UANS_LeftHandGrip::PushGripState(const USkeletalMeshComponent* MeshComp,
 										bool bOnWeapon, float BlendSpeed)
 {
 	if (!MeshComp) return;

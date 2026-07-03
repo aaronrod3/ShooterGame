@@ -4,11 +4,8 @@
 #include "ShooterGame/Framework/PlayerState/ShooterPlayerState.h"
 #include "ShooterGame/Framework/Subsystems/QuestTrackerSubsystem.h"
 #include "Kismet/GameplayStatics.h"
-#include "Framework/Subsystems/ShooterSaveGameSubsystem.h"
-#include "Framework/Subsystems/ShooterSaveGame.h"
 #include "Inventory/EquippedStateComponent.h"
 #include "Inventory/InventoryComponent.h"
-#include "Kismet/GameplayStatics.h"
 #include "HAL/FileManager.h"
 
 void UShooterSaveGameSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -329,9 +326,9 @@ bool UShooterSaveGameSubsystem::GetHasUnreviewedExtraction() const
 }
 
 
-FEquippedStateSnapshot UShooterSaveGameSubsystem::BuildEquippedStateSnapshot(const UEquippedStateComponent* EquippedStateComponent) const
+FEquippedStateSnapshot UShooterSaveGameSubsystem::BuildEquippedStateSnapshot(const UEquippedStateComponent* EquippedStateComponent)
 {
-	FEquippedStateSnapshot Snapshot;
+	FEquippedStateSnapshot Snapshot{};
 
 	if (EquippedStateComponent == nullptr)
 	{
@@ -395,7 +392,7 @@ FEquippedStateSnapshot UShooterSaveGameSubsystem::BuildEquippedStateSnapshot(con
 	return Snapshot;
 }
 
-void UShooterSaveGameSubsystem::ApplyEquippedStateSnapshot(UEquippedStateComponent* EquippedStateComponent, const FEquippedStateSnapshot& Snapshot) const
+void UShooterSaveGameSubsystem::ApplyEquippedStateSnapshot(UEquippedStateComponent* EquippedStateComponent, const FEquippedStateSnapshot& Snapshot)
 {
 	if (EquippedStateComponent == nullptr)
 	{
@@ -411,9 +408,9 @@ void UShooterSaveGameSubsystem::ApplyEquippedStateSnapshot(UEquippedStateCompone
 			RigInventory->Server_RemoveItem(ExistingItem.InstanceID, RemovedItem);
 		}
 
-		FGameplayTag EmptySlotTag;
 		for (FItemInstance SavedItem : Snapshot.RigState.Items)
 		{
+			FGameplayTag EmptySlotTag;
 			RigInventory->Server_AddItem(SavedItem, EmptySlotTag);
 		}
 	}
@@ -427,9 +424,9 @@ void UShooterSaveGameSubsystem::ApplyEquippedStateSnapshot(UEquippedStateCompone
 			BeltInventory->Server_RemoveItem(ExistingItem.InstanceID, RemovedItem);
 		}
 
-		FGameplayTag EmptySlotTag;
 		for (FItemInstance SavedItem : Snapshot.BeltState.Items)
 		{
+			FGameplayTag EmptySlotTag;
 			BeltInventory->Server_AddItem(SavedItem, EmptySlotTag);
 		}
 	}
@@ -443,9 +440,9 @@ void UShooterSaveGameSubsystem::ApplyEquippedStateSnapshot(UEquippedStateCompone
 			BackpackInventory->Server_RemoveItem(ExistingItem.InstanceID, RemovedItem);
 		}
 
-		FGameplayTag EmptySlotTag;
 		for (FItemInstance SavedItem : Snapshot.BackpackState.Items)
 		{
+			FGameplayTag EmptySlotTag;
 			BackpackInventory->Server_AddItem(SavedItem, EmptySlotTag);
 		}
 	}
@@ -531,9 +528,9 @@ void UShooterSaveGameSubsystem::DebugPrintLoadout()
             *Slot.VariantID.ToString());
     }
 
-    const FCharacterAppearance& App = CachedSaveGame->SavedAppearance;
+    const auto& [MeshSkinID, HelmetID, BackpackID, ColorVariantID] = CachedSaveGame->SavedAppearance;
     UE_LOG(LogTemp, Log, TEXT("  Appearance — Skin: %d | Helmet: %d | Backpack: %d | Color: %s"),
-        App.MeshSkinID, App.HelmetID, App.BackpackID, *App.ColorVariantID.ToString());
+        MeshSkinID, HelmetID, BackpackID, *ColorVariantID.ToString());
 }
 
 #endif

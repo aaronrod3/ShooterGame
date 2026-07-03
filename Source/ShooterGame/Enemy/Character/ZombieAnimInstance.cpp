@@ -37,7 +37,7 @@ void UZombieAnimInstance::NativeUpdateAnimation(float DeltaTime)
 // Property reads from AZombieCharacter
 // ─────────────────────────────────────────────
 
-void UZombieAnimInstance::UpdateAnimationProperties(float DeltaTime)
+void UZombieAnimInstance::UpdateAnimationProperties(float /*DeltaTime*/)
 {
 	// Ground speed — flatten Z so vertical movement doesn't affect blend space
 	FVector Velocity = ZombieOwner->GetVelocity();
@@ -48,8 +48,8 @@ void UZombieAnimInstance::UpdateAnimationProperties(float DeltaTime)
 	ZombieState = ZombieOwner->GetZombieState();
 
 	// Derive convenience bools from state
-	bIsCrawling  = (ZombieState == EZombieState::EZS_Crawling);
-	bIsDead      = (ZombieState == EZombieState::EZS_Dead);
+	bIsCrawling  = ZombieState == EZombieState::EZS_Crawling;
+	bIsDead      = ZombieState == EZombieState::EZS_Dead;
 }
 
 

@@ -22,8 +22,6 @@ class SHOOTERGAME_API AZombieSpawnManager : public AActor
 public:
     AZombieSpawnManager();
 
-    virtual void BeginPlay() override;
-
     // ── Public API ──────────────────────────────────────────────────────
 
     // Call from Blueprint or C++ (trigger volumes, mission objectives, wave managers, etc.)
@@ -91,6 +89,9 @@ public:
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Zombie|Spawn|Debug")
     TArray<AZombieCharacter*> SpawnedZombies;
 
+protected:
+    virtual void BeginPlay() override;
+
 private:
 
     // ── Internal Helpers ──────────────────────────────────────────────────
@@ -113,7 +114,6 @@ private:
     // Executes the delayed/immediate one-shot objective spawn after authority + guard checks.
     void ExecuteObjectiveSpawnEvent(int32 Count);
 
-private:
     // True once the mission/objective spawn event has been consumed.
     // Resettable via SetObjectiveEventFired() so wave-based modes can reuse the same manager.
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Zombie|Spawn|Debug", meta = (AllowPrivateAccess = "true"))

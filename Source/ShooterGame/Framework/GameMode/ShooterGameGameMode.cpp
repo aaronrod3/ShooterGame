@@ -110,7 +110,7 @@ void AShooterGameGameMode::PlayerDied(
 		{
 			if (OtherPC == VictimController) continue;
 
-			if (OtherPC->GetSpectatorPawn())
+			if (OtherPC->GetActiveSpectatorPawn())
 			{
 				OtherPC->UpdateSpectatorTargets(AlivePlayers);
 			}
@@ -145,7 +145,7 @@ void AShooterGameGameMode::PlayerRevived(AShooterGameCharacter* RevivedPlayer)
 		if (AShooterGamePlayerController* OtherPC =
 			Cast<AShooterGamePlayerController>(It->Get()))
 		{
-			if (OtherPC->GetSpectatorPawn())
+			if (OtherPC->GetActiveSpectatorPawn())
 			{
 				OtherPC->UpdateSpectatorTargets(AlivePlayers);
 			}

@@ -1,8 +1,8 @@
 ShooterGame
-UE5.7 multiplayer zombie shooter — four-phase wave-based missions, server-authoritative, C++/Blueprint hybrid. Solo dev. IDE: JetBrains Rider.
+UE5.8 multiplayer zombie shooter — four-phase wave-based missions, server-authoritative, C++/Blueprint hybrid. Solo dev. IDE: JetBrains Rider.
 
 Commands
-Build (Editor): Rider toolbar → ShooterGameEditor Win64 Development, or: "C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat" ShooterGameEditor Win64 Development -project="...\ShooterGame.uproject" -waitmutex
+Build (Editor): Rider toolbar → ShooterGameEditor Win64 Development, or: "C:\Program Files\Epic Games\UE_5.8\Engine\Build\BatchFiles\Build.bat" ShooterGameEditor Win64 Development -project="...\ShooterGame.uproject" -waitmutex
 
 Generate project files: Build.bat -projectfiles -project="...\ShooterGame.uproject" -game -engine
 

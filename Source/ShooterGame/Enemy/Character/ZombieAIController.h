@@ -20,10 +20,7 @@ class SHOOTERGAME_API AZombieAIController : public AAIController
 
 public:
     AZombieAIController();
-    
-    virtual void BeginPlay() override;
-    virtual void OnPossess(APawn* InPawn) override;
-    virtual void OnUnPossess() override;
+
     virtual void Tick(float DeltaTime) override;
 
     virtual FGenericTeamId GetGenericTeamId() const override { return FGenericTeamId(1); }
@@ -59,7 +56,9 @@ public:
     static const FName BB_AlertSourceLocation; 
 
 protected:
-    
+    virtual void BeginPlay() override;
+    virtual void OnPossess(APawn* InPawn) override;
+    virtual void OnUnPossess() override;
 
     UFUNCTION()
     void OnPerceptionUpdated(const TArray<AActor*>& UpdatedActors);
@@ -79,7 +78,8 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Zombie|AI")
     UBehaviorTree* ZombieBehaviorTree;
 
-    AZombieCharacter* ZombieOwner = nullptr;
+    UPROPERTY()
+    TObjectPtr<AZombieCharacter> ZombieOwner = nullptr;
 
     float TargetLostTime    = -999.f;
     float ReacquireCooldown = 0.3f;
@@ -96,7 +96,7 @@ private:
     void HandleHearingStimulus(AActor* SensedActor, const FVector& SoundLocation);
     void ValidateLineOfSight();
     void CheckDisengage();
-    void LoseTarget(AActor* LostTarget);
+    void LoseTarget(const AActor* LostTarget);
     void OnIdleDwellComplete();
     void BroadcastGroupAlert();
 

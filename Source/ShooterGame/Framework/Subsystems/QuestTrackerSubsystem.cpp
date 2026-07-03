@@ -2,8 +2,6 @@
 #include "ShooterGame/Framework/Subsystems/QuestTrackerSubsystem.h"
 
 #include "ShooterGame/Quest/QuestDefinition.h"
-#include "ShooterGame/Inventory/ItemDefinition.h"
-#include "ShooterGame/Types/ItemTypes.h"
 
 void UQuestTrackerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -317,7 +315,7 @@ void UQuestTrackerSubsystem::GetSaveData(
 
 FQuestState* UQuestTrackerSubsystem::FindMutableQuestState(const UQuestDefinition* QuestDefinition, EQuestStatus InStatus)
 {
-    TArray<FQuestState>* TargetArray = nullptr;
+    TArray<FQuestState>* TargetArray;
 
     switch (InStatus)
     {

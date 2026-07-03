@@ -196,8 +196,7 @@ void UDownedComponent::BeginSelfRevive()
 	if (CombatState != EPlayerCombatState::EPCS_Downed) return;
 	if (bSelfReviveInProgress) return;
 
-	const bool bCanSelfRevive = true; // Medical kit stub — hook kit check here later
-	if (!bCanSelfRevive) return;
+	// TODO: Medical kit stub — hook actual kit-availability check here later.
 
 	bSelfReviveInProgress = true;
 	PauseBleedout();
@@ -207,7 +206,7 @@ void UDownedComponent::BeginSelfRevive()
 
 	GetWorld()->GetTimerManager().SetTimer(
 		SelfReviveTimerHandle,
-		[this]()
+		[this]
 		{
 			ServerCompleteRevive(ReviveHealth);
 		},

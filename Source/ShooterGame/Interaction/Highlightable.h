@@ -30,9 +30,6 @@ public:
 	void UnHighlight();
 	
 	
-private:
-	
-	
 	
 	
 	

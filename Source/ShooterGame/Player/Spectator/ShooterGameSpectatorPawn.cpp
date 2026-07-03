@@ -2,10 +2,7 @@
 
 #include "ShooterGameSpectatorPawn.h"
 #include "EnhancedInputComponent.h"
-#include "Camera/CameraComponent.h"
-#include "GameFramework/SpringArmComponent.h"
 #include "ShooterGame/Player/Character/ShooterGameCharacter.h"
-#include "ShooterGame/Player/Controller/ShooterGamePlayerController.h"
 
 AShooterGameSpectatorPawn::AShooterGameSpectatorPawn()
 {
@@ -140,8 +137,7 @@ void AShooterGameSpectatorPawn::AttachToTarget(AShooterGameCharacter* Target)
 	// Use PlayerController::SetViewTarget to follow the target's camera
 	// This gives the exact same view as the spectated player — their camera,
 	// their spring arm, their rotation. No separate camera needed on spectator pawn.
-	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (PC)
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
 		FViewTargetTransitionParams TransitionParams;
 		TransitionParams.BlendTime = 0.5f; // smooth 0.5s blend between targets

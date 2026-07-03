@@ -202,20 +202,20 @@ struct FLoadoutData
         // Size the array to exactly match the number of defined slots.
         // If you add a new EEquipmentSlot entry above MAX, this automatically
         // expands — no change needed here.
-        Slots.SetNum((int32)EEquipmentSlot::MAX);
+        Slots.SetNum(static_cast<int32>(EEquipmentSlot::MAX));
     }
 
     // Returns a mutable reference to the slot for a given equipment slot.
     // Always safe — array is guaranteed to be MAX entries.
     FLoadoutSlot& GetSlot(EEquipmentSlot Slot)
     {
-        return Slots[(int32)Slot];
+        return Slots[static_cast<int32>(Slot)];
     }
 
     // Const version for read-only access (e.g. from HUD, replication callbacks)
     const FLoadoutSlot& GetSlot(EEquipmentSlot Slot) const
     {
-        return Slots[(int32)Slot];
+        return Slots[static_cast<int32>(Slot)];
     }
 
     // Returns true if at least one slot has an item assigned

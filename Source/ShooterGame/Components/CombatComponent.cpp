@@ -1,10 +1,10 @@
 // Source/ShooterGame/Components/CombatComponent.cpp
 
 #include "CombatComponent.h"
+#include "ShooterGame/Types/FireMode.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/World.h"
 #include "Engine/EngineTypes.h"
-#include "Engine/DamageEvents.h"
 #include "HUD/ShooterHUD.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -13,7 +13,6 @@
 #include "ShooterGame/Items/Weapon/WeaponConfig.h"
 #include "ShooterGame/Inventory/InventoryComponent.h"
 #include "ShooterGame/Components/DownedComponent.h"
-#include "ShooterGame/Components/HitZoneComponent.h"
 
 UCombatComponent::UCombatComponent()
 {
@@ -35,7 +34,7 @@ void UCombatComponent::BeginPlay()
 	// modulation — that wiring is deferred to Phase 2.
 }
 
-void UCombatComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
@@ -820,7 +819,7 @@ float UCombatComponent::GetActiveFireRate() const
 {
 	if (!EquippedWeapon) return 0.15f;
 
-	float BaseRate = 0.15f;
+	float BaseRate;
 
 	switch (EquippedWeapon->GetCurrentFireMode())
 	{
@@ -839,7 +838,7 @@ float UCombatComponent::GetActiveFireRate() const
 			const float Multiplier = DownedComp->DebuffConfig.FireRateMultiplier;
 			// FireRateMultiplier < 1 = slower — divide rate to increase delay
 			// e.g. rate 0.1s / 0.6 = 0.167s between shots (slower)
-			BaseRate = (Multiplier > 0.f) ? (BaseRate / Multiplier) : BaseRate;
+			BaseRate = Multiplier > 0.f ? BaseRate / Multiplier : BaseRate;
 		}
 	}
 
@@ -885,7 +884,7 @@ void UCombatComponent::UpdateReticleWorldPosition()
 	PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
 
 	const FVector ShotDirection = CameraRotation.Vector();
-	const float TraceDistance = 50000.f; // 50m — tune as needed
+	constexpr float TraceDistance = 50000.f; // 50m — tune as needed
 
 	const FVector TraceStart = CameraLocation;
 	const FVector TraceEnd   = TraceStart + ShotDirection * TraceDistance;
@@ -922,7 +921,7 @@ FVector UCombatComponent::ComputeFinalHitTarget() const
 	const FVector MuzzleLocation = WeaponMesh->GetSocketLocation(MuzzleSocketName);
 
 	// Direction from muzzle toward the current HitTarget
-	const FVector ToTarget = (HitTarget - MuzzleLocation);
+	const FVector ToTarget = HitTarget - MuzzleLocation;
 	const FVector ShootDir = ToTarget.GetSafeNormal();
 
 	const float DistanceToTarget = ToTarget.Size();
@@ -1175,7 +1174,7 @@ EPlayerWeaponStance UCombatComponent::GetPlayerWeaponStance() const
 void UCombatComponent::SetCombatAction(ECombatAction NewAction)
 {
 	CurrentCombatAction = NewAction;
-	bIsBusy = (NewAction != ECombatAction::None);
+	bIsBusy = NewAction != ECombatAction::None;
 }
 
 void UCombatComponent::OnRep_CombatAction()
@@ -1228,12 +1227,10 @@ void UCombatComponent::SpawnAndEquipWeaponFromSlot(const FLoadoutSlot& Slot)
 
 	EquipWeapon(SpawnedWeapon);
 
-	UInventoryComponent* Inventory = Character->GetInventory();
-	if (Inventory)
+	if (UInventoryComponent* Inventory = Character->GetInventory())
 	{
 		const EAmmoType AmmoType = SpawnedWeapon->GetSupportedAmmoType();
-		FMagazine* BestMag = Inventory->GetBestMagazine(AmmoType);
-		if (BestMag)
+		if (FMagazine* BestMag = Inventory->GetBestMagazine(AmmoType))
 		{
 			SpawnedWeapon->InsertMagazine(*BestMag);
 			Inventory->RemoveMagazine(*BestMag);

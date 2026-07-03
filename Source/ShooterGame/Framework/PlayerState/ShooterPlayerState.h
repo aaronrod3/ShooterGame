@@ -7,6 +7,7 @@
 
 
 class ULoadoutComponent;
+class ACharacter;
 
 UCLASS()
 class SHOOTERGAME_API AShooterPlayerState : public APlayerState

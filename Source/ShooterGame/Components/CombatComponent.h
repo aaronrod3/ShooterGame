@@ -3,14 +3,14 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "ShooterGame/Types/FireMode.h"
 #include "ShooterGame/Items/Ammo/WeaponFeedTypes.h"
 #include "ShooterGame/Items/Weapon/WeaponConfig.h"
 #include "ShooterGame/Types/PlayerWeaponStance.h"
 #include "ShooterGame/Types/CombatTypes.h"
-#include "ShooterGame/Components/LoadoutComponent.h"
+#include "ShooterGame/Types/LoadoutTypes.h"
 #include "CombatComponent.generated.h"
 
+struct FVector_NetQuantize;
 
 // Local-only reticle runtime state, computed each tick on owning client
 USTRUCT()
@@ -35,7 +35,7 @@ class SHOOTERGAME_API UCombatComponent : public UActorComponent
 public:
 	UCombatComponent();
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	friend class AShooterGameCharacter;
 	friend class AShooterGamePlayerController;
@@ -209,7 +209,8 @@ protected:
 
 private:
 
-	class AShooterGameCharacter* Character;
+	UPROPERTY()
+	TObjectPtr<AShooterGameCharacter> Character;
 
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
 	AWeapon* EquippedWeapon;

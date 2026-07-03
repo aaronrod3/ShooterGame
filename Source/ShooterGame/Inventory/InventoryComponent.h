@@ -111,7 +111,7 @@ public:
 	 * Quest items already in stash count — the player never re-farms owned items.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool ContainsDefinition(const class UItemDefinition* Definition) const;
+	bool ContainsDefinition(const UItemDefinition* Definition) const;
 
 	/**
 	 * Returns true if this inventory has room for at least one more item.

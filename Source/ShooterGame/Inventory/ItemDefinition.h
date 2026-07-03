@@ -8,6 +8,8 @@
 #include "ShooterGame/Types/ItemTypes.h"             
 #include "ItemDefinition.generated.h"
 
+class UTexture2D;
+
 // ============================================================================
 // UItemDefinition
 //
