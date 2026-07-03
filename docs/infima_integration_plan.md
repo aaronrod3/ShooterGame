@@ -5,14 +5,14 @@
 ## 1. Skeleton and Character Retarget
 
 - [x] Your character uses **SK_Mannequin** — the standard UE5 skeleton. This is the same skeleton/bone hierarchy the Infima Pack targets, so no skeleton reassignment or bone-matching pass is required. **[VERIFIED BY USER]**
-- [ ] Confirm your player character mesh is correctly assigned to `SK_Mannequin` in the Skeletal Mesh asset (Skeleton field), and that `BP_PlayerCharacter` references that mesh. **[VERIFY]**
-- [ ] Required FABRIK IK bone chains (standard on SK_Mannequin, should already be present):
+- [x] Confirm your player character mesh is correctly assigned to `SK_Mannequin` in the Skeletal Mesh asset (Skeleton field), and that `BP_PlayerCharacter` references that mesh. **[VERIFY]**
+- [x] Required FABRIK IK bone chains (standard on SK_Mannequin, should already be present):
   - Right arm: `clavicle_r` → `hand_r` → `ik_hand_r` (effector)
   - Left arm: `clavicle_l` → `hand_l` → `ik_hand_l` (effector) **[VERIFY]**
-- [ ] Open your weapon config data asset: `DA_RifleBaseConfig` (your project's equivalent of the Infima weapon Data Asset). **[VERIFY LOCATION]**
-- [ ] Expand the Character Mesh fields on `DA_RifleBaseConfig` and confirm FP and TP mesh references point to your actual character mesh(es), not Infima demo meshes. **[VERIFY]**
-- [ ] Test in a PIE session using `BP_PlayerCharacter` + `BP_Rifle` together, since there is no Infima demo map to rely on anymore. **[VERIFY]**
-- [ ] For custom weapon meshes on `BP_Rifle`: confirm the receiver skeletal mesh was imported with the correct weapon skeleton selected on import (per your rifle's specific rig), so animations play without needing retarget. **[VERIFY]**
+- [x] Open your weapon config data asset: `DA_RifleBaseConfig` (your project's equivalent of the Infima weapon Data Asset). **[VERIFY LOCATION]**
+- [x] Expand the Character Mesh fields on `DA_RifleBaseConfig` and confirm FP and TP mesh references point to your actual character mesh(es), not Infima demo meshes. **[VERIFY]**
+- [x] Test in a PIE session using `BP_PlayerCharacter` + `BP_Rifle` together, since there is no Infima demo map to rely on anymore. **[VERIFY]**
+- [x] For custom weapon meshes on `BP_Rifle`: confirm the receiver skeletal mesh was imported with the correct weapon skeleton selected on import (per your rifle's specific rig), so animations play without needing retarget. **[VERIFY]**
 
 ## 2. Animation Blueprint Setup
 
