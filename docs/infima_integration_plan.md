@@ -1,164 +1,177 @@
-# ShooterGame — Infima Pack Integration Checklist (Project-Mapped)
+# ShooterGame — Infima Pack Integration Plan (Execution-Ordered)
 
-> This checklist has been adapted from the original Infima Games Tactical FPS Animation Pack documentation to match ShooterGame's actual asset names, folder structure, and skeleton. Items marked **[TRANSFER]** need to be moved/duplicated from the Infima Pack into your own project folders. Items marked **[CREATE]** don't exist yet in your project and need to be built. Items marked **[VERIFY]** exist in some form and need a live in-editor confirmation pass.
+> Work through phases in order. Each phase is self-contained — do not start a phase until the prior phase's checkboxes are complete. Items marked **[CREATE]** don't exist yet and need to be built. **[FIX]** means broken and needs correction. **[VERIFY]** means confirm in-editor. **[TRANSFER]** means migrate from Infima plugin content into project folders.
 
-## 1. Skeleton and Character Retarget
+---
 
-- [x] Your character uses **SK_Mannequin** — the standard UE5 skeleton. This is the same skeleton/bone hierarchy the Infima Pack targets, so no skeleton reassignment or bone-matching pass is required. **[VERIFIED BY USER]**
-- [x] Confirm your player character mesh is correctly assigned to `SK_Mannequin` in the Skeletal Mesh asset (Skeleton field), and that `BP_PlayerCharacter` references that mesh. **[VERIFY]**
-- [x] Required FABRIK IK bone chains (standard on SK_Mannequin, should already be present):
-  - Right arm: `clavicle_r` → `hand_r` → `ik_hand_r` (effector)
-  - Left arm: `clavicle_l` → `hand_l` → `ik_hand_l` (effector) **[VERIFY]**
-- [x] Open your weapon config data asset: `DA_RifleBaseConfig` (your project's equivalent of the Infima weapon Data Asset). **[VERIFY LOCATION]**
-- [x] Expand the Character Mesh fields on `DA_RifleBaseConfig` and confirm FP and TP mesh references point to your actual character mesh(es), not Infima demo meshes. **[VERIFY]**
-- [x] Test in a PIE session using `BP_PlayerCharacter` + `BP_Rifle` together, since there is no Infima demo map to rely on anymore. **[VERIFY]**
-- [x] For custom weapon meshes on `BP_Rifle`: confirm the receiver skeletal mesh was imported with the correct weapon skeleton selected on import (per your rifle's specific rig), so animations play without needing retarget. **[VERIFY]**
+## Execution Roadmap
 
-## 2. Animation Blueprint Setup
+1. Phase 1 — TP FABRIK Fix (`ABP_TP_Default`)
+2. Phase 2 — Weapon Mesh Socket Addition (`SOCKET_Grip_R`)
+3. Phase 3 — FP/TP Camera and Mesh Switching System
+4. Phase 4 — Remaining AnimBP Work (`ABP_FP_Default` / `ABP_TP_Default`)
+5. Phase 5 — Notify and Notify-State Classes
+6. Phase 6 — Supporting Actor Migration
+7. Phase 7 — Weapon and Magazine AnimBPs
+8. Phase 8 — Final Verification Sweep (Sections 1 and 6 reference items)
 
-### Shared AnimBP Dependencies (FP and TP)
-- [x] Owning pawn must be `BP_PlayerCharacter` (your equivalent of `BP_TFA_BaseCharacter`). **[VERIFY]**
-- [x] AnimBP Animation State interface exists as `IShooterAnimStateInterface` (`Source/ShooterGame/Player/Animation/ShooterAnimStateInterface.h`), implemented by `UShooterAnimInstanceBase`. Exposes `UpdateLeftHandGrip(bool, float)` plus two extra hooks (`SetAimingBlocked`, `OnAnimStateMessage`) not originally in this checklist. **[DONE]**
-- [x] Skeleton must include FABRIK chain bones: `ik_hand_r`, `hand_r`, `clavicle_r`, `ik_hand_l`, `hand_l`, `clavicle_l`. Since you're on standard `SK_Mannequin`, these should already exist. **[VERIFY]**
-- [x] Right-hand IK independence bug fixed: `UpdateIKData()` previously returned early when `SOCKET_Grip` (left) was missing, which also blocked the `SOCKET_Grip_R` (right) block from ever running. Left and right hand socket checks are now fully decoupled — confirmed via Rider audit and diff review 2026-07-04. **[DONE]**
-- [x] Grip overlay structure clarified 2026-07-04: CurrentGripAlpha only models the None ↔ any-grip-attached transition (`GripTarget = CurrentGrip != None ? 1 : 0`, smoothed via FInterpTo) — it cannot distinguish Vertical from Angled grip on its own. Correct structure: inner `BlendListByBool` chooses Vertical vs Angled (discrete, no alpha involved), outer `LayeredBoneBlend` blends None/main pose against that result using `CurrentGripAlpha` as `BlendWeights_0`. Branch filter on the new LayeredBoneBlend requires a manual in-editor bone entry (root, full depth) — not settable via MCP. **[DONE — see MCP session 2026-07-04]**
+---
 
-### ABP_FP_Default (First-Person — your equivalent of ABP_TFA_FP_BaseCharacter)
-- [x] On BlueprintInitializeAnimation / BlueprintUpdateAnimation: confirmed handled natively in C++ (`UShooterAnimInstanceBase::NativeInitializeAnimation`/`NativeUpdateAnimation`) — no Blueprint EventGraph copy logic needed. Blueprint EventGraph is intentionally near-empty by design. **[VERIFIED — handled natively]**
-- [x] AnimGraph evaluation order — confirmed present and matches required structure: locomotion base pose (`SM_FP_Locomotion`, cached), mesh-space additive stack for Crouch/ADS/Recoil (three chained `Transform(Modify)Bone` on `root`), FABRIK hand IK (both arms, wired to `LeftHandTransform`/`RightHandTransform`), LayeredBoneBlend for camera/head gated by `bAnimateCamera`. **[DONE — completed 2026-07-04]**
-- [x] Grip overlay nodes: nested `BlendListByBool` cascade (Angled/Vertical/None) feeding a `LayeredBoneBlend` gated by `CurrentGripAlpha`. **[DONE — completed 2026-07-04, see Section 2.5 for branch-filter scope note]**
-- [ ] Notify hook: implement an Unlock Actions notify that fires `CharacterBP.bIsBusy = false`. Can reuse Infima's `AN_TFA_UnlockActions` logic pattern or recreate as your own notify class. **[CREATE or REUSE]**
-- [ ] Integration checklist:
-  - Mesh's Anim Class = `ABP_FP_Default`
-  - AnimBP implements your Animation State interface
-  - Montages include Left Hand Grip notify-state windows where needed
-  - `BP_PlayerCharacter` updates SimulatedVelocity, ADS/recoil/crouch transforms, CurrentGrip **[VERIFY]**
+## Phase 1 — TP FABRIK Fix
 
-### ABP_TP_Default (Third-Person — your equivalent of ABP_TFA_TP_BaseCharacter)
-- [x] On BlueprintInitializeAnimation / BlueprintUpdateAnimation: confirmed handled natively in C++, same as FP side. EventGraph is intentionally non-functional (stub nodes only) — all state read directly via C++ `Get` nodes embedded in AnimGraph. **[VERIFIED — handled natively]**
-- [x] Stance Blend node: confirmed present (`BlendListByBool_0`, gated `bIsAiming`, 0.1s/0.1s). **[DONE — confirmed via comparison 2026-07-04]**
-- [ ] Aiming Transitions: mesh-space additive state machine layered on top of stance pose, with states Default / Aim Start / Aim End, bound to your rifle's aim-transition animation assets. Confirmed genuinely absent — TFA's own reference implementation of this (`SM_AimingTransitions`) is empty template content (unassigned SequencePlayer pins), so there is no usable content to port, only the structural pattern (see Section 2.5). **[CREATE — build from scratch]**
-- [ ] Breathing/Idle Additive: looping sequence applied additively, bound to your rifle's idle loop animation. Same situation as above — TFA's structural slot (`ApplyAdditive_1`, local-space, always-on) is empty; the wiring pattern is worth reusing but the content must be authored. **[CREATE — build from scratch]**
-- [x] Montage Slot nodes: confirmed present — `DefaultSlot` and `Aiming`, both sourced from `PreSlotPose`. **[DONE — confirmed via comparison 2026-07-04]**
-- [ ] Hand IK with FABRIK node (component space): **currently non-functional — see Section 2.5 for full bug detail and proposed fix.** **[CREATE/FIX — highest priority, see 2.5]**
-- [ ] Notify hook: Unlock Actions notify sets `CharacterBP.bIsBusy = false`. **[CREATE or REUSE]**
-- [ ] Integration checklist:
-  - Mesh's Anim Class = `ABP_TP_Default`
-  - Owning pawn is `BP_PlayerCharacter`
-  - AnimBP implements your Animation State interface
-  - Montages include Left Hand Grip notify-state windows where expected
-  - `DA_RifleBaseConfig` provides TP idle pose, TP idle loop, TP aim pose, TP aim-start/aim-end transitions **[VERIFY these fields exist on DA_RifleBaseConfig]**
+**Target asset:** `ABP_TP_Default` AnimGraph.
 
-### Weapon and Magazine AnimBPs
-- [ ] Weapon AnimBP (the `ABPWeapon` field on `DA_RifleBaseConfig`): none exists yet in your project. Either reuse an Infima weapon AnimBP as a starting template, or create a new one from scratch and assign it. **[CREATE]**
-- [ ] Magazine AnimBP (the `ABPMagazine` field): same situation — none exists yet. Reuse or recreate, then assign. **[CREATE]**
+**Confirmed bugs (comparison audit, 2026-07-04):**
+1. Neither `Fabrik_0` (right arm) nor `Fabrik_1` (left arm) is wired to `RightHandTransform`/`LeftHandTransform` — both nodes currently use hardcoded identity targets with `Alpha` pinned to `1.0`.
+2. `Fabrik_1`'s effector target bone is set to `hand_r` — this is wrong, it must be `ik_hand_l`.
+3. `BlendListByBool_1` (the node meant to select between the left-arm and right-arm FABRIK outputs) has a hardcoded, unconnected `bActiveValue = False` — this permanently locks the output to a cached pose called `RightArmPinned`, meaning the left-arm branch can never be reached regardless of any other fix.
 
-### Left Hand Grip Flow (both AnimBPs)
-- [x] `UANS_LeftHandGrip` (`Source/ShooterGame/Player/Animation/ANS_LeftHandGrip.h/.cpp`) calls `UpdateLeftHandGrip(bool IsLeftHandOnWeapon, float BlendSpeed)` through the interface on NotifyBegin/NotifyEnd. **[DONE]**
-- [x] `UShooterAnimInstanceBase` stores the override into `bLeftHandOnWeaponOverride` / `GripBlendSpeedOverride` and smooths `CurrentGripAlpha` toward 1.0/0.0 via `FInterpTo` inside `UpdateCombatData()`. **[DONE]**
+**Steps:**
+1. Open `ABP_TP_Default` in the Animation Blueprint editor, navigate to the AnimGraph.
+2. Delete `BlendListByBool_1` entirely — do not attempt to fix its bool input, it is structurally the wrong pattern here.
+3. Rewire the graph so `Fabrik_1` (left arm) feeds directly into `Fabrik_0` (right arm) as a sequential chain — left arm IK resolves first, then right arm IK resolves on top of that result. This matches the working pattern already built in `ABP_FP_Default`.
+4. On `Fabrik_1`: change the effector target bone from `hand_r` to `ik_hand_l`.
+5. Wire `Fabrik_1`'s effector Target Transform input to a `Get LeftHandTransform` node (pulls from `UShooterAnimInstanceBase::LeftHandTransform`).
+6. Wire `Fabrik_0`'s effector Target Transform input to a `Get RightHandTransform` node (pulls from `UShooterAnimInstanceBase::RightHandTransform`).
+7. Confirm both FABRIK nodes have: Effector Transform Space = Bone Space, Effector Rotation Source = CopyFromTarget, Precision = 0.01, LODThreshold exposed.
+8. Compile and save.
+9. **[VERIFY]** — cannot be visually confirmed in PIE until Phase 2 (socket) and Phase 3 (TP mesh must be visible) are complete. Compile-clean is the only verification possible right now.
 
-## 2.5 Findings from Infima Source Comparison (2026-07-04)
+---
 
-Comparison audits against the original `ABP_TFA_FP_BaseCharacter`, `ABP_TFA_TP_BaseCharacter`, and `BP_TFA_BaseCharacter` surfaced the following. Full reports saved to `docs/comparisons/`.
+## Phase 2 — Weapon Mesh Socket Addition
 
-### Confirmed bugs requiring fixes
-- [ ] **ABP_TP_Default FABRIK is fully non-functional** — three stacked issues: (1) neither `Fabrik_0` (right) nor `Fabrik_1` (left) is wired to `RightHandTransform`/`LeftHandTransform` — both hardcoded identity/constant `Alpha=1.0`; (2) `Fabrik_1`'s effector target bone is incorrectly set to `hand_r` instead of `ik_hand_l`; (3) `BlendListByBool_1` (meant to select between the two arms' results) has a hardcoded unconnected `False` `bActiveValue`, permanently locking output to a cached right-arm-only pose (`RightArmPinned`) — left arm's branch is unreachable regardless of wiring. **[CREATE/FIX — highest priority in this section]**
-- [ ] Recommended TP FABRIK fix approach: remove `BlendListByBool_1` selector entirely, chain `Fabrik_1` → `Fabrik_0` sequentially (left into right, matching the working `ABP_FP_Default` and both TFA reference patterns), fix `Fabrik_1`'s tip bone to `ik_hand_l`, wire both effectors to `Get LeftHandTransform`/`Get RightHandTransform`. **[PROPOSED FIX]**
+**Target asset:** every weapon skeletal mesh currently in use (start with the rifle receiver mesh used by `BP_Rifle`).
 
-### Verify before trusting existing FP work
-- [ ] **FPArms mesh is hidden via `SetVisibility(false, true)` in `BP_PlayerCharacter`'s `BeginPlay`, with no code path anywhere that unhides it** — confirmed intentional (no FP/TP switching exists yet, see Section 7). This means today's `ABP_FP_Default` FABRIK/grip-alpha/camera-blend work has only been verified via compile, not via visible PIE test. **[BLOCKED ON SECTION 7]**
-- [ ] Check whether grip pose clips (`AS_FP_AR_Aim/Idle_Pose_Grip_Angled/Vertical`) contain any keyframed right-arm/weapon movement. `ABP_FP_Default`'s grip-alpha `LayeredBoneBlend_2` is currently scoped `root`/full-depth; TFA's equivalent is scoped `clavicle_l`+`ik_hand_l` only (left-arm-only). If clips have incidental right-arm movement, narrow the branch filter to match TFA's scope to prevent right-hand/weapon drift during grip blends. **[VERIFY, LOW PRIORITY]**
+**Context:** `SOCKET_Grip` (left-hand target) already exists and works. `SOCKET_Grip_R` (right-hand target) was added on the C++ side on 2026-06-30 but has never been added to any weapon mesh — until this phase, `RightHandTransform` silently stays at identity and the right-arm FABRIK target never moves, in both FP and TP.
 
-### Techniques worth adopting (not gaps — backlog if issues arise)
-- [ ] TP recoil: TFA reuses one shared `RecoilTransform` source but reshapes it per-view via fixed per-axis multipliers (translation ×(3.0, 0.5, 4.0), rotation ×(2.0, 4.0, 1.7)) rather than computing a second independent TP recoil value. Relevant once TP's additive stack (Aiming Transitions / Breathing Additive above) is built. **[BACKLOG]**
-- [ ] Locomotion transition polish: TFA layers a separate mesh-space additive of transition-only state machines (crouch/run/walk start-stop) on top of the base locomotion loop, rather than relying only on state-machine crossfade times. Consider only if current transitions feel abrupt. **[BACKLOG]**
-- [ ] Pre-FABRIK montage slot: TFA positions its `AdditiveSlot` (upper-body montages) before FABRIK, so any montage gets IK-corrected hand placement onto the grip target automatically. Both `ABP_FP_Default` and `ABP_TP_Default` currently place montage slots after FABRIK — montages don't get IK-corrected. Consider inserting a pre-FABRIK slot if reload/inspect animations show hands drifting off the weapon grip. **[BACKLOG]**
+**Steps:**
+1. Open the rifle's receiver skeletal mesh asset in the Skeletal Mesh Editor.
+2. Go to the Skeleton tab, right-click the appropriate bone (the same bone `SOCKET_Grip` is parented to, or the primary-grip bone — confirm bone name before adding), and add a new socket named exactly `SOCKET_Grip_R`.
+3. Position and rotate the socket to sit at the primary (right-hand) grip point on the mesh — use `SOCKET_Grip`'s placement as a visual reference for scale/offset conventions.
+4. Save the mesh.
+5. Repeat steps 1–4 for every additional weapon mesh in the project that will use hand IK.
+6. **[VERIFY]** — PIE test is still blocked until Phase 3, but confirm the socket appears correctly positioned in the Skeletal Mesh Editor preview.
 
-### Confirmed non-gaps (no action needed)
-- [x] TFA's own FABRIK usage is animation-authored (zero-offset, animator-posed helper bones), not procedural — our C++-driven runtime IK is the correct, more advanced approach. Not a pattern to copy.
-- [x] TFA's `Common/Core` reference assets are unconfigured templates (empty SequencePlayer pins, no concrete WeaponConfig instance) — no additional notify classes found beyond what's already listed in Section 3.
-- [x] `ABP_TP_Default`'s `AimOffsetPlayer 'AO_ADS'` (aim pitch/yaw blend space) already exceeds TFA's reference, which has no aim-offset/spine-lean mechanism at all. No action needed.
-- [x] EventGraphs on both `ABP_FP_Default` and `ABP_TP_Default` are intentionally near-empty — all per-tick state copying is correctly handled in C++ (`UShooterAnimInstanceBase`), matching project architecture. Not a gap.
-- [x] No canted-aim state (`bIsCantedAiming`) exists natively — confirmed absent, not currently needed unless canted-aim becomes a design requirement. **[FUTURE DECISION]**
-- [x] No recoil escalation/ramp system (TFA's `RecoilRampCount`) exists in `CombatComponent` — gameplay-feel gap, not animation-bridge. Log separately if sustained-fire recoil growth becomes a design goal. **[FUTURE DECISION — not this plan's scope]**
+---
 
-## 3. Notify and Notify-State Wiring
+## Phase 3 — FP/TP Camera and Mesh Switching System
 
-All notify and notify-state classes below can be **recreated as your own classes** (recommended for clean project ownership) rather than reusing Infima's directly, using the same logic pattern. Naming suggestion follows your project convention (`AN_` / `ANS_` prefix, no `TFA` tag needed since these become yours).
+**Why this phase is next:** `FPArms` mesh is currently hidden via `SetVisibility(false, true)` in `BP_PlayerCharacter`'s `BeginPlay`, with no code path anywhere that unhides it. This blocks any real PIE verification of Phase 1, Phase 2, and all prior FP/TP AnimBP work. This must be built before further animation polish is worth doing.
 
-### AnimNotify (One-Shot) Classes — recreate as your own
+**Steps:**
+1. In `BP_PlayerCharacter`, confirm current state: locate the `SpringArm`/`Camera` component pair, confirm whether `FPArms` and `TPMesh` are both attached simultaneously (expected) or spawned/possessed separately.
+2. **[CREATE]** Add a new Input Action `IA_ToggleView` in the project's Input folder.
+3. Bind `IA_ToggleView` inside `IMCGameplay` (the gameplay input mapping context) to a placeholder key (e.g. `V`) — user can rebind later.
+4. **[CREATE]** Add a boolean variable `bIsFirstPerson` to `BP_PlayerCharacter`. Local-only (not replicated) — this is a client-side camera preference, not gameplay-authoritative state.
+5. **[CREATE]** Add a boolean variable `bViewSwitchingAllowed` (default `true`) to `BP_PlayerCharacter` (or a settings data asset if the project already has one) — this is the future on/off hook for locking the game to FP-only or TP-only.
+6. Implement the toggle input handler:
+   - On `IA_ToggleView` triggered: if `bViewSwitchingAllowed == false`, do nothing (Return).
+   - Otherwise, flip `bIsFirstPerson`.
+   - Switch the active camera view target: FP camera socket if `bIsFirstPerson == true`, TP boom camera if `false`.
+   - Toggle `FPArms` visibility off when TP is active, and vice versa for `TPMesh`. Use `SetVisibility` only — do **not** stop ticking/simulating either mesh, so `ABP_FP_Default` and `ABP_TP_Default` don't desync from `CharacterBP` state while hidden.
+   - Do **not** swap Anim Class at runtime. `ABP_FP_Default` and `ABP_TP_Default` stay permanently assigned to their respective meshes — only visibility and camera view target change.
+7. **[VERIFY]** Multiplayer correctness: confirm this toggle only affects the local (owning) player's own camera/mesh visibility. Check `FPArms` has `SetOwnerNoSee` enabled so remote clients never see it. Check `TPMesh` does **not** have `SetOnlyOwnerSee` enabled — remote clients must always see this player's `TPMesh` regardless of the owner's local toggle state.
+8. **[VERIFY]** Test in PIE with two clients: local player toggles view repeatedly, confirm camera and mesh visibility change correctly on their own screen only; confirm the second client sees this player in TP the entire time regardless of the first player's toggle state.
+9. Note for later, no action now: if design later locks the game to FP-only or TP-only, set `bViewSwitchingAllowed = false` and remove the toggle keybind from the input settings menu — no other code changes needed.
 
-| Suggested Name | What It Should Do | Calls Into | Status |
+---
+
+## Phase 4 — Remaining AnimBP Work
+
+Now that FP/TP visibility is real, verify and complete the following.
+
+### ABP_FP_Default
+1. **[VERIFY]** Now that `FPArms` is actually visible in PIE, confirm the FABRIK hand IK, grip-alpha overlay (`BlendListByBool` cascade + `LayeredBoneBlend`), and camera/head `LayeredBoneBlend` gated by `bAnimateCamera` all behave correctly in a live session — this was previously only compile-verified.
+2. **[CREATE]** Implement the Unlock Actions notify hook: on notify fire, set `CharacterBP.bIsBusy = false`. Either port the logic pattern from Infima's `AN_TFA_UnlockActions`, or build fresh as your own notify class (see Phase 5).
+3. Integration checklist — confirm each of the following is true:
+   - Mesh's Anim Class = `ABP_FP_Default`
+   - AnimBP implements `IShooterAnimStateInterface`
+   - Montages include Left Hand Grip (`ANS_LeftHandGrip`) notify-state windows where needed
+   - `BP_PlayerCharacter` is correctly updating `SimulatedVelocity`, ADS/recoil/crouch transforms, and `CurrentGrip`
+
+### ABP_TP_Default
+1. **[VERIFY]** Confirm the Phase 1 FABRIK fix behaves correctly now that `TPMesh` visibility is real and controllable.
+2. **[CREATE]** Build the Aiming Transitions mesh-space additive state machine: states Default / Aim Start / Aim End, layered on top of the stance pose, bound to your rifle's aim-transition animation assets. Note: Infima's own reference implementation of this (`SM_AimingTransitions`) is an empty, unconfigured template — there is no usable animation content to port, only the structural pattern. Animation content must be authored or sourced separately.
+3. **[CREATE]** Build the Breathing/Idle Additive: a looping sequence applied additively (local-space, always-on), bound to your rifle's idle loop animation. Same situation as above — Infima's `ApplyAdditive_1` slot is structurally present but empty; only the wiring pattern is reusable.
+4. **[CREATE]** Implement the Unlock Actions notify hook, same pattern as FP side.
+5. Integration checklist — confirm:
+   - Mesh's Anim Class = `ABP_TP_Default`
+   - Owning pawn is `BP_PlayerCharacter`
+   - AnimBP implements `IShooterAnimStateInterface`
+   - Montages include Left Hand Grip notify-state windows where expected
+   - `DA_RifleBaseConfig` provides TP idle pose, TP idle loop, TP aim pose, TP aim-start/aim-end transitions
+
+---
+
+## Phase 5 — Notify and Notify-State Classes
+
+Recreate as your own classes (not direct Infima reuse) using the same logic pattern. Prefix convention: `AN_` for one-shot, `ANS_` for notify-state, no `TFA` tag.
+
+### One-Shot Notifies — [CREATE]
+| Class Name | Logic | Calls Into |
+|---|---|---|
+| `AN_DropMagazine` | Cast owner to weapon, call `Weapon.SpawnDroppedMagazine(ImpulseForce, RotationForce)` at release frame | `BP_Rifle` |
+| `AN_EjectCasing` | Cast owner to weapon, build randomized `RotationOffset`, call `Weapon.EjectCasing(RotationOffset, MinEjectForce, MaxEjectForce, RotationSpeed)` | `BP_Rifle` |
+| `AN_SpawnObjectAttached` | Cast owner to character, spawn+attach prop tagged `DisposableItem` at socket (default `ik_hand_l`) | `BP_PlayerCharacter` |
+| `AN_ThrowPhysicsObject` | Cast owner to character, apply linear/angular impulse, optionally clear `DisposableItem`-tagged actors | `BP_PlayerCharacter` |
+| `AN_UnlockActions` | Cast owner to character, set `Character.bIsBusy = false` | `BP_PlayerCharacter` |
+
+Default parameter values (starting reference, tune per weapon feel):
+- `AN_DropMagazine`: ImpulseForce = -50.0, RotationForce = 150.0
+- `AN_EjectCasing`: MinEjectForce = 50.0, MaxEjectForce = 65.0, RotationSpeed = 0.0
+- `AN_SpawnObjectAttached`: SpawnSocketName = ik_hand_l, LocationOffset = (0,0,0), RotationOffset = (0,0,0), VisibilityDelay = 0.0
+- `AN_ThrowPhysicsObject`: SpawnSocketName = ik_hand_l, ThrowForce = 80.0, ThrowRotationForce = 80.0, DestroySocketItem = true
+
+### Notify-States — [CREATE except where noted DONE]
+| Class Name | Logic | Calls Into | Status |
 |---|---|---|---|
-| `AN_DropMagazine` | Casts owner to weapon, calls Weapon.SpawnDroppedMagazine(ImpulseForce, RotationForce) at the release frame; weapon spawns a physics magazine actor with linear/angular impulse | `BP_Rifle` | [CREATE] |
-| `AN_EjectCasing` | Casts owner to weapon, builds randomized RotationOffset, calls Weapon.EjectCasing(RotationOffset, MinEjectForce, MaxEjectForce, RotationSpeed) | `BP_Rifle` | [CREATE] |
-| `AN_SpawnObjectAttached` | Casts owner to character, spawns and attaches a prop tagged DisposableItem (default socket ik_hand_l) | `BP_PlayerCharacter` | [CREATE] |
-| `AN_ThrowPhysicsObject` | Casts owner to character, applies linear/angular impulse and optionally clears DisposableItem-tagged actors | `BP_PlayerCharacter` | [CREATE] |
-| `AN_UnlockActions` | Casts owner to character, sets Character.bIsBusy = false, reopening gameplay input | `BP_PlayerCharacter` | [CREATE] |
+| `ANS_BlockADS` | Begin: `bIsAimingBlocked = true` + `ForceStopAiming()`. End: `bIsAimingBlocked = false` | `BP_PlayerCharacter` | **[DONE]** — implemented, `ForceStopAiming()` hookup still needs a live [VERIFY] pass |
+| `ANS_HideMainMag` | Begin: hide main magazine mesh. End: show it again | `BP_Rifle` | [CREATE] |
+| `ANS_ShowReserveMag` | Begin: show reserve magazine mesh. End: hide it | `BP_Rifle` | [CREATE] |
+| `ANS_LeftHandGrip` | Begin: `IsLeftHandOnWeapon = false` via interface. End: `= true` | `IShooterAnimStateInterface` | **[DONE]** — implemented |
 
-### AnimNotifyState (Time-Window) Classes — recreate as your own
+Default values: `ANS_LeftHandGrip`: BlendOutSpeed = 15.0, BlendReturnSpeed = 15.0
 
-| Suggested Name | What It Should Do | Calls Into | Status |
-|---|---|---|---|
-| `ANS_BlockADS` | Begin: casts to character, sets bIsAimingBlocked = true, calls ForceStopAiming(). End: sets bIsAimingBlocked = false | `BP_PlayerCharacter` | **[DONE]** — implemented (`ANS_BlockADS.h/.cpp`), calls `SetAimingBlocked` via the interface. The character-side `ForceStopAiming()` hookup still deserves a live [VERIFY] pass |
-| `ANS_HideMainMag` | Begin: casts to weapon, hides main magazine mesh. End: shows it again | `BP_Rifle` | [CREATE] |
-| `ANS_ShowReserveMag` | Begin: casts to weapon, shows reserve magazine mesh. End: hides it | `BP_Rifle` | [CREATE] |
-| `ANS_LeftHandGrip` | Begin: sets IsLeftHandOnWeapon=false via your Animation State interface. End: sets it back to true | Your Animation State interface (implemented on `ABP_FP_Default` / `ABP_TP_Default`) | **[DONE]** — implemented (`ANS_LeftHandGrip.h/.cpp`) |
+### Owner Requirements
+- `AN_DropMagazine`, `AN_EjectCasing`, `ANS_HideMainMag`, `ANS_ShowReserveMag` — only function on montages playing on a mesh owned by `BP_Rifle`.
+- `AN_SpawnObjectAttached`, `AN_ThrowPhysicsObject`, `AN_UnlockActions`, `ANS_BlockADS` — only function on montages playing on a mesh owned by `BP_PlayerCharacter`.
+- `ANS_LeftHandGrip` — only functions if the active anim instance implements `IShooterAnimStateInterface`.
 
-### Interface
-- [x] Animation State interface exists as `IShooterAnimStateInterface`, implemented in C++ on `UShooterAnimInstanceBase` (the shared base both `UShooterFPAnimInstance`/`ABP_FP_Default` and `UShooterTPAnimInstance`/`ABP_TP_Default` derive from) — no need to reimplement per-AnimBP. **[DONE]**
+---
 
-### Owner Requirements (apply same logic to your recreated notifies)
-- [ ] `AN_DropMagazine`, `AN_EjectCasing`, `ANS_HideMainMag`, `ANS_ShowReserveMag` — should only function on montages playing on a mesh owned by `BP_Rifle`.
-- [ ] `AN_SpawnObjectAttached`, `AN_ThrowPhysicsObject`, `AN_UnlockActions`, `ANS_BlockADS` — should only function on montages playing on a mesh owned by `BP_PlayerCharacter`.
-- [ ] `ANS_LeftHandGrip` — should only function if the active anim instance implements your Animation State interface.
+## Phase 6 — Supporting Actor Migration
 
-### Default Notify Parameter Values (starting reference — tune to your rifle's feel)
-- [ ] `AN_DropMagazine`: ImpulseForce = -50.0, RotationForce = 150.0
-- [ ] `AN_EjectCasing`: MinEjectForce = 50.0, MaxEjectForce = 65.0, RotationSpeed = 0.0
-- [ ] `AN_SpawnObjectAttached`: SpawnSocketName = ik_hand_l, LocationOffset = (0,0,0), RotationOffset = (0,0,0), VisibilityDelay = 0.0
-- [ ] `AN_ThrowPhysicsObject`: SpawnSocketName = ik_hand_l, ThrowForce = 80.0, ThrowRotationForce = 80.0, DestroySocketItem = true
-- [ ] `ANS_LeftHandGrip`: BlendOutSpeed = 15.0, BlendReturnSpeed = 15.0
+Migrate these from the Infima plugin content into your own project folders (e.g. `Content/ShooterGame/Weapons/Physics/`) so they survive a future demo-content cleanup pass. Use Unreal's **Migrate** tool (right-click asset → Asset Actions → Migrate).
 
-## 4. Supporting Actor Classes to Transfer
+1. **[TRANSFER]** `BP_TFA_BaseMagazine` → migrate, rename if desired (e.g. `BP_MagazineCosmetic`)
+2. **[TRANSFER]** `BP_TFA_BasePhysicsObject` → migrate, shared base class for dropped physics props
+3. **[TRANSFER]** `BP_TFA_PhysicsMagazine` → migrate, used by `AN_DropMagazine`
+4. **[TRANSFER]** `BP_TFA_PhysicsCasing` → migrate, used by `AN_EjectCasing`
+5. **[TRANSFER]** `BP_TFA_AttachmentLaser` → migrate only if laser attachments are planned for `BP_Rifle`
+6. After migrating each asset, fix up any broken references in `BP_Rifle` and `DA_RifleBaseConfig`.
 
-These Infima Pack Blueprints have no equivalent in your project yet and should be **copied/migrated directly into your own folder structure** (e.g. `Content/ShooterGame/Weapons/Physics/`) rather than left inside the Infima plugin folder, so they survive a future demo-content cleanup pass:
+---
 
-- [ ] `BP_TFA_BaseMagazine` → migrate into your project folder, rename if desired (e.g. `BP_MagazineCosmetic`) **[TRANSFER]**
-- [ ] `BP_TFA_BasePhysicsObject` → migrate, this is the shared base class for dropped physics props **[TRANSFER]**
-- [ ] `BP_TFA_PhysicsMagazine` → migrate, used by `AN_DropMagazine` **[TRANSFER]**
-- [ ] `BP_TFA_PhysicsCasing` → migrate, used by `AN_EjectCasing` **[TRANSFER]**
-- [ ] `BP_TFA_AttachmentLaser` → migrate if you plan to support laser attachments on `BP_Rifle` **[TRANSFER]**
+## Phase 7 — Weapon and Magazine AnimBPs
 
-When migrating, use Unreal's **Migrate** tool (right-click asset → Asset Actions → Migrate) to bring each Blueprint and its dependencies into your project folder cleanly, then fix up any broken references in `BP_Rifle` and `DA_RifleBaseConfig` afterward.
+1. **[CREATE]** Weapon AnimBP for the `ABPWeapon` field on `DA_RifleBaseConfig` — none exists yet. Reuse an Infima weapon AnimBP as a starting template, or build fresh, then assign it.
+2. **[CREATE]** Magazine AnimBP for the `ABPMagazine` field — same situation, build or reuse, then assign.
 
-## 5. Bones, Sockets, and AnimGraph Verification
+---
 
-- [x] All bones match standard UE5 Manny (`SK_Mannequin`) — no bone remapping needed. **[VERIFIED BY USER]**
-- [ ] Sockets referenced throughout this checklist (`SocketMagazineAttachment`, `SocketMagazineReserveAttachment`, `SocketCasingEject`, `SocketGripAttachment`, `SocketLaserAttachment`, `SocketGunAttachment`, `SocketGunCamera`, `SocketHelmetCamera`, `SocketChestCamera`, `SocketMuzzle`) either already exist on your rifle/character mesh or need to be added via the Skeleton/Skeletal Mesh Editor socket tools. **[VERIFY or CREATE per-socket]**
-- [ ] Hand-IK grip sockets on the **weapon skeletal mesh**, read directly in `UShooterAnimInstanceBase::UpdateIKData()` (hardcoded there, not sourced from `WeaponConfig` like the sockets above):
-  - `SOCKET_Grip` — left-hand (foregrip) target, transformed into `hand_r`'s bone space to produce `LeftHandTransform`. Already relied upon by the existing left-hand IK code. **[VERIFY exists on every weapon mesh]**
-  - `SOCKET_Grip_R` — right-hand (primary grip) target, transformed into `hand_l`'s bone space to produce `RightHandTransform`. Added 2026-06-30 on the C++ side (`UShooterAnimInstanceBase.h`/`.cpp`) but does not exist on any weapon mesh yet — until it's added, `RightHandTransform` silently stays at its last computed value (identity by default) and the right-arm FABRIK target never moves. **[CREATE per weapon mesh]**
-  - Note: the left/right hand IK coupling bug (right hand silently starved if left socket missing) was fixed in `UpdateIKData()` on 2026-07-04, prior to this section's per-weapon socket additions. See Section 2 Shared AnimBP Dependencies. **[FIXED]**
-- [ ] Every AnimGraph node referenced in Section 2 (FABRIK hand IK, Layered Blend Per Bone, additive stack, state machines, montage slots) needs to be manually built and verified inside `ABP_FP_Default` and `ABP_TP_Default`, since these are new AnimBPs rather than the Infima originals. **[CREATE + VERIFY — FP largely done, TP FABRIK still broken per Section 2.5]**
+## Phase 8 — Final Verification Sweep
 
-## 6. UE5.7 IK Retargeter Workflow (Reference Only — Likely Not Needed)
+Quick confirmation-only pass, no new building expected.
 
-Since your character uses the standard `SK_Mannequin` skeleton — the same skeleton the Infima Pack targets — **you likely do not need to run an IK Retargeter pass at all**. Retargeting is only required when moving animations between two *different* skeletons with mismatched bone hierarchies. Keep this section only as a fallback reference if you later introduce a custom character skeleton that diverges from standard Manny.
+### Skeleton and Retarget
+1. **[VERIFY]** Player character mesh is assigned to `SK_Mannequin`, and `BP_PlayerCharacter` references that mesh.
+2. **[VERIFY]** FABRIK IK bone chains present: `clavicle_r`→`hand_r`→`ik_hand_r`, `clavicle_l`→`hand_l`→`ik_hand_l`.
+3. **[VERIFY]** `DA_RifleBaseConfig` FP/TP mesh fields point to actual character meshes, not Infima demo meshes.
+4. **[VERIFY]** Custom weapon receiver meshes were imported with the correct weapon skeleton on import.
 
-- [ ] If a custom skeleton is introduced later: create IK Rig assets for both source and target skeletons, set Retarget Root to pelvis, and explicitly bind the Arm_L/Arm_R IK Goals to `ik_hand_l`/`ik_hand_r` rather than `hand_l`/`hand_r`.
-- [ ] If retargeting becomes necessary: use "Blend To Source" = 1.0 on Arm chains for weapon-holding animations specifically, to preserve exact hand-to-weapon-grip alignment, and reset to 0 for pure locomotion clips.
+### IK Retargeter (reference only)
+5. Confirmed not needed — character uses standard `SK_Mannequin`, same as Infima's target skeleton. Keep as fallback reference only if a divergent custom skeleton is introduced later.
 
-## 7. FP/TP Camera and Mesh Switching System
-
-- [ ] Confirm whether BP_PlayerCharacter currently has any camera-switching logic at all (check for a SpringArm/Camera component pair, and whether FPArms/TPMesh are both attached simultaneously or need to be spawned/possessed separately). **[VERIFY — confirmed FPArms is hidden in BeginPlay with no unhide path anywhere, per Section 2.5; this system needs to be built as a real feature, not just verified]**
-- [ ] Add an input action for toggling view (e.g. `IA_ToggleView`), bound in IMCGameplay, mapped to a player-chosen key. **[CREATE]**
-- [ ] Add a replicated or locally-tracked `bIsFirstPerson` state on BP_PlayerCharacter (local-only is fine — this is a client-side camera preference, not gameplay-affecting state that needs server authority). **[CREATE]**
-- [ ] Add a `bViewSwitchingAllowed` flag (default true) on BP_PlayerCharacter or a settings data asset — this is the hook to disable the feature later without ripping out the switching logic itself. **[CREATE]**
-- [ ] On toggle input: if `bViewSwitchingAllowed` is false, do nothing. Otherwise flip `bIsFirstPerson` and:
-  - Switch the active camera view target (FP camera socket vs TP boom camera)
-  - Toggle FPArms mesh visibility off when TP is active, and vice versa — keep both meshes simulating/ticking even when hidden, so their AnimBPs don't desync from CharacterBP state
-  - No AnimClass swap needed at runtime — ABP_FP_Default and ABP_TP_Default stay permanently assigned to their respective meshes; only visibility and camera view target change
-- [ ] In multiplayer: confirm this toggle only affects the local (owning) player's own camera/mesh visibility. Remote clients should always see this player's TPMesh regardless of the owner's local FP/TP toggle state — verify via `SetOwnerNoSee` on FPArms and `SetOnlyOwnerSee` are NOT blocking TPMesh from remote view. **[VERIFY — this is separate from the local toggle and must not be broken by it]**
-- [ ] Test in PIE with two clients: local player toggles view, confirms camera and mesh visibility change correctly on their own screen, and confirms the second client still sees this player in TP the entire time regardless of the first player's toggle state. **[VERIFY]**
-- [ ] Note for later: if design decides to lock the game to FP-only or TP-only, set `bViewSwitchingAllowed = false` and hide/remove the toggle keybind from the input settings menu — no other code changes needed. **[FUTURE DECISION]**
+### Sockets (non-IK)
+6. **[VERIFY or CREATE per-socket]** Confirm these exist on the rifle/character mesh: `SocketMagazineAttachment`, `SocketMagazineReserveAttachment`, `SocketCasingEject`, `SocketGripAttachment`, `SocketLaserAttachment`, `SocketGunAttachment`, `SocketGunCamera`, `SocketHelmetCamera`, `SocketChestCamera`, `SocketMuzzle`.
