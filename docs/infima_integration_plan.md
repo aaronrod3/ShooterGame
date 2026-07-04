@@ -132,3 +132,17 @@ Since your character uses the standard `SK_Mannequin` skeleton — the same skel
 
 - [ ] If a custom skeleton is introduced later: create IK Rig assets for both source and target skeletons, set Retarget Root to pelvis, and explicitly bind the Arm_L/Arm_R IK Goals to `ik_hand_l`/`ik_hand_r` rather than `hand_l`/`hand_r`.
 - [ ] If retargeting becomes necessary: use "Blend To Source" = 1.0 on Arm chains for weapon-holding animations specifically, to preserve exact hand-to-weapon-grip alignment, and reset to 0 for pure locomotion clips.
+
+## 7. FP/TP Camera and Mesh Switching System
+
+- [ ] Confirm whether BP_PlayerCharacter currently has any camera-switching logic at all (check for a SpringArm/Camera component pair, and whether FPArms/TPMesh are both attached simultaneously or need to be spawned/possessed separately). **[VERIFY]**
+- [ ] Add an input action for toggling view (e.g. `IA_ToggleView`), bound in IMCGameplay, mapped to a player-chosen key. **[CREATE]**
+- [ ] Add a replicated or locally-tracked `bIsFirstPerson` state on BP_PlayerCharacter (local-only is fine — this is a client-side camera preference, not gameplay-affecting state that needs server authority). **[CREATE]**
+- [ ] Add a `bViewSwitchingAllowed` flag (default true) on BP_PlayerCharacter or a settings data asset — this is the hook to disable the feature later without ripping out the switching logic itself. **[CREATE]**
+- [ ] On toggle input: if `bViewSwitchingAllowed` is false, do nothing. Otherwise flip `bIsFirstPerson` and:
+  - Switch the active camera view target (FP camera socket vs TP boom camera)
+  - Toggle FPArms mesh visibility off when TP is active, and vice versa — keep both meshes simulating/ticking even when hidden, so their AnimBPs don't desync from CharacterBP state
+  - No AnimClass swap needed at runtime — ABP_FP_Default and ABP_TP_Default stay permanently assigned to their respective meshes; only visibility and camera view target change
+- [ ] In multiplayer: confirm this toggle only affects the local (owning) player's own camera/mesh visibility. Remote clients should always see this player's TPMesh regardless of the owner's local FP/TP toggle state — verify via `SetOwnerNoSee` on FPArms and `SetOnlyOwnerSee` are NOT blocking TPMesh from remote view. **[VERIFY — this is separate from the local toggle and must not be broken by it]**
+- [ ] Test in PIE with two clients: local player toggles view, confirms camera and mesh visibility change correctly on their own screen, and confirms the second client still sees this player in TP the entire time regardless of the first player's toggle state. **[VERIFY]**
+- [ ] Note for later: if design decides to lock the game to FP-only or TP-only, set `bViewSwitchingAllowed = false` and hide/remove the toggle keybind from the input settings menu — no other code changes needed. **[FUTURE DECISION]**
