@@ -3,6 +3,18 @@
 > Work through phases in order. Each phase is self-contained — do not start a phase until the prior phase's checkboxes are complete. Items marked **[CREATE]** don't exist yet and need to be built. **[FIX]** means broken and needs correction. **[VERIFY]** means confirm in-editor. **[TRANSFER]** means migrate from Infima plugin content into project folders.
 
 ---
+## Related Comparison Reports
+
+Full technical audits backing the fixes in this plan live in `docs/comparisons/`. Consult these before touching the referenced sections — they contain exact node names, branch-filter values, and wiring details not repeated in full here.
+
+| Report | Covers | Verdict |
+|---|---|---|
+| `ABP_TFA_FP_BaseCharacter_vs_ABP_FP_Default.md` | Full AnimGraph/EventGraph diff of the FP AnimBP against Infima's reference | FP is largely complete — FABRIK, grip overlay, and camera blend are done; see Phase 4 for remaining verification/notify items |
+| `ABP_TFA_TP_BaseCharacter_vs_ABP_TP_Default.md` | Full AnimGraph/EventGraph diff of the TP AnimBP against Infima's reference | TP FABRIK is confirmed broken (unwired effectors, wrong tip bone, dead selector node) — see Phase 1 for the exact fix steps |
+| `BP_TFA_BaseCharacter_vs_BP_PlayerCharacter.md` | Character Blueprint diff (camera/perspective system, action gating, weapon ownership) | Referenced inside both AnimBP reports above as prior groundwork — confirms no perspective-switching system exists yet, which is why Phase 3 (camera/mesh switching) is required |
+
+If a fix in this plan seems ambiguous or under-specified, check the matching report first before asking for clarification — the reasoning and exact bug detail is usually already documented there.
+---
 
 ## Execution Roadmap
 
