@@ -5,7 +5,11 @@
 ---
 ## Related Comparison Reports
 
-Full technical audits backing the fixes in this plan live in `docs/comparisons/`. Consult these before touching the referenced sections — they contain exact node names, branch-filter values, and wiring details not repeated in full here.
+Full technical audits backing the fixes in this plan live locally at:
+
+`C:\Users\aaron\Documents\Unreal Projects\ShooterGame\`
+
+Consult these before touching the referenced sections — they contain exact node names, branch-filter values, and wiring details not repeated in full here. When prompting Claude inside the Unreal terminal, reference these by full path or relative path from the project root so Claude reads the correct report rather than guessing.
 
 | Report | Covers | Verdict |
 |---|---|---|
