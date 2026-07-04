@@ -17,9 +17,10 @@
 ## 2. Animation Blueprint Setup
 
 ### Shared AnimBP Dependencies (FP and TP)
-- [ ] Owning pawn must be `BP_PlayerCharacter` (your equivalent of `BP_TFA_BaseCharacter`). **[VERIFY]**
+- [x] Owning pawn must be `BP_PlayerCharacter` (your equivalent of `BP_TFA_BaseCharacter`). **[VERIFY]**
 - [x] AnimBP Animation State interface exists as `IShooterAnimStateInterface` (`Source/ShooterGame/Player/Animation/ShooterAnimStateInterface.h`), implemented by `UShooterAnimInstanceBase`. Exposes `UpdateLeftHandGrip(bool, float)` plus two extra hooks (`SetAimingBlocked`, `OnAnimStateMessage`) not originally in this checklist. **[DONE]**
-- [ ] Skeleton must include FABRIK chain bones: `ik_hand_r`, `hand_r`, `clavicle_r`, `ik_hand_l`, `hand_l`, `clavicle_l`. Since you're on standard `SK_Mannequin`, these should already exist. **[VERIFY]**
+- [x] Skeleton must include FABRIK chain bones: `ik_hand_r`, `hand_r`, `clavicle_r`, `ik_hand_l`, `hand_l`, `clavicle_l`. Since you're on standard `SK_Mannequin`, these should already exist. **[VERIFY]**
+- [x] Right-hand IK independence bug fixed: `UpdateIKData()` previously returned early when `SOCKET_Grip` (left) was missing, which also blocked the `SOCKET_Grip_R` (right) block from ever running. Left and right hand socket checks are now fully decoupled — confirmed via Rider audit and diff review 2026-07-04. **[DONE]**
 
 ### ABP_FP_Default (First-Person — your equivalent of ABP_TFA_FP_BaseCharacter)
 - [ ] On BlueprintInitializeAnimation: call TryGetPawnOwner, Cast to `BP_PlayerCharacter`, store result in a CharacterBP variable. **[VERIFY/BUILD]**
@@ -122,6 +123,7 @@ When migrating, use Unreal's **Migrate** tool (right-click asset → Asset Actio
 - [ ] Hand-IK grip sockets on the **weapon skeletal mesh**, read directly in `UShooterAnimInstanceBase::UpdateIKData()` (hardcoded there, not sourced from `WeaponConfig` like the sockets above):
   - `SOCKET_Grip` — left-hand (foregrip) target, transformed into `hand_r`'s bone space to produce `LeftHandTransform`. Already relied upon by the existing left-hand IK code. **[VERIFY exists on every weapon mesh]**
   - `SOCKET_Grip_R` — right-hand (primary grip) target, transformed into `hand_l`'s bone space to produce `RightHandTransform`. Added 2026-06-30 on the C++ side (`UShooterAnimInstanceBase.h`/`.cpp`) but does not exist on any weapon mesh yet — until it's added, `RightHandTransform` silently stays at its last computed value (identity by default) and the right-arm FABRIK target never moves. **[CREATE per weapon mesh]**
+  -  Note: the left/right hand IK coupling bug (right hand silently starved if left socket missing) was fixed in `UpdateIKData()` on 2026-07-04, prior to this section's per-weapon socket additions. See Section 2 Shared AnimBP Dependencies. **[FIXED]**
 - [ ] Every AnimGraph node referenced in Section 2 (FABRIK hand IK, Layered Blend Per Bone, additive stack, state machines, montage slots) needs to be manually built and verified inside `ABP_FP_Default` and `ABP_TP_Default`, since these are new AnimBPs rather than the Infima originals. **[CREATE + VERIFY]**
 
 ## 6. UE5.7 IK Retargeter Workflow (Reference Only — Likely Not Needed)
