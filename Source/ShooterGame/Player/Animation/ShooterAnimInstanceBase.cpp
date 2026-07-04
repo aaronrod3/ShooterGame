@@ -15,11 +15,6 @@ void UShooterAnimInstanceBase::NativeInitializeAnimation()
     {
         CombatComponent = ShooterGameCharacter->GetCombat();
     }
-
-    UE_LOG(LogTemp, Warning, TEXT("[AnimInit] %s — Character: %s | CombatComponent: %s"),
-        *GetClass()->GetName(),
-        ShooterGameCharacter ? TEXT("valid") : TEXT("NULL"),
-        CombatComponent ? TEXT("valid") : TEXT("NULL"));
 }
 
 void UShooterAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
@@ -182,32 +177,6 @@ void UShooterAnimInstanceBase::UpdateCombatData()
     CrouchTransform       = ShooterGameCharacter->GetCrouchTransform();
     AimDownSightsTransform = ShooterGameCharacter->GetAimDownSightsTransform();
     RecoilTransform       = ShooterGameCharacter->GetRecoilTransform();
-    
-    if (GEngine)
-    {
-        const bool bIsTP = GetClass()->GetName().Contains(TEXT("TP"));
-        const int32 MsgKey = bIsTP ? 21 : 25;  // separate keys so they don't overwrite each other
-        const FColor MsgColor = bIsTP ? FColor::Yellow : FColor::Purple;
-
-        FName StateName = NAME_None;
-        if (bIsTP)
-        {
-            int32 MachineIndex = GetStateMachineIndex(FName("SM_TP_UpperBody"));
-            if (MachineIndex != INDEX_NONE)
-            {
-                StateName = GetCurrentStateName(MachineIndex);
-            }
-        }
-
-        GEngine->AddOnScreenDebugMessage(
-            MsgKey, 0.f, MsgColor,
-            FString::Printf(TEXT("[%s] bHighReady:%d | bInCombatState:%d | State:%s"),
-                bIsTP ? TEXT("TP") : TEXT("FP"),
-                static_cast<int32>(bHighReady),
-                static_cast<int32>(bInCombatState),
-                *StateName.ToString())
-        );
-    }
 }
 
 void UShooterAnimInstanceBase::UpdateIKData()
@@ -227,41 +196,45 @@ void UShooterAnimInstanceBase::UpdateIKData()
     static const FName RightBoneName = FName("hand_r");
 
     USkeletalMeshComponent* CharMesh = ShooterGameCharacter->GetMesh();
-    if (!CharMesh || !Weapon->GetWeaponMesh()->DoesSocketExist(LeftGripSocketName))
+    if (!CharMesh)
     {
         bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : false;
         return;
     }
 
-    FTransform SocketTransform = Weapon->GetWeaponMesh()->GetSocketTransform(
-        LeftGripSocketName, RTS_World
-    );
+    USkeletalMeshComponent* WeaponMesh = Weapon->GetWeaponMesh();
 
-    FVector OutPosition;
-    FRotator OutRotation;
-    CharMesh->TransformToBoneSpace(
-        RightBoneName,
-        SocketTransform.GetLocation(),
-        SocketTransform.Rotator(),
-        OutPosition,
-        OutRotation
-    );
+    // -----------------------------------------------------------------------
+    // Left hand — reads SOCKET_Grip, expressed in hand_r's bone space.
+    // Checked and updated independently of the right hand below so a
+    // missing left socket never blocks the right-hand IK update.
+    // -----------------------------------------------------------------------
+    if (WeaponMesh->DoesSocketExist(LeftGripSocketName))
+    {
+        FTransform SocketTransform = WeaponMesh->GetSocketTransform(
+            LeftGripSocketName, RTS_World
+        );
 
-    LeftHandTransform.SetLocation(OutPosition);
-    LeftHandTransform.SetRotation(FQuat(OutRotation));
-    LeftHandTransform.SetScale3D(FVector::OneVector);
+        FVector OutPosition;
+        FRotator OutRotation;
+        CharMesh->TransformToBoneSpace(
+            RightBoneName,
+            SocketTransform.GetLocation(),
+            SocketTransform.Rotator(),
+            OutPosition,
+            OutRotation
+        );
 
-    FVector WorldDebug = CharMesh->GetBoneTransform(
-        CharMesh->GetBoneIndex(RightBoneName)
-    ).TransformPosition(OutPosition);
-    DrawDebugSphere(GetWorld(), WorldDebug, 3.f, 8, FColor::Green, false, -1.f);
+        LeftHandTransform.SetLocation(OutPosition);
+        LeftHandTransform.SetRotation(FQuat(OutRotation));
+        LeftHandTransform.SetScale3D(FVector::OneVector);
 
-    bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : true;
-
-    UE_LOG(LogTemp, Warning, TEXT("[IK] COMPLETE — bLeftHandOnWeapon: %d | bGripOverride: %d"),
-        static_cast<int32>(bLeftHandOnWeapon),
-        static_cast<int32>(bGripOverrideActive)
-    );
+        bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : true;
+    }
+    else
+    {
+        bLeftHandOnWeapon = bGripOverrideActive ? bLeftHandOnWeaponOverride : false;
+    }
 
     // -----------------------------------------------------------------------
     // Right hand — mirrors the left-hand computation above, but reads
@@ -272,10 +245,11 @@ void UShooterAnimInstanceBase::UpdateIKData()
     // No bRightHandOnWeapon flag: the AnimGraph gates the right-arm FABRIK
     // alpha with bWeaponEquipped directly, since the right hand never
     // detaches from the weapon mid-montage.
+    // Runs regardless of whether the left socket existed above.
     // -----------------------------------------------------------------------
-    if (Weapon->GetWeaponMesh()->DoesSocketExist(RightGripSocketName))
+    if (WeaponMesh->DoesSocketExist(RightGripSocketName))
     {
-        FTransform RightSocketTransform = Weapon->GetWeaponMesh()->GetSocketTransform(
+        FTransform RightSocketTransform = WeaponMesh->GetSocketTransform(
             RightGripSocketName, RTS_World
         );
 

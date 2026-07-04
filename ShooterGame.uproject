@@ -61,6 +61,30 @@
 		{
 			"Name": "ModelContextProtocol",
 			"Enabled": true
+		},
+		{
+			"Name": "EditorToolset",
+			"Enabled": true
+		},
+		{
+			"Name": "GASToolsets",
+			"Enabled": true
+		},
+		{
+			"Name": "GameplayTagsToolset",
+			"Enabled": true
+		},
+		{
+			"Name": "StateTreeToolset",
+			"Enabled": true
+		},
+		{
+			"Name": "AllToolsets",
+			"Enabled": true
+		},
+		{
+			"Name": "Terminal",
+			"Enabled": true
 		}
 	]
 }

@@ -18,83 +18,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c6ca94e3-1643-4fff-8a43-6f2a3430b95f" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.ShooterGame/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.ShooterGame/.idea/encodings.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.ShooterGame/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.ShooterGame/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.vsconfig" beforeDir="false" afterPath="$PROJECT_DIR$/.vsconfig" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.ShooterGame/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.ShooterGame/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Config/DefaultEditor.ini" beforeDir="false" afterPath="$PROJECT_DIR$/Config/DefaultEditor.ini" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Config/DefaultGame.ini" beforeDir="false" afterPath="$PROJECT_DIR$/Config/DefaultGame.ini" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ShooterGame.sln" beforeDir="false" afterPath="$PROJECT_DIR$/ShooterGame.sln" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Content/Character/Animation/ABP_FP_Default.uasset" beforeDir="false" afterPath="$PROJECT_DIR$/Content/Character/Animation/ABP_FP_Default.uasset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Content/Character/BP_PlayerCharacter.uasset" beforeDir="false" afterPath="$PROJECT_DIR$/Content/Character/BP_PlayerCharacter.uasset" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ShooterGame.uproject" beforeDir="false" afterPath="$PROJECT_DIR$/ShooterGame.uproject" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame.Target.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame.Target.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/AudioPerceptionComponent.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/AudioPerceptionComponent.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/CombatComponent.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/CombatComponent.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/CombatComponent.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/CombatComponent.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/DownedComponent.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/DownedComponent.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/ImpactAudioComponent.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/ImpactAudioComponent.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/ImpactAudioComponent.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/ImpactAudioComponent.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/ReviveComponent.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/ReviveComponent.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/ReviveComponent.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/ReviveComponent.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/ShellAudioComponent.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/ShellAudioComponent.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Components/WeaponAudioComponent.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Components/WeaponAudioComponent.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/BehaviorTree/BTTask_InvestigateWander.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/BehaviorTree/BTTask_InvestigateWander.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/BehaviorTree/BTTask_InvestigateWander.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/BehaviorTree/BTTask_InvestigateWander.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/BehaviorTree/BTTask_WanderToPoint.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/BehaviorTree/BTTask_WanderToPoint.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/BehaviorTree/BTTask_WanderToPoint.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/BehaviorTree/BTTask_WanderToPoint.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieAIController.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieAIController.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieAIController.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieAIController.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieAnimInstance.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieAnimInstance.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieCharacter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieCharacter.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieCharacter.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/Character/ZombieCharacter.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/ZombieObjectiveArea.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/ZombieObjectiveArea.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/ZombieSpawnManager.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/ZombieSpawnManager.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Enemy/ZombieSpawnManager.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Enemy/ZombieSpawnManager.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/GameInstance/ShooterGameGameInstance.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/GameInstance/ShooterGameGameInstance.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/GameMode/ShooterGameGameMode.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/GameMode/ShooterGameGameMode.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/GameMode/ShooterGameGameMode.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/GameMode/ShooterGameGameMode.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/PlayerState/ShooterPlayerState.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/PlayerState/ShooterPlayerState.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/PlayerState/ShooterPlayerState.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/PlayerState/ShooterPlayerState.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/QuestTrackerSubsystem.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/QuestTrackerSubsystem.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterGameOnlineSubsystem.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterGameOnlineSubsystem.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterGameOnlineSubsystem.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterGameOnlineSubsystem.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterSaveGame.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterSaveGame.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterSaveGameSubsystem.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterSaveGameSubsystem.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterSaveGameSubsystem.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Framework/Subsystems/ShooterSaveGameSubsystem.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/HUD/Inventory/QuestbookWidget.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/HUD/Inventory/QuestbookWidget.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/HUD/ShooterHUD.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/HUD/ShooterHUD.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Interaction/Highlightable.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Interaction/Highlightable.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Interaction/Interactable.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Interaction/Interactable.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Interaction/TestInteractableActor.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Interaction/TestInteractableActor.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Inventory/EquippedStateComponent.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Inventory/EquippedStateComponent.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Inventory/EquippedStateComponent.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Inventory/EquippedStateComponent.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Inventory/InventoryComponent.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Inventory/InventoryComponent.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Inventory/ItemDefinition.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Inventory/ItemDefinition.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Items/Ammo/AmmoPickup.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Items/Ammo/AmmoPickup.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/CaseEject.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/CaseEject.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/Projectile.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/Projectile.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/Projectile.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/Projectile.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/Weapon.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/Weapon.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/Weapon.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Items/Weapon/Weapon.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ANS_BlockADS.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ANS_BlockADS.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ANS_BlockADS.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ANS_BlockADS.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ANS_LeftHandGrip.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ANS_LeftHandGrip.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ANS_LeftHandGrip.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ANS_LeftHandGrip.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/PlayerAnimInstance.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/PlayerAnimInstance.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/PlayerAnimInstance.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/PlayerAnimInstance.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ShooterAnimInstanceBase.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ShooterAnimInstanceBase.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ShooterFPAnimInstance.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Animation/ShooterFPAnimInstance.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Character/ShooterGameCharacter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Character/ShooterGameCharacter.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Character/ShooterGameCharacter.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Character/ShooterGameCharacter.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Controller/ShooterGamePlayerController.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Controller/ShooterGamePlayerController.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Controller/ShooterGamePlayerController.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Controller/ShooterGamePlayerController.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Player/Spectator/ShooterGameSpectatorPawn.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Player/Spectator/ShooterGameSpectatorPawn.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/ShooterGame.Build.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/ShooterGame.Build.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Types/ItemTypes.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Types/ItemTypes.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Types/LoadoutTypes.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Types/LoadoutTypes.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Types/QuestTypes.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Types/QuestTypes.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGame/Types/VendorTypes.h" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGame/Types/VendorTypes.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/ShooterGameEditor.Target.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Source/ShooterGameEditor.Target.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -105,7 +34,7 @@
     <option name="firstShow" value="false" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="5065" />
+    <option name="cachedIndexableFilesCount" value="5066" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="Git.Settings">
@@ -270,23 +199,23 @@
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0" />
-      <entry key="S5" value="1.0" />
-      <entry key="S10" value="1.0" />
-      <entry key="S30" value="1.0" />
-      <entry key="S60" value="1.0" />
-      <entry key="M2" value="1.0" />
-      <entry key="M5" value="1.0" />
-      <entry key="M10" value="1.0" />
-      <entry key="M15" value="1.0000000000000029" />
-      <entry key="M30" value="1.0000003718224468" />
-      <entry key="H1" value="1.0054646852284634" />
-      <entry key="H2" value="1.8571881874743004" />
-      <entry key="H4" value="13.525718787250769" />
-      <entry key="D1" value="179.13603228209794" />
-      <entry key="W1" value="348.3815904280719" />
+      <entry key="MS100" value="1.0297109148975674" />
+      <entry key="MS500" value="1.8746337731499985" />
+      <entry key="S2" value="5.030319469875647" />
+      <entry key="S5" value="10.094427934076476" />
+      <entry key="S10" value="15.709841217447696" />
+      <entry key="S30" value="23.169316230954042" />
+      <entry key="S60" value="25.85616400205333" />
+      <entry key="M2" value="27.365891511893384" />
+      <entry key="M5" value="28.330727711336777" />
+      <entry key="M10" value="28.66279653762839" />
+      <entry key="M15" value="28.776668450992773" />
+      <entry key="M30" value="28.933157440042415" />
+      <entry key="H1" value="29.159500911435156" />
+      <entry key="H2" value="29.832663445118353" />
+      <entry key="H4" value="38.195175651210135" />
+      <entry key="D1" value="197.01763004628256" />
+      <entry key="W1" value="374.20748406938543" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -295,36 +224,36 @@
       <entry key="S5" value="0.0" />
       <entry key="S10" value="0.0" />
       <entry key="S30" value="0.0" />
-      <entry key="S60" value="3.719853633854172E-254" />
-      <entry key="M2" value="2.6777615751165266E-127" />
-      <entry key="M5" value="3.5460012690650395E-51" />
-      <entry key="M10" value="8.414928180187972E-26" />
-      <entry key="M15" value="2.419000470776504E-17" />
-      <entry key="M30" value="6.954978644766395E-9" />
-      <entry key="H1" value="1.1793920288261813E-4" />
-      <entry key="H2" value="0.015437580482486024" />
-      <entry key="H4" value="0.1969847138032457" />
-      <entry key="D1" value="5.515217674233477" />
-      <entry key="W1" value="14.297750503869796" />
+      <entry key="S60" value="3.2125887681815276E-294" />
+      <entry key="M2" value="2.4884937118969048E-147" />
+      <entry key="M5" value="3.4435369199338288E-59" />
+      <entry key="M10" value="8.292459176527697E-30" />
+      <entry key="M15" value="5.16088963536866E-20" />
+      <entry key="M30" value="3.2124776164628055E-10" />
+      <entry key="H1" value="2.5347220504205677E-5" />
+      <entry key="H2" value="0.007156741191304121" />
+      <entry key="H4" value="0.1341221678737899" />
+      <entry key="D1" value="5.17297839130505" />
+      <entry key="W1" value="14.167497472615649" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.8888426811665702" />
-      <entry key="MS500" value="0.9767085289622274" />
-      <entry key="S2" value="0.9941255712940557" />
-      <entry key="S5" value="0.9976460744242679" />
-      <entry key="S10" value="0.9988223437750419" />
-      <entry key="S30" value="0.9996072937269845" />
-      <entry key="S60" value="0.9998036275824291" />
-      <entry key="M2" value="0.9999018089704754" />
-      <entry key="M5" value="0.9999607224311522" />
-      <entry key="M10" value="0.9999803610227314" />
-      <entry key="M15" value="0.9999869073056357" />
-      <entry key="M30" value="0.9999938323356515" />
-      <entry key="H1" value="1.0055784305963251" />
-      <entry key="H2" value="1.8725351543033724" />
-      <entry key="H4" value="13.722043348634129" />
-      <entry key="D1" value="184.6500178988085" />
-      <entry key="W1" value="362.6790431670882" />
+      <entry key="MS100" value="0.9950338215619665" />
+      <entry key="MS500" value="1.8629104758089297" />
+      <entry key="S2" value="5.021557348887593" />
+      <entry key="S5" value="10.083120090193415" />
+      <entry key="S10" value="15.696817264644288" />
+      <entry key="S30" value="23.160812610242214" />
+      <entry key="S60" value="25.851080116495286" />
+      <entry key="M2" value="27.363108301489532" />
+      <entry key="M5" value="28.32955171936649" />
+      <entry key="M10" value="28.66219766297378" />
+      <entry key="M15" value="28.776266725074333" />
+      <entry key="M30" value="28.932955056034327" />
+      <entry key="H1" value="29.159424006563302" />
+      <entry key="H2" value="29.839727425508364" />
+      <entry key="H4" value="38.32882294118609" />
+      <entry key="D1" value="202.18944859834872" />
+      <entry key="W1" value="388.374685884679" />
     </decayedShown>
   </component>
   <component name="ProblemsViewState">
@@ -367,23 +296,6 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="QodanaHighlightedReportService">
-    <option name="localRunNotPublishedPersistedInfo">
-      <LocalReportPersistedInfo>
-        <option name="path" value="C:\Users\aaron\AppData\Local\Temp\qodana_output\qodana.sarif.json" />
-        <option name="reportGuid" value="7ba5bd69-fa5a-4c84-a3d0-bdcd49e4e3aa" />
-        <option name="reportName" value="ShooterGame/qodana/2026-07-02" />
-      </LocalReportPersistedInfo>
-    </option>
-  </component>
-  <component name="QodanaIsSelectedPersistenceService">
-    <option name="selectedOrLoading" value="true" />
-  </component>
-  <component name="QodanaReportsService">
-    <option name="descriptions">
-      <ReportDescription localRun="true" path="C:\Users\aaron\AppData\Local\Temp\qodana_output\qodana.sarif.json" reportGuid="7ba5bd69-fa5a-4c84-a3d0-bdcd49e4e3aa" reportId="ShooterGame/qodana/2026-07-02" />
-    </option>
-  </component>
   <component name="RecapSpentCounter">
     <option name="endsOfQuotaMs" value="1772658031301" />
     <option name="spentUsd" value="0.00572355" />
@@ -613,15 +525,11 @@
       <workItem from="1783030180475" duration="1571000" />
       <workItem from="1783036072128" duration="2076000" />
       <workItem from="1783038264549" duration="885000" />
-      <workItem from="1783040068413" duration="15301000" />
-    </task>
-    <task id="LOCAL-00052" summary="adding weapons sounds so AI can read it">
-      <option name="closed" value="true" />
-      <created>1776361755887</created>
-      <option name="number" value="00052" />
-      <option name="presentableId" value="LOCAL-00052" />
-      <option name="project" value="LOCAL" />
-      <updated>1776361755888</updated>
+      <workItem from="1783040068413" duration="15379000" />
+      <workItem from="1783098627220" duration="426000" />
+      <workItem from="1783099072453" duration="1199000" />
+      <workItem from="1783102629270" duration="2126000" />
+      <workItem from="1783172840240" duration="4392000" />
     </task>
     <task id="LOCAL-00053" summary="added more of the audio pack">
       <option name="closed" value="true" />
@@ -1007,7 +915,15 @@
       <option name="project" value="LOCAL" />
       <updated>1782873073095</updated>
     </task>
-    <option name="localTasksCounter" value="101" />
+    <task id="LOCAL-00101" summary="used claude to address issues after switching to ue5.8. this is the point moving forward">
+      <option name="closed" value="true" />
+      <created>1783098554753</created>
+      <option name="number" value="00101" />
+      <option name="presentableId" value="LOCAL-00101" />
+      <option name="project" value="LOCAL" />
+      <updated>1783098554754</updated>
+    </task>
+    <option name="localTasksCounter" value="102" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -1028,7 +944,6 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
-    <MESSAGE value="finished phase 2 of inventory/item system 5/13" />
     <MESSAGE value="Finished phase 2 and 3 of recent revised UI Inventory plan" />
     <MESSAGE value="This commit is the last changes before completely revising inventory to be more similar to Ghost Recon Breakpoint style customization and loadouts in menus." />
     <MESSAGE value="Removed most/if not all of inventory system." />
@@ -1053,7 +968,8 @@
     <MESSAGE value="Starting new method of analyzing and copying BPs over to C++ for implementation from Infima Pack" />
     <MESSAGE value="mid anim redo" />
     <MESSAGE value="added claude.md" />
-    <option name="LAST_COMMIT_MESSAGE" value="added claude.md" />
+    <MESSAGE value="used claude to address issues after switching to ue5.8. this is the point moving forward" />
+    <option name="LAST_COMMIT_MESSAGE" value="used claude to address issues after switching to ue5.8. this is the point moving forward" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
