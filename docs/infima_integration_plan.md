@@ -53,7 +53,7 @@ If a fix in this plan seems ambiguous or under-specified, check the matching rep
 8. Compile and save.
 9. **[VERIFY]** — cannot be visually confirmed in PIE until Phase 2 (socket) and Phase 3 (TP mesh must be visible) are complete. Compile-clean is the only verification possible right now.
 
-## Phase 1 — TP FABRIK Fix
+## Phase 1 — TP FABRIK Fix Summary
 
 **Status: [DONE]** — completed 2026-07-04. Compiled clean, saved. See execution notes below.
 
