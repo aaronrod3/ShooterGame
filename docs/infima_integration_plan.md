@@ -86,6 +86,24 @@ If a fix in this plan seems ambiguous or under-specified, check the matching rep
 5. Repeat steps 1–4 for every additional weapon mesh in the project that will use hand IK.
 6. **[VERIFY]** — PIE test is still blocked until Phase 3, but confirm the socket appears correctly positioned in the Skeletal Mesh Editor preview.
 
+## Phase 2 — Weapon Mesh Socket Addition Summary
+
+**Status: [DONE]** — completed 2026-07-04. Socket added manually, verified via Claude MCP read-only pass.
+
+1. [x] Open rifle's receiver skeletal mesh (`SK_TFA_AR`) — done.
+2. [x] Add `SOCKET_Grip_R`, parented to `Root` (matching `SOCKET_Grip`'s convention) — done, added manually.
+3. [x] Position and rotate at right-hand grip point — done manually. Final transform: Location `(0, -2, -7)`, Rotation identity, Scale `(1,1,1)`, parent `Root`.
+4. [x] Save the mesh — done.
+5. **[N/A]** Repeat for other weapon meshes — rifle is currently the only weapon in the project. Revisit this step if/when additional weapons are added.
+6. **[VERIFY — partially done]** Static in-editor placement confirmed correct (both sockets share parent bone, consistent rotation/scale convention, spatially sensible relative positions per Claude's transform-only sanity check). Live PIE functional confirmation still blocked on Phase 3 (mesh visibility).
+
+### Verified socket comparison
+| Socket | Parent | Location | Rotation | Scale |
+|---|---|---|---|---|
+| `SOCKET_Grip` (left/support hand) | `Root` | `(≈0, 29.84, 1)` | identity | `(1,1,1)` |
+| `SOCKET_Grip_R` (right/trigger hand) | `Root` | `(0, -2, -7)` | identity | `(1,1,1)` |
+
+No flags raised — sockets are consistent with each other and with expected rifle grip geometry (support hand forward on handguard, trigger hand near receiver).
 ---
 
 ## Phase 3 — FP/TP Camera and Mesh Switching System
