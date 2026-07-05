@@ -53,6 +53,23 @@ If a fix in this plan seems ambiguous or under-specified, check the matching rep
 8. Compile and save.
 9. **[VERIFY]** — cannot be visually confirmed in PIE until Phase 2 (socket) and Phase 3 (TP mesh must be visible) are complete. Compile-clean is the only verification possible right now.
 
+## Phase 1 — TP FABRIK Fix
+
+**Status: [DONE]** — completed 2026-07-04. Compiled clean, saved. See execution notes below.
+
+1. [x] Delete `BlendListByBool_1` — done, plus 8 dependent dead nodes cleaned up (`LocalToComponentSpace_0/2/3`, `ComponentToLocalSpace_0/2/3`, `SaveCachedPose_3`/'RightArmPinned', `UseCachedPose_4`) — scope expanded on approval to match FP's clean single-chain pattern.
+2. [x] Chain `Fabrik_1` → `Fabrik_0` sequentially — done: `BlendListByBool_0 → LocalToComponentSpace_1 → Fabrik_1 → Fabrik_0 → ComponentToLocalSpace_1 → Root_0`.
+3. [x] Fix `Fabrik_1`'s effector bone `hand_r` → `ik_hand_l` — done.
+4. [x] Wire `Fabrik_1` effector to `Get LeftHandTransform` — done.
+5. [x] Wire `Fabrik_0` effector to `Get RightHandTransform` — done.
+6. [x] Confirm Bone Space / CopyFromTarget / Precision 0.01 / LODThreshold exposed on both nodes — confirmed, `LODThreshold` pin was made visible on both.
+7. [x] Compile and save — done, clean compile.
+8. **[FIXED — found mid-task, not in original plan text]** `Fabrik_1` was also receiving no real base pose at all (upstream node had a disconnected `LocalPose` pin) — now correctly fed from the same base pose `Fabrik_0` uses.
+9. [ ] **[VERIFY — still blocked]** Live PIE confirmation. Requires Phase 2 (`SOCKET_Grip_R` on weapon mesh) and Phase 3 (TP mesh must be visible) before this can be tested. Compile-clean is the only verification currently possible.
+
+### Open item deferred to a future decision (not a Phase 1 blocker)
+- `ABP_TP_Default`'s FABRIK nodes have no `Alpha` gating — both hardcoded to constant `1.0`. FP's `Fabrik_0` gates alpha on `Get bWeaponEquipped`, so TP arms would currently snap into IK pose even with no weapon equipped. Decide later whether TP should match this behavior. **[FUTURE DECISION]**
+
 ---
 
 ## Phase 2 — Weapon Mesh Socket Addition
