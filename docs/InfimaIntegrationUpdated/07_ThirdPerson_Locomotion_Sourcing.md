@@ -1,54 +1,64 @@
 # Phase 7 — Third-Person Locomotion Content Sourcing
 
-**This is the single most important finding in this entire plan.** It reframes an existing, previously-unexplained gap rather than introducing new scope.
+> **Revised 2026-07-12.** The first version of this file treated `SM_TP_Locomotion`'s reduced state count as an unfinished-wiring gap. It wasn't — the extra states (`Armed_Walk`, `Sprint`) were deliberately removed because they weren't needed, confirmed directly by the user. This revision keeps the one finding that's still true and useful (Infima ships no TP locomotion content at all) and drops everything that assumed the old 3-state layout needed restoring. See [11_Refactoring_Recommendations.md](11_Refactoring_Recommendations.md) for the full corrected reasoning.
 
 ---
 
-## The finding
+## What's still true: Infima has no reference architecture for this, at all
 
-Project memory and `infima_integration_plan.md` both record that `ABP_TP_Default → SM_TP_Locomotion` is incomplete — only 1 of 3 states exist (`Unarmed_IdleWalkRun`; `Armed_Walk` and `Sprint` are missing), framed as unfinished wiring work.
+Confirmed twice now — once from the pack's own FAQ ("there are no third-person movement (locomotion) animations included, those are only included for first-person... I don't feel confident in producing full-body movement animations"), and again this session by live-inspecting Infima's actual `ABP_TFA_TP_BaseCharacter`, which has exactly **one** state machine (`SM_AimingTransitions`) and no locomotion state machine of any kind. This isn't just missing content — Infima's own reference implementation never attempted the architecture either. If this system ever needs to grow, there's still no Infima pattern to copy; the design has to come from elsewhere (this file recommends Lyra's pattern below, already partially in place).
 
-**It isn't unfinished wiring. There is no source content for it, by Infima's own deliberate choice.** Straight from the official FAQ:
+## What's corrected: the target design is simpler than previously assumed, not the same design with content filled in
 
-> "there are no third-person movement (locomotion) animations included, those are only included for first-person."
+Verified directly against source this session (`CombatComponent.cpp`, `ShooterGameCharacter.cpp`):
 
-And the author's own stated reasoning:
+- **No armed/unarmed split belongs in the locomotion layer.** Weapon-holding is an upper-body concern, handled entirely by `SM_TP_UpperBody` and the branch-filtered `LayeredBoneBlend_1` (`spine_01`, depth `-1`) that fuses it with locomotion. A person's gait doesn't fundamentally change from carrying a rifle at low-ready. The old `Armed_Walk` state was very likely solving a problem that belongs one layer up.
+- **No discrete Sprint state.** Confirmed from `AShooterGameCharacter::StartSprinting()`/`StopSprinting()`: sprint is `GetCharacterMovement()->MaxWalkSpeed` toggling between `WalkSpeed` and `RunSpeed` — there's no separate sprint speed tier (a comment in the movement-speed-selection code explicitly notes a third tier is declared but unused, "kept declared in case a future third tier is wanted"). Sprint is gated by a real stamina system and is blocked entirely while aiming. This is a continuous speed change within a single blend space, not a distinct animation state.
+- **Target design:** `SM_TP_Locomotion` = one state, a single Idle/Walk/Run blend space driven by continuous speed. Rename `Unarmed_IdleWalkRun` once the armed/unarmed split is confirmed unnecessary — the name describes a distinction the state no longer needs to make.
 
-> "I am mainly focusing on high-quality upper-body movement animations because I don't feel confident in producing full-body movement animations. There are plenty of high-quality full-body movement packs available which can be integrated for the best results."
+## Correction #2 (2026-07-12, same session): the content-sourcing task is already done
 
-Infima's recommended workflow, stated explicitly: **"use the third-person upper-body animations in combination with mocap (or similar) third-person locomotion data on the lower body."** This is exactly the layered architecture ShooterGame's TP AnimBP already uses (`LayeredBoneBlend_1` fusing `SM_TP_Locomotion` with `SM_TP_UpperBody`, branch filter `spine_01`, `blendDepth: -1` — already confirmed correct via live MCP inspection, see `project_shootergame_animation_state` memory) — the architecture is right, it's just missing the lower-body input it was always designed to receive from somewhere else.
+Live-inspected the actual `Unarmed_IdleWalkRun` state's `BlendSpacePlayer` node: it already plays `/Game/Animation/BlendSpace/BS_UnequippedIdleWalkRun`, which already has **18 real animation samples** (`St_Idle_00`, plus `St_Walk_*`/`St_Run_*` across 8 directions each, sourced from `/Game/Animation/Folder2/Unequipped/` — not Infima content, so this was sourced from elsewhere exactly as this file originally recommended). Its two inputs are wired to `GetDirection()`/`GetSpeed()` — reading directly off `UShooterAnimInstanceBase::Direction`/`Speed`, the same native-C++-drives-the-graph pattern used everywhere else. The blend space's Speed axis (`0–350`) comfortably covers `RunSpeed` (150) with headroom for the declared-but-currently-unused `SprintSpeed` (250) tier.
 
-**No amount of `infima_integration_plan.md` Phase 4 effort fixes this.** Building the missing `Armed_Walk`/`Sprint` states requires real animation *content* (blend spaces with actual walk/run/sprint clips), which the Infima pack never shipped and was never going to ship.
+**This means Phase 7's original task — source real TP locomotion content — is already complete.** Someone (this project, prior to this documentation existing) already did exactly what this file recommended: found real directional locomotion animations from outside the Infima pack and wired them in correctly. The earlier framing in this file (both the original "gap to fill" version and even this revision's first pass, which still assumed content-sourcing was outstanding) was wrong on this point specifically — the state-count reduction was the only thing that needed correcting last time; this time, the content-completeness assumption needed correcting too.
 
----
+## What's actually left (much smaller than either previous version of this file assumed)
 
-## What this means for sequencing
+1. **Cosmetic rename, low priority.** `Unarmed_IdleWalkRun` (the state) and `BS_UnequippedIdleWalkRun` (the blend space asset) both carry "unarmed"/"unequipped" naming from when an armed/unarmed split existed at this layer. Since this content now correctly serves all movement regardless of weapon state, the names are misleading but not functionally wrong — rename when convenient, not urgent.
+2. **The two independent gameplay tasks below** (fire-cancels-sprint, sway-scales-with-speed) — still genuinely unbuilt, confirmed by grep.
+3. **Nothing else identified.** The upper-body fusion (`LayeredBoneBlend_1`) was already confirmed correct in a prior session; this session confirmed the locomotion content and wiring underneath it are also correct. Don't assume there's a bigger content-sourcing task here than there is — verify against live state again before adding scope.
 
-Treat this as its own content-acquisition task, separate from (and blocking) the remaining `SM_TP_Locomotion` state-machine work in `infima_integration_plan.md` Phase 4. Don't mark that phase's TP locomotion sub-item "blocked/investigating" indefinitely — it's blocked on a concrete, actionable decision: **where does the movement content come from?**
+## Two small, independent gameplay tasks this investigation surfaced (not blocking, not animation work)
 
-## Sourcing options, roughly in order of effort
+Confirmed absent from `Source/` entirely (zero grep matches):
 
-1. **UE5's own default Manny locomotion animations.** ShooterGame already uses `SK_Mannequin` — UE5 ships a full idle/walk/run blend space and matching animation set for exactly this skeleton, at zero additional cost and zero licensing consideration. This is very likely the fastest path to a working `Armed_Walk` state, even if the visual fidelity is a step down from a premium mocap pack. Worth prototyping first since it costs nothing to try.
-2. **A marketplace/Fab mocap locomotion pack**, purchased and retargeted the same way any custom character content would be (see [10_Reference_Custom_Weapon_And_Character_Procedures.md](10_Reference_Custom_Weapon_And_Character_Procedures.md) for the general custom-character retargeting workflow, even though that guide is written for full character meshes rather than animation-only packs — the skeleton-assignment logic is the same idea).
-3. **Custom mocap capture or hand-keyed authoring**, the highest-effort option, only worth it once the rest of the game's core loop is proven and locomotion fidelity becomes a differentiator worth the investment.
+1. **Firing should cancel sprint back to walk speed** — described as intended design, not yet wired. `HandleFire()` currently has no interaction with `bIsSprinting`. Likely a small addition (call the equivalent of `StopSprinting()` when a shot fires).
+2. **Weapon sway should increase with speed/while sprinting** — no sway system exists at all yet. Recommended approach: a new procedural `FTransform` (e.g. `SprintSwayTransform`) computed and spring-interpolated exactly like the existing `CrouchTransform`/`AimDownSightsTransform`/`RecoilTransform` triplet in `UShooterAnimInstanceBase`, scaled by speed/`bIsSprinting` — reusing an established pattern rather than inventing a new mechanism.
 
-## Integration notes regardless of source
+Neither blocks the locomotion content-sourcing work above; both are worth their own tracking (GitHub issue per `CLAUDE.md`'s workflow) since they're gameplay-layer, not animation-layer.
 
-- Whatever locomotion content is sourced needs a **2D blend space** (`X`/`Y` inputs) matching the existing convention already used elsewhere in the project's AnimBPs (`Get Direction`/`Get Speed` for TP, matching the `X`/`Y` = forward/strafe convention Infima's own FP locomotion already uses) — don't introduce a different input convention just because the content came from a different source.
-- The sourced content only needs to drive the **lower body**; the existing `LayeredBoneBlend_1` fusion with `SM_TP_UpperBody` (already correctly configured) will handle blending it with Infima's actual upper-body/aim content. Don't scope this as "replace the whole TP AnimBP" — it's specifically filling in the locomotion state machine's missing states.
-- Root motion: confirm whether the sourced content uses root motion or is in-place. Infima's own content is entirely in-place (no root motion anywhere in the pack) — if new locomotion content uses root motion and the rest of the character relies on `CharacterMovementComponent`-driven movement (per `CLAUDE.md`, `BP_TFA_BaseCharacter_vs_BP_PlayerCharacter.md`'s finding that ShooterGame's native movement already replaces Infima's simulated-velocity approach), root motion will likely need to be disabled or extracted, matching the in-place convention already established.
+## Integration notes (confirmed already satisfied, listed for future reference)
+
+- Input convention already matches the rest of the project (`Direction`/`Speed` read straight off `UShooterAnimInstanceBase`, same native-drives-the-graph pattern used everywhere else) — confirmed, no action needed.
+- Confirmed layered correctly under `SM_TP_UpperBody` via the existing `LayeredBoneBlend_1` fusion — unaffected by any of this, already correct per prior session's verification.
+- Root motion: not independently re-verified this pass, but no indication of a problem; spot-check if locomotion ever looks like it's fighting `CharacterMovementComponent`.
+- **Orientation Warping** (a real UE5 5.1+ AnimGraph node) remains worth evaluating once PIE testing shows whether strafing/off-axis aim while moving needs it — a polish item, not a blocker, since base content already exists and works.
 
 ---
 
 ## Checklist
 
-- [ ] Decide the sourcing option (default Manny content is the recommended first attempt given it's already zero-cost and skeleton-compatible).
-- [ ] Confirm the sourced content's input convention matches the existing `Get Direction`/`Get Speed` (or equivalent) pattern.
-- [ ] Confirm root motion is disabled/extracted to match the project's in-place, `CharacterMovementComponent`-driven convention.
-- [ ] Build `Armed_Walk` and `Sprint` states in `SM_TP_Locomotion` using the sourced content, following the same transition/blend conventions (`TLT_StandardBlend`, 0.2s) already specified for the existing state.
-- [ ] Re-open `infima_integration_plan.md` Phase 4's TP locomotion sub-item once content is sourced, and complete it there — don't track state-machine completion status in two places.
+- [x] Confirm the target design (single-state Idle/Walk/Run/Sprint-as-speed, no armed split) — confirmed by the user directly.
+- [x] Confirm real blend-space content exists and is correctly wired — confirmed via live MCP inspection 2026-07-12 (`BS_UnequippedIdleWalkRun`, 18 samples, `GetDirection()`/`GetSpeed()` wired correctly).
+- [ ] Rename `Unarmed_IdleWalkRun`/`BS_UnequippedIdleWalkRun` once convenient — cosmetic, not urgent.
+- [ ] Build fire-cancels-sprint-speed in `CombatComponent`/`ShooterGameCharacter` (confirmed not yet implemented).
+- [ ] Build a `SprintSwayTransform`-style procedural offset scaled by speed/`bIsSprinting`, following the existing `CrouchTransform`/`AimDownSightsTransform`/`RecoilTransform` pattern (confirmed no sway system exists yet).
+- [ ] File the above two as separate, small tracked issues per `CLAUDE.md`'s workflow — they're real but independent of animation work.
+- [ ] PIE-test locomotion directly (visual judgment call only the user/a live session can make) — everything checked so far is structural/data correctness, not "does it look right."
+- [ ] Evaluate Orientation Warping after PIE testing, only if strafe/off-axis aim while moving needs it.
 
 ## Exit criteria
 
-- `SM_TP_Locomotion` has all 3 states with real, playable content and correct transitions.
-- A player character viewed in third person visibly walks/runs/sprints with matching lower-body motion while the existing upper-body/aim layer continues to blend correctly on top, unchanged.
+- ~~`SM_TP_Locomotion`'s single state has real, playable blend-space content spanning idle through sprint speed continuously.~~ **Already true, confirmed 2026-07-12.**
+- A player character viewed in third person visibly walks/runs/sprints with correct lower-body motion while the existing upper-body/aim layer continues to blend correctly on top — needs a PIE pass to confirm it *looks* right, since this file can only confirm the data/wiring is correct, not the visual result.
+- Fire-cancels-sprint and sway-scale-with-speed implemented and verified in PIE.
